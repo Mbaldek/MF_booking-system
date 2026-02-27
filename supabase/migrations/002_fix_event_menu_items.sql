@@ -71,7 +71,13 @@ DROP POLICY IF EXISTS "Event menu items are publicly readable" ON event_menu_ite
 CREATE POLICY "Event menu items are publicly readable"
   ON event_menu_items FOR SELECT USING (true);
 
--- Admin full access
+-- Admin full access (inline role check since auth_user_role() may not exist)
 DROP POLICY IF EXISTS "Admins can manage event menu items" ON event_menu_items;
 CREATE POLICY "Admins can manage event menu items"
-  ON event_menu_items FOR ALL USING (auth_user_role() = 'admin');
+  ON event_menu_items FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.user_id = auth.uid()
+        AND profiles.role = 'admin'
+    )
+  );
