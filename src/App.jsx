@@ -13,13 +13,16 @@ import HomePage from '@/pages/HomePage';
 import LoginPage from '@/pages/LoginPage';
 import OrderPage from '@/pages/Order';
 import OrderSuccess from '@/pages/OrderSuccess';
+import OrderHistory from '@/pages/OrderHistory';
 
 // Admin pages
 import AdminDashboard from '@/pages/admin/AdminDashboard';
 import AdminEvent from '@/pages/admin/AdminEvent';
 import AdminMenu from '@/pages/admin/AdminMenu';
 import AdminOrders from '@/pages/admin/AdminOrders';
-import AdminPlaceholder from '@/pages/admin/AdminPlaceholder';
+import AdminStats from '@/pages/admin/AdminStats';
+import AdminUsers from '@/pages/admin/AdminUsers';
+import AdminEmailReminders from '@/pages/admin/AdminEmailReminders';
 
 // Staff pages
 import StaffKitchen from '@/pages/staff/StaffKitchen';
@@ -65,6 +68,7 @@ export default function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/order" element={<OrderPage />} />
             <Route path="/order/success/:orderId" element={<OrderSuccess />} />
+            <Route path="/orders/history" element={<OrderHistory />} />
 
             {/* Admin */}
             <Route
@@ -79,11 +83,9 @@ export default function App() {
               <Route path="events" element={<AdminEvent />} />
               <Route path="menu" element={<AdminMenu />} />
               <Route path="orders" element={<AdminOrders />} />
-              <Route path="delivery" element={<AdminPlaceholder title="Suivi livraisons" phase="2" />} />
-              <Route path="history" element={<AdminPlaceholder title="Historique" phase="3" />} />
-              <Route path="stats" element={<AdminPlaceholder title="Statistiques" phase="4" />} />
-              <Route path="reminders" element={<AdminPlaceholder title="Rappels email" phase="4" />} />
-              <Route path="users" element={<AdminPlaceholder title="Accès & droits" phase="4" />} />
+              <Route path="stats" element={<AdminStats />} />
+              <Route path="reminders" element={<AdminEmailReminders />} />
+              <Route path="users" element={<AdminUsers />} />
             </Route>
 
             {/* Staff */}

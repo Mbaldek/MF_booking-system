@@ -218,11 +218,23 @@ export default function OrderPage() {
         orderLines,
       });
 
-      // Fire-and-forget email confirmation
-      supabase.functions.invoke('send-order-confirmation', {
-        body: { orderId: result.order.id },
-      }).catch(() => {}); // silently ignore email errors
+      // Create Stripe Checkout session and redirect to payment
+      try {
+        const { data: stripeData, error: stripeError } = await supabase.functions.invoke(
+          'create-checkout-session',
+          { body: { orderId: result.order.id } }
+        );
 
+        if (stripeError) throw stripeError;
+        if (stripeData?.url) {
+          window.location.href = stripeData.url;
+          return;
+        }
+      } catch (stripeErr) {
+        console.warn('Stripe checkout unavailable, redirecting to success page:', stripeErr);
+      }
+
+      // Fallback: redirect to success page if Stripe is not configured
       navigate(`/order/success/${result.order.id}`);
     } catch (error) {
       console.error('Erreur lors de la commande:', error);
