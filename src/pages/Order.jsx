@@ -101,7 +101,7 @@ export default function OrderPage() {
   const handleAddGuest = useCallback((slotId) => {
     setSlotGuests((prev) => ({
       ...prev,
-      [slotId]: [...(prev[slotId] || []), { name: '', entree: null, plat: null, dessert: null, boisson: null }],
+      [slotId]: [{ name: '', entree: null, plat: null, dessert: null, boisson: null }, ...(prev[slotId] || [])],
     }));
   }, []);
 
@@ -256,7 +256,11 @@ export default function OrderPage() {
     selectedSlotIds.every((slotId) => {
       const guests = slotGuests[slotId] || [];
       return guests.length > 0 && guests.every((g) =>
-        g.name.trim() && g.entree && g.plat && g.dessert && g.boisson
+        g.name.trim() &&
+        (entrees.length === 0 || g.entree) &&
+        (plats.length === 0 || g.plat) &&
+        (desserts.length === 0 || g.dessert) &&
+        (boissons.length === 0 || g.boisson)
       );
     });
 
@@ -306,6 +310,7 @@ export default function OrderPage() {
         {/* Order form */}
         <div className="bg-white rounded-xl shadow-sm border p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
+            <h2 className="text-lg font-semibold text-gray-900">Informations de facturation</h2>
             <div className="grid md:grid-cols-2 gap-4">
               {[
                 { id: 'first_name', label: 'Prénom', type: 'text' },
@@ -476,7 +481,7 @@ export default function OrderPage() {
               {createOrder.isPending ? (
                 <><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" /> Traitement en cours...</>
               ) : (
-                <>Valider la commande {total > 0 ? `— ${total.toFixed(2)}€` : ''}</>
+                <>Valider la commande et passer au paiement {total > 0 ? `— ${total.toFixed(2)}€` : ''}</>
               )}
             </button>
           </form>
