@@ -17,9 +17,18 @@ function EventForm({ initialData, onSubmit, onCancel, isPending }) {
   const [mealService, setMealService] = useState(initialData?.meal_service || 'both');
   const [menuPriceMidi, setMenuPriceMidi] = useState(initialData?.menu_price_midi ?? '');
   const [menuPriceSoir, setMenuPriceSoir] = useState(initialData?.menu_price_soir ?? '');
+  const [menuCategories, setMenuCategories] = useState(
+    initialData?.menu_categories || ['entree', 'plat', 'dessert', 'boisson']
+  );
 
   const showMidi = mealService === 'midi' || mealService === 'both';
   const showSoir = mealService === 'soir' || mealService === 'both';
+
+  const toggleCategory = (cat) => {
+    setMenuCategories((prev) =>
+      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
+    );
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -31,6 +40,7 @@ function EventForm({ initialData, onSubmit, onCancel, isPending }) {
       meal_service: mealService,
       menu_price_midi: showMidi ? (parseFloat(menuPriceMidi) || 0) : 0,
       menu_price_soir: showSoir ? (parseFloat(menuPriceSoir) || 0) : 0,
+      menu_categories: menuCategories,
     });
   };
 
@@ -111,6 +121,35 @@ function EventForm({ initialData, onSubmit, onCancel, isPending }) {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
           </div>
         )}
+      </div>
+
+      {/* Menu categories */}
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">Composition du menu</label>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {[
+            { value: 'entree', label: 'Entrée' },
+            { value: 'plat', label: 'Plat' },
+            { value: 'dessert', label: 'Dessert' },
+            { value: 'boisson', label: 'Boisson' },
+          ].map((cat) => {
+            const active = menuCategories.includes(cat.value);
+            return (
+              <button
+                key={cat.value}
+                type="button"
+                onClick={() => toggleCategory(cat.value)}
+                className={`px-3 py-2 text-sm font-medium rounded-lg border-2 transition-colors ${
+                  active
+                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                    : 'border-gray-200 bg-white text-gray-400 hover:border-gray-300'
+                }`}
+              >
+                {cat.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {startDate && endDate && endDate < startDate && (

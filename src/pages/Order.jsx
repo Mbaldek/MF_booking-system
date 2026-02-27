@@ -76,14 +76,23 @@ export default function OrderPage() {
   // Auto-select if only one active event
   const effectiveEvent = activeEvents.length === 1 ? activeEvents[0] : selectedEvent;
   const eventId = effectiveEvent?.id;
-  const { data: mealSlots = [] } = useMealSlots(eventId);
+  const { data: allMealSlots = [] } = useMealSlots(eventId);
   const { data: menuItems = [] } = useEventMenuItems(eventId);
   const showPicker = !effectiveEvent && activeEvents.length > 1;
 
-  const entrees = menuItems.filter((i) => i.type === 'entree');
-  const plats = menuItems.filter((i) => i.type === 'plat');
-  const desserts = menuItems.filter((i) => i.type === 'dessert');
-  const boissons = menuItems.filter((i) => i.type === 'boisson');
+  // Filter slots by event meal_service (midi/soir/both)
+  const ev = effectiveEvent;
+  const mealSlots = useMemo(() => {
+    if (!ev?.meal_service || ev.meal_service === 'both') return allMealSlots;
+    return allMealSlots.filter((s) => s.slot_type === ev.meal_service);
+  }, [allMealSlots, ev?.meal_service]);
+
+  // Filter menu items by event menu_categories
+  const categories = ev?.menu_categories || ['entree', 'plat', 'dessert', 'boisson'];
+  const entrees = categories.includes('entree') ? menuItems.filter((i) => i.type === 'entree') : [];
+  const plats = categories.includes('plat') ? menuItems.filter((i) => i.type === 'plat') : [];
+  const desserts = categories.includes('dessert') ? menuItems.filter((i) => i.type === 'dessert') : [];
+  const boissons = categories.includes('boisson') ? menuItems.filter((i) => i.type === 'boisson') : [];
 
   const handleToggleSlot = useCallback((slotId) => {
     setSelectedSlotIds((prev) => {
@@ -155,8 +164,6 @@ export default function OrderPage() {
     }
     handleToggleSlot(slotId);
   }, [mealSlots, selectedSlotIds, handleToggleSlot]);
-
-  const ev = effectiveEvent;
 
   const calculateTotal = () => {
     if (!ev) return 0;
