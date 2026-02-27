@@ -5,9 +5,10 @@
 -- ============================================================
 
 -- ========================
--- 0. Create auth_user_role() helper if missing
+-- 0. Create auth_user_role() helper (drop first to handle return type change)
 -- ========================
-CREATE OR REPLACE FUNCTION auth_user_role()
+DROP FUNCTION IF EXISTS auth_user_role();
+CREATE FUNCTION auth_user_role()
 RETURNS TEXT AS $$
   SELECT role::text FROM public.profiles WHERE user_id = auth.uid();
 $$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public;
