@@ -43,25 +43,60 @@ export function useOrderLinesByOrder(orderId) {
   });
 }
 
-export function useKitchenView() {
+// Kitchen view: all order lines with joined data, grouped for prep
+export function useKitchenLines(eventId) {
   return useQuery({
-    queryKey: ['kitchen_view'],
+    queryKey: ['order_lines', 'kitchen', eventId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('kitchen_view')
-        .select('*');
+        .from('order_lines')
+        .select(`
+          *,
+          meal_slot:meal_slots(id, slot_date, slot_type),
+          menu_item:menu_items(id, name, type, price),
+          order:orders!inner(id, event_id, customer_first_name, customer_last_name, customer_phone, stand, order_number)
+        `)
+        .eq('order.event_id', eventId)
+        .in('prep_status', ['pending', 'preparing', 'ready'])
+        .order('created_at', { ascending: true });
 
       if (error) throw error;
       return data;
     },
-    refetchInterval: 30000, // auto-refresh every 30s
+    enabled: !!eventId,
+    refetchInterval: 30000,
+  });
+}
+
+// Delivery view: ready + delivered lines for today
+export function useDeliveryLines(eventId) {
+  return useQuery({
+    queryKey: ['order_lines', 'delivery', eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('order_lines')
+        .select(`
+          *,
+          meal_slot:meal_slots(id, slot_date, slot_type),
+          menu_item:menu_items(id, name, type, price),
+          order:orders!inner(id, event_id, customer_first_name, customer_last_name, customer_phone, stand, order_number)
+        `)
+        .eq('order.event_id', eventId)
+        .in('prep_status', ['ready', 'delivered'])
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!eventId,
+    refetchInterval: 30000,
   });
 }
 
 export function useUpdateOrderLineStatus() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ ids, prep_status, prepared_by }) => {
+    mutationFn: async ({ ids, prep_status, prepared_by, delivered_by }) => {
       const updates = { prep_status };
       if (prep_status === 'ready' || prep_status === 'preparing') {
         updates.prepared_at = new Date().toISOString();
@@ -69,6 +104,7 @@ export function useUpdateOrderLineStatus() {
       }
       if (prep_status === 'delivered') {
         updates.delivered_at = new Date().toISOString();
+        if (delivered_by) updates.delivered_by = delivered_by;
       }
 
       const { data, error } = await supabase
@@ -82,7 +118,49 @@ export function useUpdateOrderLineStatus() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['order_lines'] });
-      qc.invalidateQueries({ queryKey: ['kitchen_view'] });
+    },
+  });
+}
+
+export function useDeliverWithPhoto() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ lineId, photo, delivered_by }) => {
+      let delivery_photo_url = null;
+
+      // Upload photo if provided
+      if (photo) {
+        const ext = photo.name?.split('.').pop() || 'jpg';
+        const path = `${lineId}-${Date.now()}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from('delivery-photos')
+          .upload(path, photo);
+
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = supabase.storage
+          .from('delivery-photos')
+          .getPublicUrl(path);
+
+        delivery_photo_url = urlData.publicUrl;
+      }
+
+      const { data, error } = await supabase
+        .from('order_lines')
+        .update({
+          prep_status: 'delivered',
+          delivered_at: new Date().toISOString(),
+          delivered_by: delivered_by || null,
+          delivery_photo_url,
+        })
+        .eq('id', lineId)
+        .select();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['order_lines'] });
     },
   });
 }
