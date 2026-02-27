@@ -245,8 +245,8 @@ export default function OrderPage() {
   // Loading
   if (eventsLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+      <div className="min-h-screen bg-gradient-to-br from-[#faf6f5] to-[#f0e6e4] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#8B3A43]" />
       </div>
     );
   }
@@ -254,10 +254,10 @@ export default function OrderPage() {
   // No active events
   if (activeEvents.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-[#faf6f5] to-[#f0e6e4] flex items-center justify-center p-4">
         <div className="bg-white rounded-xl shadow-sm p-8 max-w-md text-center">
           <p className="text-gray-600">Aucun événement actif pour le moment.</p>
-          <Link to="/" className="text-sm text-blue-600 hover:underline mt-4 inline-block">Retour à l'accueil</Link>
+          <Link to="/" className="text-sm text-[#8B3A43] hover:underline mt-4 inline-block">Retour à l'accueil</Link>
         </div>
       </div>
     );
@@ -302,7 +302,7 @@ export default function OrderPage() {
           <div className="p-6 text-center">
             {activeEvents.length > 1 && (
               <button onClick={() => setSelectedEvent(null)}
-                className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline mb-3">
+                className="inline-flex items-center gap-1 text-xs text-[#8B3A43] hover:underline mb-3">
                 <ArrowLeft className="w-3 h-3" /> Changer d'événement
               </button>
             )}
@@ -313,12 +313,12 @@ export default function OrderPage() {
             {ev.description && <p className="text-xs text-gray-400 mt-2">{ev.description}</p>}
             <div className="flex justify-center gap-4 mt-3">
               {Number(ev.menu_price_midi) > 0 && (
-                <span className="text-sm font-medium text-blue-700 bg-blue-50 px-3 py-1 rounded-full">
+                <span className="text-sm font-medium text-[#8B3A43] bg-[#8B3A43]/10 px-3 py-1 rounded-full">
                   Menu midi : {Number(ev.menu_price_midi).toFixed(2)}€
                 </span>
               )}
               {Number(ev.menu_price_soir) > 0 && (
-                <span className="text-sm font-medium text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full">
+                <span className="text-sm font-medium text-[#968A42] bg-[#968A42]/10 px-3 py-1 rounded-full">
                   Menu soir : {Number(ev.menu_price_soir).toFixed(2)}€
                 </span>
               )}
@@ -341,14 +341,14 @@ export default function OrderPage() {
                   <label htmlFor={field.id} className="block text-sm font-medium text-gray-700">{field.label} *</label>
                   <input id={field.id} type={field.type} required value={formData[field.id]}
                     onChange={(e) => setFormData({ ...formData, [field.id]: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent" />
                 </div>
               ))}
               <div className="space-y-1 md:col-span-2">
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email *</label>
                 <input id="email" type="email" required value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent" />
               </div>
             </div>
 
@@ -373,7 +373,7 @@ export default function OrderPage() {
                             {format(new Date(date + 'T00:00:00'), 'EEEE d MMMM', { locale: fr })}
                           </span>
                           {dayMenuCount > 0 && (
-                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                            <span className="text-xs bg-[#8B3A43]/10 text-[#8B3A43] px-2 py-0.5 rounded-full">
                               {dayMenuCount} menu{dayMenuCount > 1 ? 's' : ''}
                             </span>
                           )}
@@ -391,7 +391,7 @@ export default function OrderPage() {
                               <div key={slot.id} className="space-y-4">
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-3">
-                                    <p className="text-sm font-semibold text-blue-600 uppercase tracking-wide">
+                                    <p className="text-sm font-semibold text-[#8B3A43] uppercase tracking-wide">
                                       {slotLabels[slot.slot_type]}
                                     </p>
                                     <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
@@ -401,7 +401,7 @@ export default function OrderPage() {
                                   <button
                                     type="button"
                                     onClick={() => handleAddGuest(slot.id)}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#8B3A43] bg-[#8B3A43]/10 rounded-lg hover:bg-[#8B3A43]/20 transition-colors"
                                   >
                                     <Plus className="w-3.5 h-3.5" />
                                     Ajouter un menu
@@ -424,7 +424,7 @@ export default function OrderPage() {
                                           placeholder="Prénom du convive *"
                                           value={guest.name}
                                           onChange={(e) => handleGuestNameChange(slot.id, guestIndex, e.target.value)}
-                                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent"
                                         />
                                       </div>
                                       <button
@@ -496,7 +496,7 @@ export default function OrderPage() {
             )}
 
             <button type="submit" disabled={!isFormValid || createOrder.isPending}
-              className="w-full py-3 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2">
+              className="w-full py-3 bg-[#8B3A43] text-white font-medium rounded-xl hover:bg-[#7a3039] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2">
               {createOrder.isPending ? (
                 <><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" /> Traitement en cours...</>
               ) : (

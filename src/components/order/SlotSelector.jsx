@@ -31,13 +31,13 @@ export default function SlotSelector({ slots, selectedSlotIds, onToggleSlot }) {
                     onClick={() => onToggleSlot(slot.id)}
                     className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-all text-left ${
                       isSelected
-                        ? 'border-blue-500 bg-blue-50'
+                        ? 'border-[#8B3A43] bg-[#8B3A43]/5'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
                     <div
                       className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
-                        isSelected ? 'bg-blue-600 border-blue-600' : 'border-gray-300'
+                        isSelected ? 'bg-[#8B3A43] border-[#8B3A43]' : 'border-gray-300'
                       }`}
                     >
                       {isSelected && (

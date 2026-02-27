@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import {
-  TrendingUp, Calendar, UtensilsCrossed, ShoppingBag, MapPin,
-  History, BarChart3, Mail, Users, Home, Menu, X, LogOut,
+  TrendingUp, Calendar, UtensilsCrossed, ShoppingBag,
+  BarChart3, Mail, Users, Home, Menu, X, LogOut,
 } from 'lucide-react';
 
 const navItems = [
@@ -11,8 +11,6 @@ const navItems = [
   { path: '/admin/events', label: 'Événements', icon: Calendar },
   { path: '/admin/menu', label: 'Menus', icon: UtensilsCrossed },
   { path: '/admin/orders', label: 'Commandes', icon: ShoppingBag },
-  { path: '/admin/delivery', label: 'Suivi livraisons', icon: MapPin },
-  { path: '/admin/history', label: 'Historique', icon: History },
   { path: '/admin/stats', label: 'Statistiques', icon: BarChart3 },
   { path: '/admin/reminders', label: 'Rappels email', icon: Mail },
   { path: '/admin/users', label: 'Accès & droits', icon: Users },

@@ -36,14 +36,14 @@ export default function MenuSelector({ type, items, selectedId, onSelect, requir
               }}
               className={`flex items-start justify-between gap-4 p-3 rounded-lg border-2 transition-all text-left ${
                 isSelected
-                  ? 'border-blue-500 bg-blue-50'
+                  ? 'border-[#8B3A43] bg-[#8B3A43]/5'
                   : 'border-gray-200 hover:border-gray-300'
               }`}
             >
               <div className="flex items-start gap-3 flex-1">
                 <div
                   className={`w-5 h-5 rounded${required ? '-full' : ''} border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                    isSelected ? 'bg-blue-600 border-blue-600' : 'border-gray-300'
+                    isSelected ? 'bg-[#8B3A43] border-[#8B3A43]' : 'border-gray-300'
                   }`}
                 >
                   {isSelected && (
