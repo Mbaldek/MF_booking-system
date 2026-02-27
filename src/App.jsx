@@ -21,6 +21,7 @@ import AdminOrders from '@/pages/admin/AdminOrders';
 import AdminStats from '@/pages/admin/AdminStats';
 import AdminUsers from '@/pages/admin/AdminUsers';
 import AdminEmailReminders from '@/pages/admin/AdminEmailReminders';
+import AdminOperations from '@/pages/admin/AdminOperations';
 
 // Staff pages
 import StaffKitchen from '@/pages/staff/StaffKitchen';
@@ -79,7 +80,7 @@ export default function App() {
               <Route path="events" element={<AdminEvent />} />
               <Route path="menu" element={<AdminMenu />} />
               <Route path="orders" element={<AdminOrders />} />
-              <Route path="delivery" element={<StaffDelivery />} />
+              <Route path="operations" element={<AdminOperations />} />
               <Route path="stats" element={<AdminStats />} />
               <Route path="reminders" element={<AdminEmailReminders />} />
               <Route path="users" element={<AdminUsers />} />
