@@ -98,7 +98,7 @@ export default function OrderSuccess() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-xl shadow-sm p-8 max-w-md text-center space-y-3">
           <p className="text-gray-600">Commande introuvable.</p>
-          <Link to="/order" className="text-sm text-blue-600 hover:underline">Retour aux commandes</Link>
+          <Link to="/order" className="text-sm text-[#8B3A43] hover:underline">Retour aux commandes</Link>
         </div>
       </div>
     );
@@ -171,11 +171,11 @@ export default function OrderSuccess() {
                   <span className="text-sm font-medium text-gray-700">
                     {format(new Date(group.date), 'EEEE d MMMM', { locale: fr })}
                   </span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-[#8B3A43]/10 text-[#8B3A43] font-medium">
                     {SLOT_LABELS[group.type] || group.type}
                   </span>
                   {group.guest_name && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-[#968A42]/10 text-[#968A42] font-medium">
                       {group.guest_name}
                     </span>
                   )}
@@ -227,7 +227,7 @@ export default function OrderSuccess() {
           <button
             onClick={handleDownloadPDF}
             disabled={downloading}
-            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50"
+            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-[#8B3A43] text-white font-medium rounded-xl hover:bg-[#7a3039] transition-colors disabled:opacity-50"
           >
             <Download className="w-4 h-4" />
             {downloading ? 'Génération...' : 'Télécharger la facture (PDF)'}
@@ -246,13 +246,13 @@ export default function OrderSuccess() {
       <div className="fixed left-[-9999px] top-0">
         <div ref={invoiceRef} style={{ width: '794px', padding: '40px', backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }}>
           {/* PDF Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px', borderBottom: '2px solid #2563eb', paddingBottom: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px', borderBottom: '2px solid #8B3A43', paddingBottom: '20px' }}>
             <div>
-              <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#1e3a5f', margin: 0 }}>Maison Félicien</h1>
+              <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#8B3A43', margin: 0 }}>Maison Félicien</h1>
               <p style={{ fontSize: '12px', color: '#6b7280', margin: '4px 0 0' }}>Traiteur événementiel</p>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#2563eb', margin: 0 }}>FACTURE</h2>
+              <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#8B3A43', margin: 0 }}>FACTURE</h2>
               <p style={{ fontSize: '12px', color: '#6b7280', margin: '4px 0 0' }}>{order.order_number}</p>
               <p style={{ fontSize: '12px', color: '#6b7280', margin: '2px 0 0' }}>
                 {format(new Date(order.created_at), 'd MMMM yyyy', { locale: fr })}
@@ -298,7 +298,7 @@ export default function OrderSuccess() {
                   <td style={{ padding: '8px 12px', fontSize: '13px', color: '#374151', borderBottom: '1px solid #f3f4f6', verticalAlign: 'top' }}>
                     {SLOT_LABELS[group.type] || group.type}
                   </td>
-                  <td style={{ padding: '8px 12px', fontSize: '13px', color: '#7c3aed', fontWeight: '500', borderBottom: '1px solid #f3f4f6', verticalAlign: 'top' }}>
+                  <td style={{ padding: '8px 12px', fontSize: '13px', color: '#968A42', fontWeight: '500', borderBottom: '1px solid #f3f4f6', verticalAlign: 'top' }}>
                     {group.guest_name || '—'}
                   </td>
                   <td style={{ padding: '8px 12px', fontSize: '12px', color: '#111827', borderBottom: '1px solid #f3f4f6', verticalAlign: 'top' }}>

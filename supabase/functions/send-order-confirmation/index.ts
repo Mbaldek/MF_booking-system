@@ -67,16 +67,16 @@ serve(async (req) => {
       <tr>
         <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-size:13px;color:#374151">${g.date}</td>
         <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-size:13px;color:#374151">${SLOT_LABELS[g.type] || g.type}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-size:13px;color:#7c3aed;font-weight:500">${g.guest || '—'}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-size:13px;color:#968A42;font-weight:500">${g.guest || '—'}</td>
         <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-size:12px;color:#111827">${g.items.join(', ')}</td>
       </tr>
     `).join('')
 
     const html = `
     <div style="max-width:600px;margin:0 auto;font-family:Arial,sans-serif;color:#111827">
-      <div style="background:#2563eb;padding:24px;text-align:center;border-radius:12px 12px 0 0">
+      <div style="background:#8B3A43;padding:24px;text-align:center;border-radius:12px 12px 0 0">
         <h1 style="color:white;margin:0;font-size:20px">Maison Félicien</h1>
-        <p style="color:#bfdbfe;margin:4px 0 0;font-size:13px">Confirmation de commande</p>
+        <p style="color:#E5B7B3;margin:4px 0 0;font-size:13px">Confirmation de commande</p>
       </div>
       <div style="background:#ffffff;padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px">
         <p style="font-size:15px;margin:0 0 16px">Bonjour <strong>${order.customer_first_name}</strong>,</p>
@@ -104,7 +104,7 @@ serve(async (req) => {
 
         <div style="text-align:center;margin-bottom:20px">
           <p style="font-size:13px;color:#6b7280;margin:0 0 8px">Présentez ce numéro lors du retrait :</p>
-          <p style="font-size:20px;font-weight:bold;color:#2563eb;font-family:monospace;margin:0">${order.order_number}</p>
+          <p style="font-size:20px;font-weight:bold;color:#8B3A43;font-family:monospace;margin:0">${order.order_number}</p>
         </div>
 
         <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0" />

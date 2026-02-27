@@ -21,8 +21,8 @@ function EventPicker({ events, onSelect }) {
       </div>
 
       <div className="max-w-3xl mx-auto space-y-6">
-        <div className="text-center space-y-2">
-          <h1 className="text-2xl font-semibold text-gray-900">Maison Félicien</h1>
+        <div className="text-center space-y-3">
+          <img src="/logo.svg" alt="Maison Félicien" className="h-12 mx-auto" />
           <p className="text-sm text-gray-500">Choisissez votre événement pour commander</p>
         </div>
 
@@ -31,18 +31,18 @@ function EventPicker({ events, onSelect }) {
             <button
               key={event.id}
               onClick={() => onSelect(event)}
-              className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 text-left hover:border-blue-300 hover:shadow-md transition-all group"
+              className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 text-left hover:border-[#8B3A43]/30 hover:shadow-md transition-all group"
             >
               <div className="flex gap-4">
                 {event.image_url ? (
                   <img src={event.image_url} alt={event.name} className="w-20 h-20 object-cover rounded-lg shrink-0" />
                 ) : (
-                  <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg shrink-0 flex items-center justify-center">
-                    <Calendar className="w-8 h-8 text-blue-400" />
+                  <div className="w-20 h-20 bg-gradient-to-br from-[#E5B7B3]/30 to-[#8B3A43]/10 rounded-lg shrink-0 flex items-center justify-center">
+                    <Calendar className="w-8 h-8 text-[#8B3A43]/50" />
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">{event.name}</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 group-hover:text-[#8B3A43] transition-colors">{event.name}</h3>
                   <p className="text-sm text-gray-500 mt-1 flex items-center gap-1.5">
                     <Calendar className="w-4 h-4" />
                     {format(new Date(event.start_date + 'T00:00:00'), 'd MMM', { locale: fr })} — {format(new Date(event.end_date + 'T00:00:00'), 'd MMM yyyy', { locale: fr })}

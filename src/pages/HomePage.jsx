@@ -5,22 +5,20 @@ export default function HomePage() {
   const { isAuthenticated, isLoading, profile, signOut } = useAuth();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-[#faf6f5] to-[#f0e6e4]">
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold">MF</span>
-            </div>
+            <img src="/monogram.svg" alt="MF" className="w-10 h-10" />
             <div>
-              <h1 className="text-lg font-bold text-gray-900">Maison Félicien</h1>
+              <h1 className="text-lg font-bold text-gray-900 font-brand">Maison Félicien</h1>
               <p className="text-xs text-gray-500">Traiteur événementiel</p>
             </div>
           </div>
           <div>
             {isLoading ? (
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600" />
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#8B3A43]" />
             ) : isAuthenticated ? (
               <div className="flex items-center gap-3">
                 <span className="text-sm text-gray-600">
@@ -36,7 +34,7 @@ export default function HomePage() {
             ) : (
               <Link
                 to="/login"
-                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                className="inline-flex items-center px-4 py-2 bg-[#8B3A43] text-white text-sm font-medium rounded-lg hover:bg-[#7a3039] transition-colors"
               >
                 Connexion
               </Link>
@@ -47,6 +45,7 @@ export default function HomePage() {
 
       {/* Hero */}
       <main className="max-w-4xl mx-auto px-4 py-16 text-center">
+        <img src="/logo.svg" alt="Maison Félicien" className="h-16 mx-auto mb-8" />
         <h2 className="text-4xl font-bold text-gray-900 mb-4">
           Commandez vos repas pour l'événement
         </h2>
@@ -56,7 +55,7 @@ export default function HomePage() {
 
         <Link
           to="/order"
-          className="inline-flex items-center px-8 py-3 bg-blue-600 text-white text-base font-medium rounded-xl hover:bg-blue-700 transition-colors shadow-lg"
+          className="inline-flex items-center px-8 py-3 bg-[#8B3A43] text-white text-base font-medium rounded-xl hover:bg-[#7a3039] transition-colors shadow-lg"
         >
           Commander maintenant
         </Link>
@@ -92,14 +91,14 @@ export default function HomePage() {
               {profile?.role === 'admin' && (
                 <Link
                   to="/admin"
-                  className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-[#8B3A43] text-white text-sm font-medium rounded-lg hover:bg-[#7a3039] transition-colors"
                 >
                   Administration
                 </Link>
               )}
               <Link
                 to="/staff/kitchen"
-                className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors"
+                className="px-4 py-2 bg-[#968A42] text-white text-sm font-medium rounded-lg hover:bg-[#857939] transition-colors"
               >
                 Espace staff
               </Link>

@@ -1,14 +1,46 @@
 @import "tailwindcss";
 
-/* shadcn/ui CSS variables — will be configured later */
+/* Brand fonts */
+@font-face {
+  font-family: 'Ariens Nobela';
+  src: url('/fonts/AriensNobela.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Questrial';
+  src: url('/fonts/Questrial-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Brand CSS variables */
 :root {
+  --brand-rose: #8B3A43;
+  --brand-poudre: #E5B7B3;
+  --brand-vert: #968A42;
+  --brand-cream: #faf6f5;
+
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0.064 285.89);
-  --primary-foreground: oklch(0.985 0 0);
+  --primary: #8B3A43;
+  --primary-foreground: #ffffff;
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
   --border: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --ring: #8B3A43;
   --radius: 0.5rem;
+}
+
+/* Brand font utility */
+.font-brand {
+  font-family: 'Ariens Nobela', Georgia, serif;
+}
+
+/* Questrial as default body font */
+body {
+  font-family: 'Questrial', system-ui, -apple-system, sans-serif;
 }

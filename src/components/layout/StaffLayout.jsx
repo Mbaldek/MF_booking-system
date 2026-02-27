@@ -19,11 +19,11 @@ export default function StaffLayout() {
       <header className="lg:hidden bg-white border-b sticky top-0 z-40 shadow-sm">
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-lg flex items-center justify-center">
-              <span className="text-white text-sm font-bold">MF</span>
+            <div className="w-8 h-8 bg-[#968A42] rounded-lg flex items-center justify-center p-1.5">
+              <img src="/monogram-white.svg" alt="MF" className="w-full h-full" />
             </div>
             <div>
-              <h1 className="text-sm font-bold text-gray-900">Maison Félicien</h1>
+              <h1 className="text-sm font-bold text-gray-900 font-brand">Maison Félicien</h1>
               <p className="text-xs text-gray-500">Personnel</p>
             </div>
           </div>
@@ -53,7 +53,7 @@ export default function StaffLayout() {
                   key={item.path}
                   to={item.path}
                   className={`flex items-center gap-3 px-4 py-3 hover:bg-gray-50 border-b ${
-                    active ? 'bg-purple-50 text-purple-600 font-semibold' : 'text-gray-700'
+                    active ? 'bg-[#968A42]/10 text-[#968A42] font-semibold' : 'text-gray-700'
                   }`}
                   onClick={() => setMobileMenuOpen(false)}
                 >
@@ -70,11 +70,11 @@ export default function StaffLayout() {
       <aside className="hidden lg:flex flex-col fixed left-0 top-0 h-screen w-64 bg-white border-r shadow-sm">
         <div className="p-6 border-b">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold">MF</span>
+            <div className="w-10 h-10 bg-[#968A42] rounded-lg flex items-center justify-center p-2">
+              <img src="/monogram-white.svg" alt="MF" className="w-full h-full" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-gray-900">Maison Félicien</h1>
+              <h1 className="text-lg font-bold text-gray-900 font-brand">Maison Félicien</h1>
               <p className="text-xs text-gray-500">Personnel</p>
             </div>
           </div>
@@ -104,7 +104,7 @@ export default function StaffLayout() {
                 to={item.path}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                   active
-                    ? 'bg-purple-600 text-white font-semibold shadow-md'
+                    ? 'bg-[#968A42] text-white font-semibold shadow-md'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
               >
