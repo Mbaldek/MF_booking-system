@@ -14,8 +14,12 @@ function EventForm({ initialData, onSubmit, onCancel, isPending }) {
   const [startDate, setStartDate] = useState(initialData?.start_date || '');
   const [endDate, setEndDate] = useState(initialData?.end_date || '');
   const [description, setDescription] = useState(initialData?.description || '');
+  const [mealService, setMealService] = useState(initialData?.meal_service || 'both');
   const [menuPriceMidi, setMenuPriceMidi] = useState(initialData?.menu_price_midi ?? '');
   const [menuPriceSoir, setMenuPriceSoir] = useState(initialData?.menu_price_soir ?? '');
+
+  const showMidi = mealService === 'midi' || mealService === 'both';
+  const showSoir = mealService === 'soir' || mealService === 'both';
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -24,12 +28,14 @@ function EventForm({ initialData, onSubmit, onCancel, isPending }) {
       start_date: startDate,
       end_date: endDate,
       description: description.trim() || null,
-      menu_price_midi: parseFloat(menuPriceMidi) || 0,
-      menu_price_soir: parseFloat(menuPriceSoir) || 0,
+      meal_service: mealService,
+      menu_price_midi: showMidi ? (parseFloat(menuPriceMidi) || 0) : 0,
+      menu_price_soir: showSoir ? (parseFloat(menuPriceSoir) || 0) : 0,
     });
   };
 
-  const isValid = name.trim() && startDate && endDate && endDate >= startDate;
+  const hasPrices = (showMidi ? parseFloat(menuPriceMidi) > 0 : true) && (showSoir ? parseFloat(menuPriceSoir) > 0 : true);
+  const isValid = name.trim() && startDate && endDate && endDate >= startDate && hasPrices;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -60,21 +66,51 @@ function EventForm({ initialData, onSubmit, onCancel, isPending }) {
           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none" />
       </div>
 
+      {/* Meal service type */}
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">Service repas *</label>
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { value: 'midi', label: 'Midi uniquement' },
+            { value: 'soir', label: 'Soir uniquement' },
+            { value: 'both', label: 'Midi & Soir' },
+          ].map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setMealService(opt.value)}
+              className={`px-3 py-2.5 text-sm font-medium rounded-lg border-2 transition-colors ${
+                mealService === opt.value
+                  ? 'border-blue-500 bg-blue-50 text-blue-700'
+                  : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Conditional price fields */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="space-y-1">
-          <label htmlFor="price-midi" className="block text-sm font-medium text-gray-700">Prix menu midi (€)</label>
-          <input id="price-midi" type="number" min="0" step="0.01" value={menuPriceMidi}
-            onChange={(e) => setMenuPriceMidi(e.target.value)}
-            placeholder="0.00"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-        </div>
-        <div className="space-y-1">
-          <label htmlFor="price-soir" className="block text-sm font-medium text-gray-700">Prix menu soir (€)</label>
-          <input id="price-soir" type="number" min="0" step="0.01" value={menuPriceSoir}
-            onChange={(e) => setMenuPriceSoir(e.target.value)}
-            placeholder="0.00"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-        </div>
+        {showMidi && (
+          <div className="space-y-1">
+            <label htmlFor="price-midi" className="block text-sm font-medium text-gray-700">Prix menu midi (€) *</label>
+            <input id="price-midi" type="number" min="0" step="0.01" value={menuPriceMidi}
+              onChange={(e) => setMenuPriceMidi(e.target.value)}
+              placeholder="0.00"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+          </div>
+        )}
+        {showSoir && (
+          <div className="space-y-1">
+            <label htmlFor="price-soir" className="block text-sm font-medium text-gray-700">Prix menu soir (€) *</label>
+            <input id="price-soir" type="number" min="0" step="0.01" value={menuPriceSoir}
+              onChange={(e) => setMenuPriceSoir(e.target.value)}
+              placeholder="0.00"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+          </div>
+        )}
       </div>
 
       {startDate && endDate && endDate < startDate && (
