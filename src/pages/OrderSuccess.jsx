@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Download, ArrowLeft, CheckCircle2, User, MapPin, Mail, Phone, CalendarDays, UtensilsCrossed } from 'lucide-react';
@@ -132,14 +131,28 @@ export default function OrderSuccess() {
           )}
         </div>
 
-        {/* QR Code */}
-        <div className="bg-white rounded-xl shadow-lg p-8 text-center space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900">Votre QR Code</h2>
-          <p className="text-sm text-gray-500">Présentez ce QR code lors du retrait de votre commande</p>
-          <div className="inline-block p-4 bg-white border-2 border-gray-100 rounded-xl">
-            <QRCodeSVG value={order.order_number} size={200} level="H" />
+        {/* Delivery method communication */}
+        <div className="bg-white rounded-xl shadow-lg p-6 space-y-3">
+          <h2 className="text-lg font-semibold text-gray-900">
+            {order.delivery_method === 'retrait' ? 'Retrait de votre commande' : 'Livraison de votre commande'}
+          </h2>
+          <div className="bg-[#8B3A43]/5 border border-[#8B3A43]/20 rounded-lg p-4">
+            {order.delivery_method === 'retrait' ? (
+              <p className="text-sm text-gray-700">
+                Vous avez choisi le <strong>retrait sur place</strong>. Vous recevrez un email et/ou un SMS
+                lorsque votre commande sera prête à être retirée.
+              </p>
+            ) : (
+              <p className="text-sm text-gray-700">
+                Votre commande sera <strong>livrée à votre stand</strong>. Vous recevrez un email et/ou un SMS
+                pour vous informer de l'avancement de la préparation et de la livraison.
+              </p>
+            )}
           </div>
-          <p className="font-mono text-sm text-gray-400">{order.order_number}</p>
+          <p className="text-xs text-gray-500">
+            Notifications envoyées à : {order.customer_email}
+            {order.customer_phone && ` / ${order.customer_phone}`}
+          </p>
         </div>
 
         {/* Order summary (visible on screen) */}
@@ -164,6 +177,23 @@ export default function OrderSuccess() {
               <Phone className="w-4 h-4 text-gray-400" />
               {order.customer_phone}
             </div>
+            <div className="col-span-2 flex items-center gap-2">
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                order.delivery_method === 'retrait'
+                  ? 'bg-[#968A42]/10 text-[#968A42]'
+                  : 'bg-[#8B3A43]/10 text-[#8B3A43]'
+              }`}>
+                {order.delivery_method === 'retrait' ? 'Retrait sur place' : 'Livraison au stand'}
+              </span>
+            </div>
+            {(order.billing_address || order.company_name) && (
+              <div className="col-span-2 text-xs text-gray-500 pt-1 border-t border-gray-100">
+                {order.company_name && <p className="font-medium">{order.company_name}</p>}
+                {order.billing_address && (
+                  <p>{order.billing_address}, {order.billing_postal_code} {order.billing_city}</p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Lines grouped by slot + guest */}
@@ -279,6 +309,14 @@ export default function OrderSuccess() {
               <p style={{ fontSize: '12px', color: '#6b7280', margin: '2px 0 0' }}>Stand {order.stand}</p>
               <p style={{ fontSize: '12px', color: '#6b7280', margin: '2px 0 0' }}>{order.customer_email}</p>
               <p style={{ fontSize: '12px', color: '#6b7280', margin: '2px 0 0' }}>{order.customer_phone}</p>
+              {order.company_name && (
+                <p style={{ fontSize: '12px', color: '#6b7280', margin: '6px 0 0', fontWeight: '500' }}>{order.company_name}</p>
+              )}
+              {order.billing_address && (
+                <p style={{ fontSize: '12px', color: '#6b7280', margin: '2px 0 0' }}>
+                  {order.billing_address}, {order.billing_postal_code} {order.billing_city}
+                </p>
+              )}
             </div>
           </div>
 
@@ -322,11 +360,15 @@ export default function OrderSuccess() {
             </tfoot>
           </table>
 
-          {/* QR Code + Footer — uses QRCodeCanvas for html2canvas compatibility */}
+          {/* Footer */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '32px', paddingTop: '20px', borderTop: '1px solid #e5e7eb' }}>
             <div>
-              <p style={{ fontSize: '11px', color: '#9ca3af', margin: '0 0 4px' }}>QR Code de retrait</p>
-              <QRCodeCanvas value={order.order_number} size={100} level="H" />
+              <p style={{ fontSize: '13px', fontWeight: '600', color: '#111827', margin: 0 }}>
+                {order.delivery_method === 'retrait' ? 'Retrait sur place' : 'Livraison au stand'}
+              </p>
+              <p style={{ fontSize: '11px', color: '#6b7280', margin: '4px 0 0' }}>
+                Commande n°{order.order_number}
+              </p>
             </div>
             <div style={{ textAlign: 'right' }}>
               <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>Merci pour votre commande !</p>

@@ -65,6 +65,11 @@ export default function OrderPage() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [formData, setFormData] = useState({
     first_name: '', last_name: '', stand: '', phone: '', email: '',
+    delivery_method: 'livraison',
+    company_name: '',
+    billing_address: '',
+    billing_postal_code: '',
+    billing_city: '',
   });
   const [selectedSlotIds, setSelectedSlotIds] = useState([]);
   const [slotGuests, setSlotGuests] = useState({});
@@ -214,6 +219,11 @@ export default function OrderPage() {
           stand: formData.stand,
           total_amount: totalAmount,
           payment_status: 'pending',
+          delivery_method: formData.delivery_method,
+          company_name: formData.company_name || null,
+          billing_address: formData.billing_address,
+          billing_postal_code: formData.billing_postal_code,
+          billing_city: formData.billing_city,
         },
         orderLines,
       });
@@ -271,6 +281,7 @@ export default function OrderPage() {
   const total = calculateTotal();
   const isFormValid =
     formData.first_name && formData.last_name && formData.stand && formData.phone && formData.email &&
+    formData.billing_address && formData.billing_postal_code && formData.billing_city &&
     selectedSlotIds.length > 0 &&
     selectedSlotIds.every((slotId) => {
       const guests = slotGuests[slotId] || [];
@@ -329,6 +340,33 @@ export default function OrderPage() {
         {/* Order form */}
         <div className="bg-white rounded-xl shadow-sm border p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Delivery method */}
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">Mode de retrait</h2>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { value: 'retrait', label: 'Retrait', desc: 'Je viens chercher ma commande' },
+                  { value: 'livraison', label: 'Livraison', desc: 'Livraison sur mon stand' },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, delivery_method: option.value })}
+                    className={`p-4 rounded-xl border-2 text-left transition-all ${
+                      formData.delivery_method === option.value
+                        ? 'border-[#8B3A43] bg-[#8B3A43]/5'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <p className={`text-sm font-semibold ${
+                      formData.delivery_method === option.value ? 'text-[#8B3A43]' : 'text-gray-700'
+                    }`}>{option.label}</p>
+                    <p className="text-xs text-gray-500 mt-1">{option.desc}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <h2 className="text-lg font-semibold text-gray-900">Informations de facturation</h2>
             <div className="grid md:grid-cols-2 gap-4">
               {[
@@ -349,6 +387,37 @@ export default function OrderPage() {
                 <input id="email" type="email" required value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent" />
+              </div>
+            </div>
+
+            {/* Billing address */}
+            <div className="pt-4 border-t">
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">Adresse de facturation</h2>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-1 md:col-span-2">
+                  <label htmlFor="company_name" className="block text-sm font-medium text-gray-700">Nom de l'entreprise</label>
+                  <input id="company_name" type="text" value={formData.company_name}
+                    onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent" />
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <label htmlFor="billing_address" className="block text-sm font-medium text-gray-700">Adresse *</label>
+                  <input id="billing_address" type="text" required value={formData.billing_address}
+                    onChange={(e) => setFormData({ ...formData, billing_address: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent" />
+                </div>
+                <div className="space-y-1">
+                  <label htmlFor="billing_postal_code" className="block text-sm font-medium text-gray-700">Code postal *</label>
+                  <input id="billing_postal_code" type="text" required value={formData.billing_postal_code}
+                    onChange={(e) => setFormData({ ...formData, billing_postal_code: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent" />
+                </div>
+                <div className="space-y-1">
+                  <label htmlFor="billing_city" className="block text-sm font-medium text-gray-700">Ville *</label>
+                  <input id="billing_city" type="text" required value={formData.billing_city}
+                    onChange={(e) => setFormData({ ...formData, billing_city: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent" />
+                </div>
               </div>
             </div>
 

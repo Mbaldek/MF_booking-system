@@ -13,8 +13,6 @@ import HomePage from '@/pages/HomePage';
 import LoginPage from '@/pages/LoginPage';
 import OrderPage from '@/pages/Order';
 import OrderSuccess from '@/pages/OrderSuccess';
-import OrderHistory from '@/pages/OrderHistory';
-
 // Admin pages
 import AdminDashboard from '@/pages/admin/AdminDashboard';
 import AdminEvent from '@/pages/admin/AdminEvent';
@@ -68,8 +66,6 @@ export default function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/order" element={<OrderPage />} />
             <Route path="/order/success/:orderId" element={<OrderSuccess />} />
-            <Route path="/orders/history" element={<OrderHistory />} />
-
             {/* Admin */}
             <Route
               path="/admin"
@@ -84,7 +80,6 @@ export default function App() {
               <Route path="menu" element={<AdminMenu />} />
               <Route path="orders" element={<AdminOrders />} />
               <Route path="delivery" element={<StaffDelivery />} />
-              <Route path="history" element={<OrderHistory />} />
               <Route path="stats" element={<AdminStats />} />
               <Route path="reminders" element={<AdminEmailReminders />} />
               <Route path="users" element={<AdminUsers />} />

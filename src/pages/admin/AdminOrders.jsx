@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Search, ShoppingBag, ChevronDown, ChevronUp } from 'lucide-react';
 import { useActiveEvent } from '@/hooks/useEvents';
+import EventSelector from '@/components/admin/EventSelector';
 import { useOrders, useUpdateOrder } from '@/hooks/useOrders';
 import { useOrderLines } from '@/hooks/useOrderLines';
 import { groupOrderLines, sortedSlotEntries } from '@/lib/groupOrderLines';
@@ -417,9 +418,10 @@ const TABS = [
 
 export default function AdminOrders() {
   const [activeTab, setActiveTab] = useState('financial');
+  const [selectedEventId, setSelectedEventId] = useState(null);
 
-  const { data: event, isLoading: eventLoading } = useActiveEvent();
-  const eventId = event?.id;
+  const { data: activeEvent, isLoading: eventLoading } = useActiveEvent();
+  const eventId = selectedEventId ?? activeEvent?.id;
 
   const { data: orders, isLoading: ordersLoading } = useOrders(eventId);
   const { data: orderLines, isLoading: linesLoading } = useOrderLines(eventId);
@@ -427,20 +429,13 @@ export default function AdminOrders() {
 
   const isLoading = eventLoading || ordersLoading || linesLoading;
 
-  /* no active event */
-  if (!eventLoading && !event) {
-    return (
-      <div className="flex flex-col items-center justify-center py-24 text-gray-400">
-        <ShoppingBag className="mb-3 h-10 w-10" />
-        <p className="text-sm">Aucun evenement actif</p>
-      </div>
-    );
-  }
-
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 space-y-5">
       {/* page title */}
-      <h1 className="text-xl font-bold text-gray-900">Commandes</h1>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h1 className="text-xl font-bold text-gray-900">Commandes</h1>
+        <EventSelector selectedEventId={selectedEventId} onEventChange={setSelectedEventId} />
+      </div>
 
       {/* tabs */}
       <div className="flex gap-2">

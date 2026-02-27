@@ -5,6 +5,7 @@ import { Truck, Search, Camera, X, Check, Package } from 'lucide-react';
 import { useActiveEvent } from '@/hooks/useEvents';
 import { useDeliveryLines, useDeliverWithPhoto } from '@/hooks/useOrderLines';
 import { useAuth } from '@/lib/AuthContext';
+import EventSelector from '@/components/admin/EventSelector';
 
 export default function StaffDelivery() {
   const [search, setSearch] = useState('');
@@ -13,10 +14,12 @@ export default function StaffDelivery() {
   const [photo, setPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const fileRef = useRef(null);
+  const [selectedEventId, setSelectedEventId] = useState(null);
 
   const { profile } = useAuth();
   const { data: activeEvent } = useActiveEvent();
-  const { data: lines = [], isLoading } = useDeliveryLines(activeEvent?.id);
+  const eventId = selectedEventId ?? activeEvent?.id;
+  const { data: lines = [], isLoading } = useDeliveryLines(eventId);
   const deliverMutation = useDeliverWithPhoto();
 
   // Stats
@@ -120,12 +123,12 @@ export default function StaffDelivery() {
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
-      <div>
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
           <Truck className="w-6 h-6" />
           Livraison
         </h1>
-        {activeEvent && <p className="text-sm text-gray-500 mt-1">{activeEvent.name}</p>}
+        <EventSelector selectedEventId={selectedEventId} onEventChange={setSelectedEventId} />
       </div>
 
       {/* Stats */}

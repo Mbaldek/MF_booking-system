@@ -5,6 +5,7 @@ import { ChefHat, Search, Check, Undo2 } from 'lucide-react';
 import { useActiveEvent } from '@/hooks/useEvents';
 import { useKitchenLines, useUpdateOrderLineStatus } from '@/hooks/useOrderLines';
 import { useAuth } from '@/lib/AuthContext';
+import EventSelector from '@/components/admin/EventSelector';
 
 const statusColors = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -22,10 +23,12 @@ export default function StaffKitchen() {
   const [search, setSearch] = useState('');
   const [dateFilter, setDateFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedEventId, setSelectedEventId] = useState(null);
 
   const { profile } = useAuth();
   const { data: activeEvent } = useActiveEvent();
-  const { data: lines = [], isLoading } = useKitchenLines(activeEvent?.id);
+  const eventId = selectedEventId ?? activeEvent?.id;
+  const { data: lines = [], isLoading } = useKitchenLines(eventId);
   const updateStatus = useUpdateOrderLineStatus();
 
   // Stats
@@ -116,12 +119,12 @@ export default function StaffKitchen() {
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
-      <div>
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
           <ChefHat className="w-6 h-6" />
           Préparation cuisine
         </h1>
-        {activeEvent && <p className="text-sm text-gray-500 mt-1">{activeEvent.name}</p>}
+        <EventSelector selectedEventId={selectedEventId} onEventChange={setSelectedEventId} />
       </div>
 
       {/* Stats */}
