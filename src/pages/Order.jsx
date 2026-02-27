@@ -1,7 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { ChevronDown } from 'lucide-react';
 import { useActiveEvent } from '@/hooks/useEvents';
 import { useMealSlots } from '@/hooks/useMealSlots';
 import { useMenuItems } from '@/hooks/useMenuItems';
@@ -19,6 +20,7 @@ export default function OrderPage() {
   });
   const [selectedSlotIds, setSelectedSlotIds] = useState([]);
   const [slotMenus, setSlotMenus] = useState({}); // { slotId: { entree: itemId, plat: itemId, ... } }
+  const [expandedDays, setExpandedDays] = useState({});
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [createdOrder, setCreatedOrder] = useState(null);
 
@@ -54,6 +56,38 @@ export default function OrderPage() {
       },
     }));
   }, []);
+
+  // Group selected slots by date for collapse/expand display
+  const selectedSlotsByDate = useMemo(() => {
+    const groups = {};
+    selectedSlotIds.forEach((slotId) => {
+      const slot = mealSlots.find((s) => s.id === slotId);
+      if (!slot) return;
+      const date = slot.slot_date;
+      if (!groups[date]) groups[date] = [];
+      groups[date].push(slot);
+    });
+    // Sort dates and within each date sort midi before soir
+    return Object.entries(groups)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, slots]) => ({
+        date,
+        slots: slots.sort((a, b) => (a.slot_type === 'midi' ? -1 : 1)),
+      }));
+  }, [selectedSlotIds, mealSlots]);
+
+  const toggleDay = useCallback((date) => {
+    setExpandedDays((prev) => ({ ...prev, [date]: !prev[date] }));
+  }, []);
+
+  // Auto-expand days when slots are first selected
+  const handleToggleSlotWithExpand = useCallback((slotId) => {
+    const slot = mealSlots.find((s) => s.id === slotId);
+    if (slot && !selectedSlotIds.includes(slotId)) {
+      setExpandedDays((prev) => ({ ...prev, [slot.slot_date]: true }));
+    }
+    handleToggleSlot(slotId);
+  }, [mealSlots, selectedSlotIds, handleToggleSlot]);
 
   const calculateTotal = () => {
     let total = 0;
@@ -261,53 +295,88 @@ export default function OrderPage() {
               <SlotSelector
                 slots={mealSlots}
                 selectedSlotIds={selectedSlotIds}
-                onToggleSlot={handleToggleSlot}
+                onToggleSlot={handleToggleSlotWithExpand}
               />
             </div>
 
-            {/* Menu per selected slot */}
-            {selectedSlotIds.length > 0 && (
-              <div className="space-y-4">
-                {selectedSlotIds.map((slotId) => {
-                  const slot = mealSlots.find((s) => s.id === slotId);
-                  if (!slot) return null;
+            {/* Menu per day — collapse/expand */}
+            {selectedSlotsByDate.length > 0 && (
+              <div className="space-y-3">
+                {selectedSlotsByDate.map(({ date, slots }) => {
+                  const isExpanded = expandedDays[date] !== false;
+                  const dayItemCount = slots.reduce((count, slot) => {
+                    const menu = slotMenus[slot.id] || {};
+                    return count + ['entree', 'plat', 'dessert', 'boisson'].filter((t) => menu[t]).length;
+                  }, 0);
+
                   return (
-                    <div key={slotId} className="border rounded-xl p-4 space-y-4">
-                      <h3 className="text-base font-medium text-gray-900 capitalize">
-                        {format(new Date(slot.slot_date + 'T00:00:00'), 'EEEE d MMMM', { locale: fr })}{' '}
-                        — {slotLabels[slot.slot_type]}
-                      </h3>
-                      {entrees.length > 0 && (
-                        <MenuSelector
-                          type="entree"
-                          items={entrees}
-                          selectedId={slotMenus[slotId]?.entree}
-                          onSelect={(id) => handleMenuSelection(slotId, 'entree', id)}
+                    <div key={date} className="border rounded-xl overflow-hidden">
+                      {/* Day header — clickable to collapse/expand */}
+                      <button
+                        type="button"
+                        onClick={() => toggleDay(date)}
+                        className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-base font-medium text-gray-900 capitalize">
+                            {format(new Date(date + 'T00:00:00'), 'EEEE d MMMM', { locale: fr })}
+                          </span>
+                          {dayItemCount > 0 && (
+                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                              {dayItemCount} article{dayItemCount > 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </div>
+                        <ChevronDown
+                          className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
                         />
-                      )}
-                      {plats.length > 0 && (
-                        <MenuSelector
-                          type="plat"
-                          items={plats}
-                          selectedId={slotMenus[slotId]?.plat}
-                          onSelect={(id) => handleMenuSelection(slotId, 'plat', id)}
-                        />
-                      )}
-                      {desserts.length > 0 && (
-                        <MenuSelector
-                          type="dessert"
-                          items={desserts}
-                          selectedId={slotMenus[slotId]?.dessert}
-                          onSelect={(id) => handleMenuSelection(slotId, 'dessert', id)}
-                        />
-                      )}
-                      {boissons.length > 0 && (
-                        <MenuSelector
-                          type="boisson"
-                          items={boissons}
-                          selectedId={slotMenus[slotId]?.boisson}
-                          onSelect={(id) => handleMenuSelection(slotId, 'boisson', id)}
-                        />
+                      </button>
+
+                      {/* Slot menus inside the day */}
+                      {isExpanded && (
+                        <div className="p-4 space-y-6">
+                          {slots.map((slot) => (
+                            <div key={slot.id} className="space-y-4">
+                              {slots.length > 1 && (
+                                <p className="text-sm font-semibold text-blue-600 uppercase tracking-wide">
+                                  {slotLabels[slot.slot_type]}
+                                </p>
+                              )}
+                              {entrees.length > 0 && (
+                                <MenuSelector
+                                  type="entree"
+                                  items={entrees}
+                                  selectedId={slotMenus[slot.id]?.entree}
+                                  onSelect={(id) => handleMenuSelection(slot.id, 'entree', id)}
+                                />
+                              )}
+                              {plats.length > 0 && (
+                                <MenuSelector
+                                  type="plat"
+                                  items={plats}
+                                  selectedId={slotMenus[slot.id]?.plat}
+                                  onSelect={(id) => handleMenuSelection(slot.id, 'plat', id)}
+                                />
+                              )}
+                              {desserts.length > 0 && (
+                                <MenuSelector
+                                  type="dessert"
+                                  items={desserts}
+                                  selectedId={slotMenus[slot.id]?.dessert}
+                                  onSelect={(id) => handleMenuSelection(slot.id, 'dessert', id)}
+                                />
+                              )}
+                              {boissons.length > 0 && (
+                                <MenuSelector
+                                  type="boisson"
+                                  items={boissons}
+                                  selectedId={slotMenus[slot.id]?.boisson}
+                                  onSelect={(id) => handleMenuSelection(slot.id, 'boisson', id)}
+                                />
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </div>
                   );
