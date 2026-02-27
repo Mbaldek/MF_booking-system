@@ -58,6 +58,10 @@ export default function OrderSuccess() {
         scale: 2,
         useCORS: true,
         backgroundColor: '#ffffff',
+        onclone: (clonedDoc) => {
+          // Remove Tailwind stylesheets to avoid oklch() parsing errors
+          clonedDoc.querySelectorAll('style, link[rel="stylesheet"]').forEach(el => el.remove());
+        },
       });
 
       const imgWidth = 210; // A4 width in mm
