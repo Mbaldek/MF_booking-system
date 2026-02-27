@@ -76,6 +76,22 @@ export function useCreateOrder() {
   });
 }
 
+export function useOrderById(orderId) {
+  return useQuery({
+    queryKey: ['orders', 'detail', orderId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*, event:events(id, name, start_date, end_date, image_url)')
+        .eq('id', orderId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!orderId,
+  });
+}
+
 export function useUpdateOrder() {
   const qc = useQueryClient();
   return useMutation({

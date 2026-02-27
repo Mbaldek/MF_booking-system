@@ -12,6 +12,7 @@ import StaffLayout from '@/components/layout/StaffLayout';
 import HomePage from '@/pages/HomePage';
 import LoginPage from '@/pages/LoginPage';
 import OrderPage from '@/pages/Order';
+import OrderSuccess from '@/pages/OrderSuccess';
 
 // Admin pages
 import AdminDashboard from '@/pages/admin/AdminDashboard';
@@ -63,6 +64,7 @@ export default function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/order" element={<OrderPage />} />
+            <Route path="/order/success/:orderId" element={<OrderSuccess />} />
 
             {/* Admin */}
             <Route

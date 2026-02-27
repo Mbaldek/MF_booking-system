@@ -1,0 +1,318 @@
+import { useRef, useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { QRCodeSVG } from 'qrcode.react';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
+import { Download, ArrowLeft, CheckCircle2, User, MapPin, Mail, Phone, CalendarDays, UtensilsCrossed } from 'lucide-react';
+import { useOrderById } from '@/hooks/useOrders';
+import { useOrderLinesByOrder } from '@/hooks/useOrderLines';
+
+const TYPE_LABELS = { entree: 'Entrée', plat: 'Plat', dessert: 'Dessert', boisson: 'Boisson' };
+const SLOT_LABELS = { midi: 'Midi', soir: 'Soir' };
+
+function groupLinesBySlot(lines) {
+  const groups = {};
+  for (const line of lines) {
+    const slot = line.meal_slot;
+    if (!slot) continue;
+    const key = `${slot.slot_date}_${slot.slot_type}`;
+    if (!groups[key]) {
+      groups[key] = { date: slot.slot_date, type: slot.slot_type, items: [] };
+    }
+    groups[key].items.push({
+      name: line.menu_item?.name || 'Article inconnu',
+      type: line.menu_item?.type || '',
+      price: Number(line.unit_price),
+    });
+  }
+  return Object.values(groups).sort((a, b) => {
+    if (a.date !== b.date) return a.date.localeCompare(b.date);
+    return a.type === 'midi' ? -1 : 1;
+  });
+}
+
+export default function OrderSuccess() {
+  const { orderId } = useParams();
+  const { data: order, isLoading: orderLoading } = useOrderById(orderId);
+  const { data: lines = [], isLoading: linesLoading } = useOrderLinesByOrder(orderId);
+  const invoiceRef = useRef(null);
+  const [downloading, setDownloading] = useState(false);
+
+  const isLoading = orderLoading || linesLoading;
+
+  const handleDownloadPDF = async () => {
+    if (!invoiceRef.current) return;
+    setDownloading(true);
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const { jsPDF } = await import('jspdf');
+
+      const canvas = await html2canvas(invoiceRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+      });
+
+      const imgWidth = 210; // A4 width in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const pdf = new jsPDF('p', 'mm', 'a4');
+
+      // Handle multi-page if content is taller than A4
+      const pageHeight = 297;
+      let position = 0;
+      let remaining = imgHeight;
+
+      while (remaining > 0) {
+        if (position > 0) pdf.addPage();
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, -position, imgWidth, imgHeight);
+        remaining -= pageHeight;
+        position += pageHeight;
+      }
+
+      pdf.save(`facture-${order.order_number}.pdf`);
+    } catch (err) {
+      console.error('Erreur génération PDF:', err);
+      alert('Erreur lors de la génération du PDF.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600" />
+      </div>
+    );
+  }
+
+  if (!order) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl shadow-sm p-8 max-w-md text-center space-y-3">
+          <p className="text-gray-600">Commande introuvable.</p>
+          <Link to="/order" className="text-sm text-blue-600 hover:underline">Retour aux commandes</Link>
+        </div>
+      </div>
+    );
+  }
+
+  const grouped = groupLinesBySlot(lines);
+  const eventName = order.event?.name || '';
+  const eventDates = order.event
+    ? `${format(new Date(order.event.start_date), 'd MMM', { locale: fr })} — ${format(new Date(order.event.end_date), 'd MMM yyyy', { locale: fr })}`
+    : '';
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 py-8 px-4">
+      <div className="max-w-2xl mx-auto space-y-6">
+
+        {/* Success header */}
+        <div className="bg-white rounded-xl shadow-lg p-8 text-center space-y-4">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+            <CheckCircle2 className="w-10 h-10 text-green-600" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900">Commande confirmée !</h1>
+          <p className="text-gray-600">
+            Votre commande <span className="font-mono font-semibold text-gray-900">{order.order_number}</span> a bien été enregistrée.
+          </p>
+          {eventName && (
+            <p className="text-sm text-gray-500">{eventName} — {eventDates}</p>
+          )}
+        </div>
+
+        {/* QR Code */}
+        <div className="bg-white rounded-xl shadow-lg p-8 text-center space-y-4">
+          <h2 className="text-lg font-semibold text-gray-900">Votre QR Code</h2>
+          <p className="text-sm text-gray-500">Présentez ce QR code lors du retrait de votre commande</p>
+          <div className="inline-block p-4 bg-white border-2 border-gray-100 rounded-xl">
+            <QRCodeSVG value={order.order_number} size={200} level="H" />
+          </div>
+          <p className="font-mono text-sm text-gray-400">{order.order_number}</p>
+        </div>
+
+        {/* Order summary (visible on screen) */}
+        <div className="bg-white rounded-xl shadow-lg p-6 space-y-5">
+          <h2 className="text-lg font-semibold text-gray-900">Récapitulatif</h2>
+
+          {/* Customer info */}
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="flex items-center gap-2 text-gray-600">
+              <User className="w-4 h-4 text-gray-400" />
+              {order.customer_first_name} {order.customer_last_name}
+            </div>
+            <div className="flex items-center gap-2 text-gray-600">
+              <MapPin className="w-4 h-4 text-gray-400" />
+              Stand {order.stand}
+            </div>
+            <div className="flex items-center gap-2 text-gray-600">
+              <Mail className="w-4 h-4 text-gray-400" />
+              {order.customer_email}
+            </div>
+            <div className="flex items-center gap-2 text-gray-600">
+              <Phone className="w-4 h-4 text-gray-400" />
+              {order.customer_phone}
+            </div>
+          </div>
+
+          {/* Lines grouped by slot */}
+          <div className="space-y-4">
+            {grouped.map((group) => (
+              <div key={`${group.date}_${group.type}`} className="border border-gray-100 rounded-lg overflow-hidden">
+                <div className="bg-gray-50 px-4 py-2 flex items-center gap-2">
+                  <CalendarDays className="w-4 h-4 text-gray-400" />
+                  <span className="text-sm font-medium text-gray-700">
+                    {format(new Date(group.date), 'EEEE d MMMM', { locale: fr })}
+                  </span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">
+                    {SLOT_LABELS[group.type] || group.type}
+                  </span>
+                </div>
+                <div className="divide-y divide-gray-50">
+                  {group.items.map((item, i) => (
+                    <div key={i} className="px-4 py-2.5 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <UtensilsCrossed className="w-3.5 h-3.5 text-gray-300" />
+                        <span className="text-sm text-gray-700">{item.name}</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">
+                          {TYPE_LABELS[item.type] || item.type}
+                        </span>
+                      </div>
+                      <span className="text-sm font-medium text-gray-900">{item.price.toFixed(2)}€</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Total */}
+          <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+            <span className="text-base font-semibold text-gray-900">Total</span>
+            <span className="text-xl font-bold text-gray-900">{Number(order.total_amount).toFixed(2)}€</span>
+          </div>
+
+          {/* Payment status */}
+          <div className="flex items-center gap-2">
+            <span className={`inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full ${
+              order.payment_status === 'paid'
+                ? 'bg-green-100 text-green-700'
+                : order.payment_status === 'pending'
+                  ? 'bg-amber-100 text-amber-700'
+                  : 'bg-gray-100 text-gray-600'
+            }`}>
+              {order.payment_status === 'paid' ? 'Payé' :
+               order.payment_status === 'pending' ? 'En attente de paiement' :
+               order.payment_status}
+            </span>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={handleDownloadPDF}
+            disabled={downloading}
+            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50"
+          >
+            <Download className="w-4 h-4" />
+            {downloading ? 'Génération...' : 'Télécharger la facture (PDF)'}
+          </button>
+          <Link
+            to="/order"
+            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-white text-gray-700 font-medium rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Nouvelle commande
+          </Link>
+        </div>
+      </div>
+
+      {/* Hidden invoice template for PDF generation */}
+      <div className="fixed left-[-9999px] top-0">
+        <div ref={invoiceRef} style={{ width: '794px', padding: '40px', backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }}>
+          {/* PDF Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px', borderBottom: '2px solid #2563eb', paddingBottom: '20px' }}>
+            <div>
+              <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#1e3a5f', margin: 0 }}>Maison Félicien</h1>
+              <p style={{ fontSize: '12px', color: '#6b7280', margin: '4px 0 0' }}>Traiteur événementiel</p>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#2563eb', margin: 0 }}>FACTURE</h2>
+              <p style={{ fontSize: '12px', color: '#6b7280', margin: '4px 0 0' }}>{order.order_number}</p>
+              <p style={{ fontSize: '12px', color: '#6b7280', margin: '2px 0 0' }}>
+                {format(new Date(order.created_at), 'd MMMM yyyy', { locale: fr })}
+              </p>
+            </div>
+          </div>
+
+          {/* Event + Customer */}
+          <div style={{ display: 'flex', gap: '40px', marginBottom: '28px' }}>
+            <div style={{ flex: 1 }}>
+              <h3 style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 8px' }}>Événement</h3>
+              <p style={{ fontSize: '14px', fontWeight: '600', color: '#111827', margin: 0 }}>{eventName}</p>
+              {eventDates && <p style={{ fontSize: '12px', color: '#6b7280', margin: '2px 0 0' }}>{eventDates}</p>}
+            </div>
+            <div style={{ flex: 1 }}>
+              <h3 style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 8px' }}>Client</h3>
+              <p style={{ fontSize: '14px', fontWeight: '600', color: '#111827', margin: 0 }}>
+                {order.customer_first_name} {order.customer_last_name}
+              </p>
+              <p style={{ fontSize: '12px', color: '#6b7280', margin: '2px 0 0' }}>Stand {order.stand}</p>
+              <p style={{ fontSize: '12px', color: '#6b7280', margin: '2px 0 0' }}>{order.customer_email}</p>
+              <p style={{ fontSize: '12px', color: '#6b7280', margin: '2px 0 0' }}>{order.customer_phone}</p>
+            </div>
+          </div>
+
+          {/* Items table */}
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '24px' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#f8fafc' }}>
+                <th style={{ textAlign: 'left', padding: '10px 12px', fontSize: '11px', fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb' }}>Date</th>
+                <th style={{ textAlign: 'left', padding: '10px 12px', fontSize: '11px', fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb' }}>Créneau</th>
+                <th style={{ textAlign: 'left', padding: '10px 12px', fontSize: '11px', fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb' }}>Article</th>
+                <th style={{ textAlign: 'left', padding: '10px 12px', fontSize: '11px', fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb' }}>Type</th>
+                <th style={{ textAlign: 'right', padding: '10px 12px', fontSize: '11px', fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb' }}>Prix</th>
+              </tr>
+            </thead>
+            <tbody>
+              {grouped.flatMap((group) =>
+                group.items.map((item, i) => (
+                  <tr key={`${group.date}_${group.type}_${i}`}>
+                    <td style={{ padding: '8px 12px', fontSize: '13px', color: '#374151', borderBottom: '1px solid #f3f4f6' }}>
+                      {i === 0 ? format(new Date(group.date), 'd MMM yyyy', { locale: fr }) : ''}
+                    </td>
+                    <td style={{ padding: '8px 12px', fontSize: '13px', color: '#374151', borderBottom: '1px solid #f3f4f6' }}>
+                      {i === 0 ? (SLOT_LABELS[group.type] || group.type) : ''}
+                    </td>
+                    <td style={{ padding: '8px 12px', fontSize: '13px', color: '#111827', fontWeight: '500', borderBottom: '1px solid #f3f4f6' }}>{item.name}</td>
+                    <td style={{ padding: '8px 12px', fontSize: '12px', color: '#6b7280', borderBottom: '1px solid #f3f4f6' }}>{TYPE_LABELS[item.type] || item.type}</td>
+                    <td style={{ padding: '8px 12px', fontSize: '13px', color: '#111827', fontWeight: '500', textAlign: 'right', borderBottom: '1px solid #f3f4f6' }}>{item.price.toFixed(2)}€</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={4} style={{ padding: '12px', fontSize: '14px', fontWeight: 'bold', color: '#111827', textAlign: 'right', borderTop: '2px solid #e5e7eb' }}>Total</td>
+                <td style={{ padding: '12px', fontSize: '16px', fontWeight: 'bold', color: '#111827', textAlign: 'right', borderTop: '2px solid #e5e7eb' }}>{Number(order.total_amount).toFixed(2)}€</td>
+              </tr>
+            </tfoot>
+          </table>
+
+          {/* QR Code + Footer */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '32px', paddingTop: '20px', borderTop: '1px solid #e5e7eb' }}>
+            <div>
+              <p style={{ fontSize: '11px', color: '#9ca3af', margin: '0 0 4px' }}>QR Code de retrait</p>
+              <QRCodeSVG value={order.order_number} size={100} level="H" />
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>Merci pour votre commande !</p>
+              <p style={{ fontSize: '11px', color: '#9ca3af', margin: '4px 0 0' }}>Maison Félicien — Traiteur événementiel</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
