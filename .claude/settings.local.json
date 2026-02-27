@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install date-fns)",
+      "Bash(curl -s -X POST \"https://nodywhjtymmzzxllggnu.supabase.co/auth/v1/admin/users\" -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vZHl3aGp0eW1tenp4bGxnZ251Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjE3MTE4MywiZXhwIjoyMDg3NzQ3MTgzfQ.rUm5w2QlURlRCEcG_vaAEOe7v3oW5jsZGay0AO_3_6c\" -H \"apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vZHl3aGp0eW1tenp4bGxnZ251Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNzExODMsImV4cCI6MjA4Nzc0NzE4M30.EI1dShtkxoElVDLKH5GyzPCFqT8EdETP_bU1zqrYyFI\" -H \"Content-Type: application/json\" -d '{\"\"email\"\":\"\"mat.balleron@proton.me\"\",\"\"password\"\":\"\"betamf\"\",\"\"email_confirm\"\":true}')",
+      "mcp__claude_ai_Supabase__execute_sql"
+    ]
+  }
+}
