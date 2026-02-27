@@ -47,7 +47,7 @@ export default function OrderHistory() {
   };
 
   return (
-    <div className="bg-slate-50 min-h-screen px-3 py-4 sm:px-4 sm:py-8">
+    <div className="min-h-screen px-3 py-4 sm:px-4 sm:py-8">
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="text-center space-y-2">
           <h1 className="text-2xl font-semibold text-gray-900">Mes commandes</h1>
@@ -62,12 +62,12 @@ export default function OrderHistory() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="votre@email.com"
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent"
             />
             <button
               type="submit"
               disabled={loading}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[#8B3A43] text-white text-sm font-medium rounded-lg hover:bg-[#7a3039] disabled:opacity-50 transition-colors"
             >
               {loading ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
@@ -97,7 +97,7 @@ export default function OrderHistory() {
               <Link
                 key={order.id}
                 to={`/order/success/${order.id}`}
-                className="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:border-blue-300 hover:shadow-md transition-all group"
+                className="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:border-[#8B3A43]/30 hover:shadow-md transition-all group"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-2 flex-1 min-w-0">
@@ -123,7 +123,7 @@ export default function OrderHistory() {
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-lg font-semibold text-gray-900">{Number(order.total_amount).toFixed(2)}€</span>
-                    <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-blue-500 transition-colors" />
+                    <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-[#8B3A43] transition-colors" />
                   </div>
                 </div>
               </Link>
@@ -132,7 +132,7 @@ export default function OrderHistory() {
         )}
 
         <div className="text-center">
-          <Link to="/order" className="text-sm text-blue-600 hover:underline">Passer une nouvelle commande</Link>
+          <Link to="/order" className="text-sm text-[#8B3A43] hover:underline">Passer une nouvelle commande</Link>
         </div>
       </div>
     </div>

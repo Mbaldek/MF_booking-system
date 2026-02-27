@@ -113,7 +113,7 @@ export default function StaffDelivery() {
   if (isLoading) {
     return (
       <div className="p-6 flex items-center justify-center min-h-[50vh]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#8B3A43]" />
       </div>
     );
   }
@@ -153,13 +153,13 @@ export default function StaffDelivery() {
             placeholder="Rechercher nom, stand..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43]"
           />
         </div>
         <select
           value={dateFilter}
           onChange={(e) => setDateFilter(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43]"
         >
           <option value="all">Toutes les dates</option>
           {availableDates.map((d) => (
@@ -200,7 +200,7 @@ export default function StaffDelivery() {
                       <span className="font-mono">{card.order?.order_number}</span>
                     </div>
                     {card.guest_name && (
-                      <p className="text-sm text-purple-600 font-medium mt-1">Menu : {card.guest_name}</p>
+                      <p className="text-sm text-[#8B3A43] font-medium mt-1">Menu : {card.guest_name}</p>
                     )}
                   </div>
                   <div className="text-right text-xs">
@@ -208,7 +208,7 @@ export default function StaffDelivery() {
                       {card.meal_slot?.slot_date &&
                         format(new Date(card.meal_slot.slot_date + 'T00:00:00'), 'd MMM', { locale: fr })}
                     </p>
-                    <p className="text-purple-600 font-semibold uppercase">
+                    <p className="text-[#8B3A43] font-semibold uppercase">
                       {card.meal_slot?.slot_type}
                     </p>
                   </div>
@@ -238,7 +238,7 @@ export default function StaffDelivery() {
                   <div className="pt-2 border-t">
                     <button
                       onClick={() => setDeliverModal(card)}
-                      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-[#8B3A43] text-white text-sm font-medium rounded-lg hover:bg-[#7a3039] transition-colors"
                     >
                       <Camera className="w-4 h-4" />
                       Livrer avec photo
@@ -300,7 +300,7 @@ export default function StaffDelivery() {
               ) : (
                 <button
                   onClick={() => fileRef.current?.click()}
-                  className="w-full border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-blue-400 transition-colors"
+                  className="w-full border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-[#8B3A43]/40 transition-colors"
                 >
                   <Camera className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                   <p className="text-sm text-gray-500">Prendre une photo</p>

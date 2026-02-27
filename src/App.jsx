@@ -83,6 +83,8 @@ export default function App() {
               <Route path="events" element={<AdminEvent />} />
               <Route path="menu" element={<AdminMenu />} />
               <Route path="orders" element={<AdminOrders />} />
+              <Route path="delivery" element={<StaffDelivery />} />
+              <Route path="history" element={<OrderHistory />} />
               <Route path="stats" element={<AdminStats />} />
               <Route path="reminders" element={<AdminEmailReminders />} />
               <Route path="users" element={<AdminUsers />} />
