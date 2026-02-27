@@ -19,6 +19,23 @@ export function useActiveEvent() {
   });
 }
 
+// All active events (for customer event picker)
+export function useActiveEvents() {
+  return useQuery({
+    queryKey: ['events', 'active', 'all'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .eq('is_active', true)
+        .order('start_date', { ascending: true });
+
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
 export function useEvents() {
   return useQuery({
     queryKey: ['events'],

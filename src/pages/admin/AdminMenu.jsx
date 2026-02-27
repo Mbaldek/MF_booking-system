@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Plus, Pencil, Trash2, X, Check, UtensilsCrossed } from 'lucide-react';
-import { useActiveEvent } from '@/hooks/useEvents';
-import { useAllMenuItems, useCreateMenuItem, useUpdateMenuItem, useDeleteMenuItem } from '@/hooks/useMenuItems';
+import { useMenuCatalog, useCreateMenuItem, useUpdateMenuItem, useDeleteMenuItem } from '@/hooks/useMenuItems';
 
 const TYPES = [
   { value: 'entree', label: 'Entrée' },
@@ -38,8 +37,7 @@ const EMPTY_FORM = {
 };
 
 export default function AdminMenu() {
-  const { data: activeEvent, isLoading: eventLoading } = useActiveEvent();
-  const { data: menuItems = [], isLoading: itemsLoading } = useAllMenuItems(activeEvent?.id);
+  const { data: menuItems = [], isLoading: itemsLoading } = useMenuCatalog();
   const createMenuItem = useCreateMenuItem();
   const updateMenuItem = useUpdateMenuItem();
   const deleteMenuItem = useDeleteMenuItem();
@@ -92,7 +90,6 @@ export default function AdminMenu() {
       description: form.description.trim(),
       available: form.available,
       tags: form.tags,
-      event_id: activeEvent.id,
     };
 
     try {
@@ -121,30 +118,6 @@ export default function AdminMenu() {
 
   const isSaving = createMenuItem.isPending || updateMenuItem.isPending;
 
-  // Loading state
-  if (eventLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-      </div>
-    );
-  }
-
-  // No active event
-  if (!activeEvent) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl shadow-sm p-8 max-w-md text-center">
-          <UtensilsCrossed className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">Aucun événement actif</h2>
-          <p className="text-sm text-gray-500">
-            Créez ou activez un événement pour gérer son menu.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   const itemsByType = (type) => menuItems.filter((item) => item.type === type);
 
   return (
@@ -153,8 +126,8 @@ export default function AdminMenu() {
         {/* Header */}
         <div className="bg-white rounded-xl shadow-sm p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Gestion du menu</h1>
-            <p className="text-sm text-gray-500 mt-1">{activeEvent.name}</p>
+            <h1 className="text-2xl font-semibold text-gray-900">Catalogue menu</h1>
+            <p className="text-sm text-gray-500 mt-1">Articles disponibles pour tous les événements</p>
           </div>
           <button
             onClick={openCreateForm}
