@@ -5,14 +5,18 @@ const typeLabels = {
   boisson: 'Boisson',
 };
 
-export default function MenuSelector({ type, items, selectedId, onSelect }) {
+export default function MenuSelector({ type, items, selectedId, onSelect, required = false }) {
   if (!items || items.length === 0) return null;
 
   return (
     <div className="space-y-2">
       <div className="flex items-baseline gap-2">
         <p className="text-sm font-semibold text-gray-700">{typeLabels[type] || type}</p>
-        <span className="text-xs text-gray-400">optionnel</span>
+        {required ? (
+          <span className="text-xs text-red-500 font-medium">obligatoire</span>
+        ) : (
+          <span className="text-xs text-gray-400">optionnel</span>
+        )}
       </div>
       <div className="grid gap-2">
         {items.map((item) => {
@@ -21,7 +25,15 @@ export default function MenuSelector({ type, items, selectedId, onSelect }) {
             <button
               key={item.id}
               type="button"
-              onClick={() => onSelect(isSelected ? null : item.id)}
+              onClick={() => {
+                if (required) {
+                  // Radio behavior: always select, no deselect
+                  onSelect(item.id);
+                } else {
+                  // Checkbox behavior: toggle
+                  onSelect(isSelected ? null : item.id);
+                }
+              }}
               className={`flex items-start justify-between gap-4 p-3 rounded-lg border-2 transition-all text-left ${
                 isSelected
                   ? 'border-blue-500 bg-blue-50'
@@ -30,7 +42,7 @@ export default function MenuSelector({ type, items, selectedId, onSelect }) {
             >
               <div className="flex items-start gap-3 flex-1">
                 <div
-                  className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                  className={`w-5 h-5 rounded${required ? '-full' : ''} border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${
                     isSelected ? 'bg-blue-600 border-blue-600' : 'border-gray-300'
                   }`}
                 >
@@ -47,9 +59,6 @@ export default function MenuSelector({ type, items, selectedId, onSelect }) {
                   )}
                 </div>
               </div>
-              <span className="text-xs font-medium bg-green-100 text-green-800 px-2 py-1 rounded-full flex-shrink-0">
-                {Number(item.price).toFixed(2)}€
-              </span>
             </button>
           );
         })}

@@ -248,10 +248,13 @@ function FinancialTab({ orders, orderLines, updateOrder }) {
                   <p className="text-xs text-gray-400">Aucune ligne de commande.</p>
                 )}
 
-                {slots.map(([slotId, slot]) => (
-                  <div key={slotId}>
+                {slots.map(([slotKey, slot]) => (
+                  <div key={slotKey}>
                     <p className="text-xs font-medium text-gray-500 mb-1">
                       {formatSlotHeader(slot.slot_date, slot.slot_type)}
+                      {slot.guest_name && (
+                        <span className="ml-2 text-purple-600 font-semibold">{slot.guest_name}</span>
+                      )}
                     </p>
                     <ul className="space-y-0.5 pl-3">
                       {['entree', 'plat', 'dessert', 'boisson'].map((type) => {
@@ -262,20 +265,16 @@ function FinancialTab({ orders, orderLines, updateOrder }) {
                             key={type}
                             className="flex items-center justify-between text-sm text-gray-700"
                           >
-                            <span>
-                              {item.quantity > 1 && `${item.quantity}x `}
-                              {item.name}
-                            </span>
-                            <span className="text-gray-400">
-                              {(item.price * item.quantity).toFixed(2)}&nbsp;&euro;
-                            </span>
+                            <span>{item.name}</span>
                           </li>
                         );
                       })}
                     </ul>
-                    <p className="mt-1 text-right text-xs font-medium text-gray-500">
-                      Sous-total : {slot.subtotal.toFixed(2)}&nbsp;&euro;
-                    </p>
+                    {slot.menu_unit_price != null && (
+                      <p className="mt-1 text-right text-xs font-medium text-gray-500">
+                        Menu : {Number(slot.menu_unit_price).toFixed(2)}&nbsp;&euro;
+                      </p>
+                    )}
                   </div>
                 ))}
 
@@ -319,14 +318,15 @@ function DailyTab({ orderLines }) {
         map[key] = { slot_date: slotDate, slot_type: slotType, orderMap: {} };
       }
 
-      const orderId = line.order_id;
-      if (!map[key].orderMap[orderId]) {
-        map[key].orderMap[orderId] = {
+      const menuKey = `${line.order_id}__${line.guest_name || ''}`;
+      if (!map[key].orderMap[menuKey]) {
+        map[key].orderMap[menuKey] = {
           order: line.order,
+          guest_name: line.guest_name,
           lines: [],
         };
       }
-      map[key].orderMap[orderId].lines.push(line);
+      map[key].orderMap[menuKey].lines.push(line);
     }
 
     /* sort slot keys chronologically, midi before soir */
@@ -356,9 +356,9 @@ function DailyTab({ orderLines }) {
             <h3 className="mb-3 text-sm font-semibold text-gray-700">{header}</h3>
 
             <div className="space-y-3">
-              {orderEntries.map(({ order, lines }) => (
+              {orderEntries.map(({ order, guest_name, lines }) => (
                 <div
-                  key={order?.id ?? lines[0]?.order_id}
+                  key={`${order?.id ?? lines[0]?.order_id}__${guest_name || ''}`}
                   className="rounded-xl bg-white shadow-sm border border-gray-100 p-4 space-y-2"
                 >
                   {/* order header */}
@@ -372,7 +372,12 @@ function DailyTab({ orderLines }) {
                           </span>
                         )}
                       </p>
-                      <p className="text-xs text-gray-400">{order?.order_number}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs text-gray-400">{order?.order_number}</p>
+                        {guest_name && (
+                          <span className="text-xs text-purple-600 font-medium">Menu : {guest_name}</span>
+                        )}
+                      </div>
                     </div>
                     {paymentBadge(order?.payment_status ?? 'pending')}
                   </div>
@@ -385,7 +390,6 @@ function DailyTab({ orderLines }) {
                         className="flex items-center justify-between text-sm"
                       >
                         <span className="text-gray-700">
-                          {line.quantity > 1 && `${line.quantity}x `}
                           {line.menu_item?.name ?? '—'}
                         </span>
                         {prepBadge(line.prep_status)}

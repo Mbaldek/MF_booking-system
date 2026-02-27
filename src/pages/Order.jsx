@@ -2,11 +2,12 @@ import { useState, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { ChevronDown, ArrowLeft, Calendar } from 'lucide-react';
+import { ChevronDown, ArrowLeft, Calendar, Plus, Trash2, User } from 'lucide-react';
 import { useActiveEvents } from '@/hooks/useEvents';
 import { useMealSlots } from '@/hooks/useMealSlots';
 import { useEventMenuItems } from '@/hooks/useMenuItems';
 import { useCreateOrder } from '@/hooks/useOrders';
+import { supabase } from '@/api/supabase';
 import SlotSelector from '@/components/order/SlotSelector';
 import MenuSelector from '@/components/order/MenuSelector';
 
@@ -66,7 +67,7 @@ export default function OrderPage() {
     first_name: '', last_name: '', stand: '', phone: '', email: '',
   });
   const [selectedSlotIds, setSelectedSlotIds] = useState([]);
-  const [slotMenus, setSlotMenus] = useState({});
+  const [slotGuests, setSlotGuests] = useState({});
   const [expandedDays, setExpandedDays] = useState({});
 
   const { data: activeEvents = [], isLoading: eventsLoading } = useActiveEvents();
@@ -87,7 +88,7 @@ export default function OrderPage() {
   const handleToggleSlot = useCallback((slotId) => {
     setSelectedSlotIds((prev) => {
       if (prev.includes(slotId)) {
-        setSlotMenus((current) => {
+        setSlotGuests((current) => {
           const { [slotId]: removed, ...rest } = current;
           return rest;
         });
@@ -97,11 +98,34 @@ export default function OrderPage() {
     });
   }, []);
 
-  const handleMenuSelection = useCallback((slotId, type, itemId) => {
-    setSlotMenus((prev) => ({
+  const handleAddGuest = useCallback((slotId) => {
+    setSlotGuests((prev) => ({
       ...prev,
-      [slotId]: { ...(prev[slotId] || {}), [type]: itemId },
+      [slotId]: [...(prev[slotId] || []), { name: '', entree: null, plat: null, dessert: null, boisson: null }],
     }));
+  }, []);
+
+  const handleRemoveGuest = useCallback((slotId, guestIndex) => {
+    setSlotGuests((prev) => ({
+      ...prev,
+      [slotId]: (prev[slotId] || []).filter((_, i) => i !== guestIndex),
+    }));
+  }, []);
+
+  const handleGuestNameChange = useCallback((slotId, guestIndex, name) => {
+    setSlotGuests((prev) => {
+      const guests = [...(prev[slotId] || [])];
+      guests[guestIndex] = { ...guests[guestIndex], name };
+      return { ...prev, [slotId]: guests };
+    });
+  }, []);
+
+  const handleGuestMenuSelection = useCallback((slotId, guestIndex, type, itemId) => {
+    setSlotGuests((prev) => {
+      const guests = [...(prev[slotId] || [])];
+      guests[guestIndex] = { ...guests[guestIndex], [type]: itemId };
+      return { ...prev, [slotId]: guests };
+    });
   }, []);
 
   const selectedSlotsByDate = useMemo(() => {
@@ -132,40 +156,43 @@ export default function OrderPage() {
     handleToggleSlot(slotId);
   }, [mealSlots, selectedSlotIds, handleToggleSlot]);
 
+  const ev = effectiveEvent;
+
   const calculateTotal = () => {
+    if (!ev) return 0;
     let total = 0;
     selectedSlotIds.forEach((slotId) => {
-      const menu = slotMenus[slotId] || {};
-      ['entree', 'plat', 'dessert', 'boisson'].forEach((type) => {
-        if (menu[type]) {
-          const item = menuItems.find((m) => m.id === menu[type]);
-          if (item) total += Number(item.price);
-        }
-      });
+      const slot = mealSlots.find((s) => s.id === slotId);
+      const price = slot?.slot_type === 'soir' ? Number(ev.menu_price_soir) : Number(ev.menu_price_midi);
+      const guests = slotGuests[slotId] || [];
+      total += guests.length * price;
     });
     return total;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const ev = effectiveEvent;
     const totalAmount = calculateTotal();
 
     const orderLines = [];
     selectedSlotIds.forEach((slotId) => {
-      const menu = slotMenus[slotId] || {};
-      ['entree', 'plat', 'dessert', 'boisson'].forEach((type) => {
-        if (menu[type]) {
-          const item = menuItems.find((m) => m.id === menu[type]);
-          if (item) {
+      const slot = mealSlots.find((s) => s.id === slotId);
+      const menuPrice = slot?.slot_type === 'soir' ? Number(ev.menu_price_soir) : Number(ev.menu_price_midi);
+      const guests = slotGuests[slotId] || [];
+
+      guests.forEach((guest) => {
+        ['entree', 'plat', 'dessert', 'boisson'].forEach((type) => {
+          if (guest[type]) {
             orderLines.push({
               meal_slot_id: slotId,
-              menu_item_id: item.id,
+              menu_item_id: guest[type],
               quantity: 1,
-              unit_price: Number(item.price),
+              unit_price: 0,
+              guest_name: guest.name.trim(),
+              menu_unit_price: menuPrice,
             });
           }
-        }
+        });
       });
     });
 
@@ -183,6 +210,11 @@ export default function OrderPage() {
         },
         orderLines,
       });
+
+      // Fire-and-forget email confirmation
+      supabase.functions.invoke('send-order-confirmation', {
+        body: { orderId: result.order.id },
+      }).catch(() => {}); // silently ignore email errors
 
       navigate(`/order/success/${result.order.id}`);
     } catch (error) {
@@ -217,15 +249,15 @@ export default function OrderPage() {
     return <EventPicker events={activeEvents} onSelect={setSelectedEvent} />;
   }
 
-  const ev = effectiveEvent;
-
   const total = calculateTotal();
   const isFormValid =
     formData.first_name && formData.last_name && formData.stand && formData.phone && formData.email &&
     selectedSlotIds.length > 0 &&
     selectedSlotIds.every((slotId) => {
-      const menu = slotMenus[slotId];
-      return menu && (menu.entree || menu.plat || menu.dessert || menu.boisson);
+      const guests = slotGuests[slotId] || [];
+      return guests.length > 0 && guests.every((g) =>
+        g.name.trim() && g.entree && g.plat && g.dessert && g.boisson
+      );
     });
 
   const slotLabels = { midi: 'Midi', soir: 'Soir' };
@@ -256,6 +288,18 @@ export default function OrderPage() {
               {format(new Date(ev.start_date + 'T00:00:00'), 'd MMM', { locale: fr })} — {format(new Date(ev.end_date + 'T00:00:00'), 'd MMM yyyy', { locale: fr })}
             </p>
             {ev.description && <p className="text-xs text-gray-400 mt-2">{ev.description}</p>}
+            <div className="flex justify-center gap-4 mt-3">
+              {Number(ev.menu_price_midi) > 0 && (
+                <span className="text-sm font-medium text-blue-700 bg-blue-50 px-3 py-1 rounded-full">
+                  Menu midi : {Number(ev.menu_price_midi).toFixed(2)}€
+                </span>
+              )}
+              {Number(ev.menu_price_soir) > 0 && (
+                <span className="text-sm font-medium text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full">
+                  Menu soir : {Number(ev.menu_price_soir).toFixed(2)}€
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -292,9 +336,8 @@ export default function OrderPage() {
               <div className="space-y-3">
                 {selectedSlotsByDate.map(({ date, slots }) => {
                   const isExpanded = expandedDays[date] !== false;
-                  const dayItemCount = slots.reduce((count, slot) => {
-                    const menu = slotMenus[slot.id] || {};
-                    return count + ['entree', 'plat', 'dessert', 'boisson'].filter((t) => menu[t]).length;
+                  const dayMenuCount = slots.reduce((count, slot) => {
+                    return count + (slotGuests[slot.id]?.length || 0);
                   }, 0);
 
                   return (
@@ -305,9 +348,9 @@ export default function OrderPage() {
                           <span className="text-base font-medium text-gray-900 capitalize">
                             {format(new Date(date + 'T00:00:00'), 'EEEE d MMMM', { locale: fr })}
                           </span>
-                          {dayItemCount > 0 && (
+                          {dayMenuCount > 0 && (
                             <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-                              {dayItemCount} article{dayItemCount > 1 ? 's' : ''}
+                              {dayMenuCount} menu{dayMenuCount > 1 ? 's' : ''}
                             </span>
                           )}
                         </div>
@@ -316,17 +359,101 @@ export default function OrderPage() {
 
                       {isExpanded && (
                         <div className="p-4 space-y-6">
-                          {slots.map((slot) => (
-                            <div key={slot.id} className="space-y-4">
-                              {slots.length > 1 && (
-                                <p className="text-sm font-semibold text-blue-600 uppercase tracking-wide">{slotLabels[slot.slot_type]}</p>
-                              )}
-                              {entrees.length > 0 && <MenuSelector type="entree" items={entrees} selectedId={slotMenus[slot.id]?.entree} onSelect={(id) => handleMenuSelection(slot.id, 'entree', id)} />}
-                              {plats.length > 0 && <MenuSelector type="plat" items={plats} selectedId={slotMenus[slot.id]?.plat} onSelect={(id) => handleMenuSelection(slot.id, 'plat', id)} />}
-                              {desserts.length > 0 && <MenuSelector type="dessert" items={desserts} selectedId={slotMenus[slot.id]?.dessert} onSelect={(id) => handleMenuSelection(slot.id, 'dessert', id)} />}
-                              {boissons.length > 0 && <MenuSelector type="boisson" items={boissons} selectedId={slotMenus[slot.id]?.boisson} onSelect={(id) => handleMenuSelection(slot.id, 'boisson', id)} />}
-                            </div>
-                          ))}
+                          {slots.map((slot) => {
+                            const guests = slotGuests[slot.id] || [];
+                            const menuPrice = slot.slot_type === 'soir' ? Number(ev.menu_price_soir) : Number(ev.menu_price_midi);
+
+                            return (
+                              <div key={slot.id} className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <p className="text-sm font-semibold text-blue-600 uppercase tracking-wide">
+                                      {slotLabels[slot.slot_type]}
+                                    </p>
+                                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                                      {menuPrice.toFixed(2)}€ / menu
+                                    </span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAddGuest(slot.id)}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                    Ajouter un menu
+                                  </button>
+                                </div>
+
+                                {guests.length === 0 && (
+                                  <p className="text-sm text-gray-400 text-center py-4 border-2 border-dashed border-gray-200 rounded-lg">
+                                    Ajoutez au moins un menu pour ce créneau
+                                  </p>
+                                )}
+
+                                {guests.map((guest, guestIndex) => (
+                                  <div key={guestIndex} className="border border-gray-200 rounded-xl p-4 space-y-4 bg-gray-50/50">
+                                    <div className="flex items-center justify-between gap-3">
+                                      <div className="flex items-center gap-2 flex-1">
+                                        <User className="w-4 h-4 text-gray-400 shrink-0" />
+                                        <input
+                                          type="text"
+                                          placeholder="Prénom du convive *"
+                                          value={guest.name}
+                                          onChange={(e) => handleGuestNameChange(slot.id, guestIndex, e.target.value)}
+                                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        />
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveGuest(slot.id, guestIndex)}
+                                        className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                        title="Supprimer ce menu"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
+                                    </div>
+
+                                    {entrees.length > 0 && (
+                                      <MenuSelector
+                                        type="entree"
+                                        items={entrees}
+                                        selectedId={guest.entree}
+                                        onSelect={(id) => handleGuestMenuSelection(slot.id, guestIndex, 'entree', id)}
+                                        required
+                                      />
+                                    )}
+                                    {plats.length > 0 && (
+                                      <MenuSelector
+                                        type="plat"
+                                        items={plats}
+                                        selectedId={guest.plat}
+                                        onSelect={(id) => handleGuestMenuSelection(slot.id, guestIndex, 'plat', id)}
+                                        required
+                                      />
+                                    )}
+                                    {desserts.length > 0 && (
+                                      <MenuSelector
+                                        type="dessert"
+                                        items={desserts}
+                                        selectedId={guest.dessert}
+                                        onSelect={(id) => handleGuestMenuSelection(slot.id, guestIndex, 'dessert', id)}
+                                        required
+                                      />
+                                    )}
+                                    {boissons.length > 0 && (
+                                      <MenuSelector
+                                        type="boisson"
+                                        items={boissons}
+                                        selectedId={guest.boisson}
+                                        onSelect={(id) => handleGuestMenuSelection(slot.id, guestIndex, 'boisson', id)}
+                                        required
+                                      />
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -337,7 +464,9 @@ export default function OrderPage() {
 
             {selectedSlotIds.length > 0 && (
               <div className="pt-4 border-t flex justify-between items-center">
-                <span className="text-sm text-gray-600">{selectedSlotIds.length} créneau{selectedSlotIds.length > 1 ? 'x' : ''}</span>
+                <span className="text-sm text-gray-600">
+                  {selectedSlotIds.reduce((c, sid) => c + (slotGuests[sid]?.length || 0), 0)} menu(s) sur {selectedSlotIds.length} créneau{selectedSlotIds.length > 1 ? 'x' : ''}
+                </span>
                 <span className="text-2xl font-semibold">{total.toFixed(2)}€</span>
               </div>
             )}

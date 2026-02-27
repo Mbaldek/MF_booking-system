@@ -14,10 +14,19 @@ function EventForm({ initialData, onSubmit, onCancel, isPending }) {
   const [startDate, setStartDate] = useState(initialData?.start_date || '');
   const [endDate, setEndDate] = useState(initialData?.end_date || '');
   const [description, setDescription] = useState(initialData?.description || '');
+  const [menuPriceMidi, setMenuPriceMidi] = useState(initialData?.menu_price_midi ?? '');
+  const [menuPriceSoir, setMenuPriceSoir] = useState(initialData?.menu_price_soir ?? '');
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit({ name, start_date: startDate, end_date: endDate, description: description.trim() || null });
+    onSubmit({
+      name,
+      start_date: startDate,
+      end_date: endDate,
+      description: description.trim() || null,
+      menu_price_midi: parseFloat(menuPriceMidi) || 0,
+      menu_price_soir: parseFloat(menuPriceSoir) || 0,
+    });
   };
 
   const isValid = name.trim() && startDate && endDate && endDate >= startDate;
@@ -49,6 +58,23 @@ function EventForm({ initialData, onSubmit, onCancel, isPending }) {
         <textarea id="event-desc" rows={2} value={description} onChange={(e) => setDescription(e.target.value)}
           placeholder="Description de l'événement..."
           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none" />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-1">
+          <label htmlFor="price-midi" className="block text-sm font-medium text-gray-700">Prix menu midi (€)</label>
+          <input id="price-midi" type="number" min="0" step="0.01" value={menuPriceMidi}
+            onChange={(e) => setMenuPriceMidi(e.target.value)}
+            placeholder="0.00"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+        </div>
+        <div className="space-y-1">
+          <label htmlFor="price-soir" className="block text-sm font-medium text-gray-700">Prix menu soir (€)</label>
+          <input id="price-soir" type="number" min="0" step="0.01" value={menuPriceSoir}
+            onChange={(e) => setMenuPriceSoir(e.target.value)}
+            placeholder="0.00"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+        </div>
       </div>
 
       {startDate && endDate && endDate < startDate && (
@@ -334,6 +360,13 @@ export default function AdminEvent() {
                             {format(new Date(event.start_date + 'T00:00:00'), 'd MMM yyyy', { locale: fr })} — {format(new Date(event.end_date + 'T00:00:00'), 'd MMM yyyy', { locale: fr })}
                           </p>
                           {event.description && <p className="text-xs text-gray-400 mt-1">{event.description}</p>}
+                          {(Number(event.menu_price_midi) > 0 || Number(event.menu_price_soir) > 0) && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              {Number(event.menu_price_midi) > 0 && <span>Midi : {Number(event.menu_price_midi).toFixed(2)}€</span>}
+                              {Number(event.menu_price_midi) > 0 && Number(event.menu_price_soir) > 0 && <span> · </span>}
+                              {Number(event.menu_price_soir) > 0 && <span>Soir : {Number(event.menu_price_soir).toFixed(2)}€</span>}
+                            </p>
+                          )}
                         </div>
                       </div>
 

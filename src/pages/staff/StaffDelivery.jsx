@@ -53,12 +53,13 @@ export default function StaffDelivery() {
 
     const grouped = {};
     filtered.forEach((line) => {
-      const key = `${line.order_id}-${line.meal_slot_id}`;
+      const key = `${line.order_id}-${line.meal_slot_id}-${line.guest_name || ''}`;
       if (!grouped[key]) {
         grouped[key] = {
           key,
           order: line.order,
           meal_slot: line.meal_slot,
+          guest_name: line.guest_name,
           lines: [],
         };
       }
@@ -198,6 +199,9 @@ export default function StaffDelivery() {
                       <span>&bull;</span>
                       <span className="font-mono">{card.order?.order_number}</span>
                     </div>
+                    {card.guest_name && (
+                      <p className="text-sm text-purple-600 font-medium mt-1">Menu : {card.guest_name}</p>
+                    )}
                   </div>
                   <div className="text-right text-xs">
                     <p className="font-medium capitalize">

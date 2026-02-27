@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { QRCodeSVG } from 'qrcode.react';
+import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Download, ArrowLeft, CheckCircle2, User, MapPin, Mail, Phone, CalendarDays, UtensilsCrossed } from 'lucide-react';
@@ -10,24 +10,31 @@ import { useOrderLinesByOrder } from '@/hooks/useOrderLines';
 const TYPE_LABELS = { entree: 'Entrée', plat: 'Plat', dessert: 'Dessert', boisson: 'Boisson' };
 const SLOT_LABELS = { midi: 'Midi', soir: 'Soir' };
 
-function groupLinesBySlot(lines) {
+function groupLinesBySlotAndGuest(lines) {
   const groups = {};
   for (const line of lines) {
     const slot = line.meal_slot;
     if (!slot) continue;
-    const key = `${slot.slot_date}_${slot.slot_type}`;
+    const guestName = line.guest_name || '_default';
+    const key = `${slot.slot_date}_${slot.slot_type}_${guestName}`;
     if (!groups[key]) {
-      groups[key] = { date: slot.slot_date, type: slot.slot_type, items: [] };
+      groups[key] = {
+        date: slot.slot_date,
+        type: slot.slot_type,
+        guest_name: line.guest_name,
+        menu_unit_price: line.menu_unit_price != null ? Number(line.menu_unit_price) : null,
+        items: [],
+      };
     }
     groups[key].items.push({
       name: line.menu_item?.name || 'Article inconnu',
       type: line.menu_item?.type || '',
-      price: Number(line.unit_price),
     });
   }
   return Object.values(groups).sort((a, b) => {
     if (a.date !== b.date) return a.date.localeCompare(b.date);
-    return a.type === 'midi' ? -1 : 1;
+    if (a.type !== b.type) return a.type === 'midi' ? -1 : 1;
+    return (a.guest_name || '').localeCompare(b.guest_name || '');
   });
 }
 
@@ -97,7 +104,7 @@ export default function OrderSuccess() {
     );
   }
 
-  const grouped = groupLinesBySlot(lines);
+  const grouped = groupLinesBySlotAndGuest(lines);
   const eventName = order.event?.name || '';
   const eventDates = order.event
     ? `${format(new Date(order.event.start_date), 'd MMM', { locale: fr })} — ${format(new Date(order.event.end_date), 'd MMM yyyy', { locale: fr })}`
@@ -155,10 +162,10 @@ export default function OrderSuccess() {
             </div>
           </div>
 
-          {/* Lines grouped by slot */}
+          {/* Lines grouped by slot + guest */}
           <div className="space-y-4">
-            {grouped.map((group) => (
-              <div key={`${group.date}_${group.type}`} className="border border-gray-100 rounded-lg overflow-hidden">
+            {grouped.map((group, gi) => (
+              <div key={gi} className="border border-gray-100 rounded-lg overflow-hidden">
                 <div className="bg-gray-50 px-4 py-2 flex items-center gap-2">
                   <CalendarDays className="w-4 h-4 text-gray-400" />
                   <span className="text-sm font-medium text-gray-700">
@@ -167,18 +174,25 @@ export default function OrderSuccess() {
                   <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">
                     {SLOT_LABELS[group.type] || group.type}
                   </span>
+                  {group.guest_name && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">
+                      {group.guest_name}
+                    </span>
+                  )}
+                  {group.menu_unit_price != null && (
+                    <span className="ml-auto text-xs font-medium text-gray-600">
+                      {group.menu_unit_price.toFixed(2)}€
+                    </span>
+                  )}
                 </div>
                 <div className="divide-y divide-gray-50">
                   {group.items.map((item, i) => (
-                    <div key={i} className="px-4 py-2.5 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <UtensilsCrossed className="w-3.5 h-3.5 text-gray-300" />
-                        <span className="text-sm text-gray-700">{item.name}</span>
-                        <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">
-                          {TYPE_LABELS[item.type] || item.type}
-                        </span>
-                      </div>
-                      <span className="text-sm font-medium text-gray-900">{item.price.toFixed(2)}€</span>
+                    <div key={i} className="px-4 py-2.5 flex items-center gap-2">
+                      <UtensilsCrossed className="w-3.5 h-3.5 text-gray-300" />
+                      <span className="text-sm text-gray-700">{item.name}</span>
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">
+                        {TYPE_LABELS[item.type] || item.type}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -228,7 +242,7 @@ export default function OrderSuccess() {
         </div>
       </div>
 
-      {/* Hidden invoice template for PDF generation */}
+      {/* Hidden invoice template for PDF generation — uses QRCodeCanvas for html2canvas compatibility */}
       <div className="fixed left-[-9999px] top-0">
         <div ref={invoiceRef} style={{ width: '794px', padding: '40px', backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }}>
           {/* PDF Header */}
@@ -264,33 +278,37 @@ export default function OrderSuccess() {
             </div>
           </div>
 
-          {/* Items table */}
+          {/* Menus table */}
           <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '24px' }}>
             <thead>
               <tr style={{ backgroundColor: '#f8fafc' }}>
                 <th style={{ textAlign: 'left', padding: '10px 12px', fontSize: '11px', fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb' }}>Date</th>
                 <th style={{ textAlign: 'left', padding: '10px 12px', fontSize: '11px', fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb' }}>Créneau</th>
-                <th style={{ textAlign: 'left', padding: '10px 12px', fontSize: '11px', fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb' }}>Article</th>
-                <th style={{ textAlign: 'left', padding: '10px 12px', fontSize: '11px', fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb' }}>Type</th>
+                <th style={{ textAlign: 'left', padding: '10px 12px', fontSize: '11px', fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb' }}>Convive</th>
+                <th style={{ textAlign: 'left', padding: '10px 12px', fontSize: '11px', fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb' }}>Menu</th>
                 <th style={{ textAlign: 'right', padding: '10px 12px', fontSize: '11px', fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb' }}>Prix</th>
               </tr>
             </thead>
             <tbody>
-              {grouped.flatMap((group) =>
-                group.items.map((item, i) => (
-                  <tr key={`${group.date}_${group.type}_${i}`}>
-                    <td style={{ padding: '8px 12px', fontSize: '13px', color: '#374151', borderBottom: '1px solid #f3f4f6' }}>
-                      {i === 0 ? format(new Date(group.date), 'd MMM yyyy', { locale: fr }) : ''}
-                    </td>
-                    <td style={{ padding: '8px 12px', fontSize: '13px', color: '#374151', borderBottom: '1px solid #f3f4f6' }}>
-                      {i === 0 ? (SLOT_LABELS[group.type] || group.type) : ''}
-                    </td>
-                    <td style={{ padding: '8px 12px', fontSize: '13px', color: '#111827', fontWeight: '500', borderBottom: '1px solid #f3f4f6' }}>{item.name}</td>
-                    <td style={{ padding: '8px 12px', fontSize: '12px', color: '#6b7280', borderBottom: '1px solid #f3f4f6' }}>{TYPE_LABELS[item.type] || item.type}</td>
-                    <td style={{ padding: '8px 12px', fontSize: '13px', color: '#111827', fontWeight: '500', textAlign: 'right', borderBottom: '1px solid #f3f4f6' }}>{item.price.toFixed(2)}€</td>
-                  </tr>
-                ))
-              )}
+              {grouped.map((group, gi) => (
+                <tr key={gi}>
+                  <td style={{ padding: '8px 12px', fontSize: '13px', color: '#374151', borderBottom: '1px solid #f3f4f6', verticalAlign: 'top' }}>
+                    {format(new Date(group.date), 'd MMM yyyy', { locale: fr })}
+                  </td>
+                  <td style={{ padding: '8px 12px', fontSize: '13px', color: '#374151', borderBottom: '1px solid #f3f4f6', verticalAlign: 'top' }}>
+                    {SLOT_LABELS[group.type] || group.type}
+                  </td>
+                  <td style={{ padding: '8px 12px', fontSize: '13px', color: '#7c3aed', fontWeight: '500', borderBottom: '1px solid #f3f4f6', verticalAlign: 'top' }}>
+                    {group.guest_name || '—'}
+                  </td>
+                  <td style={{ padding: '8px 12px', fontSize: '12px', color: '#111827', borderBottom: '1px solid #f3f4f6', verticalAlign: 'top' }}>
+                    {group.items.map((item) => item.name).join(', ')}
+                  </td>
+                  <td style={{ padding: '8px 12px', fontSize: '13px', color: '#111827', fontWeight: '500', textAlign: 'right', borderBottom: '1px solid #f3f4f6', verticalAlign: 'top' }}>
+                    {group.menu_unit_price != null ? `${group.menu_unit_price.toFixed(2)}€` : '—'}
+                  </td>
+                </tr>
+              ))}
             </tbody>
             <tfoot>
               <tr>
@@ -300,11 +318,11 @@ export default function OrderSuccess() {
             </tfoot>
           </table>
 
-          {/* QR Code + Footer */}
+          {/* QR Code + Footer — uses QRCodeCanvas for html2canvas compatibility */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '32px', paddingTop: '20px', borderTop: '1px solid #e5e7eb' }}>
             <div>
               <p style={{ fontSize: '11px', color: '#9ca3af', margin: '0 0 4px' }}>QR Code de retrait</p>
-              <QRCodeSVG value={order.order_number} size={100} level="H" />
+              <QRCodeCanvas value={order.order_number} size={100} level="H" />
             </div>
             <div style={{ textAlign: 'right' }}>
               <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>Merci pour votre commande !</p>
