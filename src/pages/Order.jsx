@@ -71,13 +71,13 @@ export default function OrderPage() {
   const [expandedDays, setExpandedDays] = useState({});
 
   const { data: activeEvents = [], isLoading: eventsLoading } = useActiveEvents();
-  const eventId = selectedEvent?.id;
-  const { data: mealSlots = [] } = useMealSlots(eventId);
-  const { data: menuItems = [] } = useEventMenuItems(eventId);
   const createOrder = useCreateOrder();
 
   // Auto-select if only one active event
   const effectiveEvent = activeEvents.length === 1 ? activeEvents[0] : selectedEvent;
+  const eventId = effectiveEvent?.id;
+  const { data: mealSlots = [] } = useMealSlots(eventId);
+  const { data: menuItems = [] } = useEventMenuItems(eventId);
   const showPicker = !effectiveEvent && activeEvents.length > 1;
 
   const entrees = menuItems.filter((i) => i.type === 'entree');
