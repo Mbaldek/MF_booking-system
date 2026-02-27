@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/lib/AuthContext';
 import RoleGuard from '@/lib/RoleGuard';
+import { supabaseMissing } from '@/api/supabase';
 
 // Layouts
 import AdminLayout from '@/components/layout/AdminLayout';
@@ -33,6 +34,26 @@ const queryClient = new QueryClient({
 });
 
 export default function App() {
+  if (supabaseMissing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md text-center space-y-3">
+          <h1 className="text-xl font-bold text-red-600">Configuration manquante</h1>
+          <p className="text-gray-600 text-sm">
+            Les variables d'environnement Supabase ne sont pas configurées.
+          </p>
+          <code className="block text-xs bg-gray-100 p-3 rounded text-left">
+            VITE_SUPABASE_URL=...<br />
+            VITE_SUPABASE_ANON_KEY=...
+          </code>
+          <p className="text-gray-500 text-xs">
+            Ajoutez-les dans Vercel &rarr; Settings &rarr; Environment Variables, puis redéployez.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>

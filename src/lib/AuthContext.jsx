@@ -1,14 +1,16 @@
 import { createContext, useState, useContext, useEffect } from 'react';
-import { supabase } from '@/api/supabase';
+import { supabase, supabaseMissing } from '@/api/supabase';
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!supabaseMissing);
 
   useEffect(() => {
+    if (supabaseMissing) return;
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
