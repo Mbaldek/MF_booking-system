@@ -1,61 +1,48 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Truck, Search, Camera, X, Check, Package } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useActiveEvent } from '@/hooks/useEvents';
-import { useDeliveryLines, useDeliverWithPhoto } from '@/hooks/useOrderLines';
+import { useDeliveryLines, useDeliverWithPhoto, useUpdateOrderLineStatus } from '@/hooks/useOrderLines';
 import { useAuth } from '@/lib/AuthContext';
+import { supabase } from '@/api/supabase';
+import StaffHeader from '@/components/layout/StaffHeader';
+import MfBadge from '@/components/ui/MfBadge';
 import EventSelector from '@/components/admin/EventSelector';
 
-export default function StaffDelivery() {
-  const [search, setSearch] = useState('');
-  const [dateFilter, setDateFilter] = useState('all');
-  const [deliverModal, setDeliverModal] = useState(null); // line being delivered
-  const [photo, setPhoto] = useState(null);
-  const [photoPreview, setPhotoPreview] = useState(null);
-  const fileRef = useRef(null);
-  const [selectedEventId, setSelectedEventId] = useState(null);
+const TYPE_ICONS = { entree: '🥗', plat: '🍽', dessert: '🍰', boisson: '🥤' };
 
+export default function StaffDelivery() {
+  const [selectedEventId, setSelectedEventId] = useState(null);
+  const [view, setView] = useState('active'); // active | done
+
+  const queryClient = useQueryClient();
   const { profile } = useAuth();
   const { data: activeEvent } = useActiveEvent();
   const eventId = selectedEventId ?? activeEvent?.id;
+
   const { data: lines = [], isLoading } = useDeliveryLines(eventId);
   const deliverMutation = useDeliverWithPhoto();
+  const updateStatus = useUpdateOrderLineStatus();
 
-  // Stats
-  const stats = useMemo(() => {
-    const toDeliver = lines.filter((l) => l.prep_status === 'ready').length;
-    const delivered = lines.filter((l) => l.prep_status === 'delivered').length;
-    return { toDeliver, delivered, total: lines.length };
-  }, [lines]);
+  // ─── Supabase Realtime ───
+  useEffect(() => {
+    if (!eventId) return;
+    const channel = supabase
+      .channel('delivery-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'order_lines' },
+        () => queryClient.invalidateQueries({ queryKey: ['order_lines'] })
+      )
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [eventId, queryClient]);
 
-  // Available dates
-  const availableDates = useMemo(() => {
-    const dates = new Set(lines.map((l) => l.meal_slot?.slot_date).filter(Boolean));
-    return [...dates].sort();
-  }, [lines]);
-
-  // Group by order + slot
+  // ─── Group by order + slot + guest ───
   const cards = useMemo(() => {
-    let filtered = lines;
-
-    if (search) {
-      const q = search.toLowerCase();
-      filtered = filtered.filter(
-        (l) =>
-          l.order?.customer_first_name?.toLowerCase().includes(q) ||
-          l.order?.customer_last_name?.toLowerCase().includes(q) ||
-          l.order?.stand?.toLowerCase().includes(q) ||
-          l.order?.order_number?.toLowerCase().includes(q)
-      );
-    }
-
-    if (dateFilter !== 'all') {
-      filtered = filtered.filter((l) => l.meal_slot?.slot_date === dateFilter);
-    }
-
     const grouped = {};
-    filtered.forEach((line) => {
+    lines.forEach((line) => {
       const key = `${line.order_id}-${line.meal_slot_id}-${line.guest_name || ''}`;
       if (!grouped[key]) {
         grouped[key] = {
@@ -64,278 +51,336 @@ export default function StaffDelivery() {
           meal_slot: line.meal_slot,
           guest_name: line.guest_name,
           lines: [],
+          lineIds: [],
         };
       }
       grouped[key].lines.push(line);
+      grouped[key].lineIds.push(line.id);
     });
 
     return Object.values(grouped).sort((a, b) => {
-      // Ready first, delivered last
       const aReady = a.lines.some((l) => l.prep_status === 'ready') ? 0 : 1;
       const bReady = b.lines.some((l) => l.prep_status === 'ready') ? 0 : 1;
       if (aReady !== bReady) return aReady - bReady;
-      const dateA = a.meal_slot?.slot_date || '';
-      const dateB = b.meal_slot?.slot_date || '';
-      return dateA.localeCompare(dateB);
+      return (a.order?.stand || '').localeCompare(b.order?.stand || '');
     });
-  }, [lines, search, dateFilter]);
+  }, [lines]);
 
-  const handlePhotoChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setPhoto(file);
-    setPhotoPreview(URL.createObjectURL(file));
-  };
+  const activeCards = cards.filter((c) => c.lines.some((l) => l.prep_status === 'ready'));
+  const doneCards = cards.filter((c) => c.lines.every((l) => l.prep_status === 'delivered'));
+  const displayed = view === 'active' ? activeCards : doneCards;
 
-  const handleDeliver = async () => {
-    if (!deliverModal) return;
+  const readyCount = activeCards.length;
+  const doneCount = doneCards.length;
 
-    // Deliver all ready lines in the card
-    const readyLines = deliverModal.lines.filter((l) => l.prep_status === 'ready');
+  // Route suggestion — sorted stands
+  const sortedRoute = useMemo(() => {
+    const stands = activeCards.map((c) => c.order?.stand).filter(Boolean);
+    return [...new Set(stands)].sort();
+  }, [activeCards]);
+
+  const handleDeliver = (card, photo) => {
+    const readyIds = card.lines.filter((l) => l.prep_status === 'ready').map((l) => l.id);
+    if (readyIds.length === 0) return;
     const deliveredBy = profile?.display_name || profile?.email || 'staff';
-
-    for (const line of readyLines) {
-      await deliverMutation.mutateAsync({
-        lineId: line.id,
-        photo: readyLines.indexOf(line) === 0 ? photo : null, // photo on first line only
-        delivered_by: deliveredBy,
-      });
+    if (photo) {
+      deliverMutation.mutate({ lineIds: readyIds, photo, delivered_by: deliveredBy });
+    } else {
+      updateStatus.mutate({ ids: readyIds, prep_status: 'delivered', delivered_by: deliveredBy });
     }
-
-    setDeliverModal(null);
-    setPhoto(null);
-    setPhotoPreview(null);
-  };
-
-  const closeModal = () => {
-    setDeliverModal(null);
-    setPhoto(null);
-    setPhotoPreview(null);
   };
 
   if (isLoading) {
     return (
-      <div className="p-6 flex items-center justify-center min-h-[50vh]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#8B3A43]" />
+      <div className="min-h-screen bg-mf-blanc-casse">
+        <div className="hidden lg:block"><StaffHeader role="delivery" /></div>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-mf-rose" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-          <Truck className="w-6 h-6" />
-          Livraison
-        </h1>
-        <EventSelector selectedEventId={selectedEventId} onEventChange={setSelectedEventId} />
+    <div className="min-h-screen bg-mf-blanc-casse">
+      {/* ═══ DESKTOP HEADER ═══ */}
+      <div className="hidden lg:block">
+        <StaffHeader role="delivery">
+          <div className="flex gap-2">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-pill bg-mf-vert-olive/10">
+              <div className="w-1.5 h-1.5 rounded-full bg-mf-vert-olive" />
+              <span className="font-body text-[11px] font-medium text-mf-vert-olive">{readyCount}</span>
+              <span className="font-body text-[10px] text-mf-muted">À livrer</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-pill bg-status-green/10">
+              <div className="w-1.5 h-1.5 rounded-full bg-status-green" />
+              <span className="font-body text-[11px] font-medium text-status-green">{doneCount}</span>
+              <span className="font-body text-[10px] text-mf-muted">Livrés</span>
+            </div>
+          </div>
+          <EventSelector selectedEventId={selectedEventId} onEventChange={setSelectedEventId} />
+        </StaffHeader>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-center">
-          <p className="text-2xl font-bold text-orange-700">{stats.toDeliver}</p>
-          <p className="text-xs text-orange-600">À livrer</p>
+      {/* ═══ MOBILE CONTROLS ═══ */}
+      <div className="lg:hidden sticky top-[61px] z-30 bg-white border-b border-mf-border">
+        {/* Quick count badges */}
+        <div className="flex items-center justify-between px-4 py-2.5">
+          <div className="flex gap-2">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-pill bg-mf-vert-olive/10">
+              <div className="w-1.5 h-1.5 rounded-full bg-mf-vert-olive" />
+              <span className="font-body text-[13px] font-medium text-mf-vert-olive">{readyCount}</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-pill bg-status-green/10">
+              <div className="w-1.5 h-1.5 rounded-full bg-status-green" />
+              <span className="font-body text-[13px] font-medium text-status-green">{doneCount}</span>
+            </div>
+          </div>
         </div>
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-          <p className="text-2xl font-bold text-green-700">{stats.delivered}</p>
-          <p className="text-xs text-green-600">Livrés</p>
-        </div>
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
-          <p className="text-2xl font-bold text-gray-700">{stats.total}</p>
-          <p className="text-xs text-gray-600">Total</p>
-        </div>
-      </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Rechercher nom, stand..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43]"
-          />
-        </div>
-        <select
-          value={dateFilter}
-          onChange={(e) => setDateFilter(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43]"
-        >
-          <option value="all">Toutes les dates</option>
-          {availableDates.map((d) => (
-            <option key={d} value={d}>
-              {format(new Date(d + 'T00:00:00'), 'd MMM', { locale: fr })}
-            </option>
+        {/* 2 tabs */}
+        <div className="flex">
+          {[
+            { key: 'active', label: `À livrer (${readyCount})`, border: 'border-b-status-orange' },
+            { key: 'done', label: `Fait (${doneCount})`, border: 'border-b-status-green' },
+          ].map((v) => (
+            <button
+              key={v.key}
+              onClick={() => setView(v.key)}
+              className={`flex-1 py-2.5 cursor-pointer transition-all font-body text-[13px] min-h-[42px] border-x-0 border-t-0 border-b-[3px] ${
+                view === v.key
+                  ? `${v.border} font-medium text-mf-marron-glace bg-transparent`
+                  : 'border-b-transparent bg-transparent text-mf-muted'
+              }`}
+            >
+              {v.label}
+            </button>
           ))}
-        </select>
+        </div>
       </div>
 
-      {/* Cards */}
-      {cards.length === 0 ? (
-        <div className="text-center py-12">
-          <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500">Aucune livraison en cours</p>
+      {/* ═══ CONTENT ═══ */}
+      <div className="max-w-[600px] mx-auto px-3 lg:px-6 pt-3 pb-6">
+        {/* Desktop filter tabs */}
+        <div className="hidden lg:flex gap-2 mb-4">
+          {[
+            { key: 'active', label: `À traiter (${readyCount})` },
+            { key: 'done', label: `Livrés (${doneCount})` },
+          ].map((f) => (
+            <button
+              key={f.key}
+              onClick={() => setView(f.key)}
+              className={`px-4 py-2 rounded-pill font-body text-[12px] cursor-pointer transition-all border ${
+                view === f.key
+                  ? 'bg-mf-rose text-mf-blanc-casse border-mf-rose'
+                  : 'bg-white text-mf-marron-glace border-mf-border hover:border-mf-rose/30'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
-      ) : (
-        <div className="grid gap-3">
-          {cards.map((card) => {
-            const allDelivered = card.lines.every((l) => l.prep_status === 'delivered');
-            const hasReady = card.lines.some((l) => l.prep_status === 'ready');
 
-            return (
-              <div
-                key={card.key}
-                className={`bg-white border rounded-xl p-4 space-y-3 ${
-                  allDelivered ? 'border-green-300 bg-green-50/50 opacity-70' : 'border-gray-200'
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="font-semibold text-gray-900">
-                      {card.order?.customer_first_name} {card.order?.customer_last_name}
-                    </p>
-                    <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500">
-                      <span>Stand {card.order?.stand}</span>
-                      <span>&bull;</span>
-                      <span className="font-mono">{card.order?.order_number}</span>
-                    </div>
-                    {card.guest_name && (
-                      <p className="text-sm text-[#8B3A43] font-medium mt-1">Menu : {card.guest_name}</p>
-                    )}
-                  </div>
-                  <div className="text-right text-xs">
-                    <p className="font-medium capitalize">
-                      {card.meal_slot?.slot_date &&
-                        format(new Date(card.meal_slot.slot_date + 'T00:00:00'), 'd MMM', { locale: fr })}
-                    </p>
-                    <p className="text-[#8B3A43] font-semibold uppercase">
-                      {card.meal_slot?.slot_type}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  {card.lines.map((line) => (
-                    <div key={line.id} className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium ${
-                            line.prep_status === 'delivered'
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-orange-100 text-orange-800'
-                          }`}
-                        >
-                          {line.prep_status === 'delivered' ? 'Livré' : 'Prêt'}
-                        </span>
-                        <span>{line.menu_item?.name}</span>
-                      </div>
-                      <span className="text-xs text-gray-400 capitalize">{line.menu_item?.type}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {hasReady && (
-                  <div className="pt-2 border-t">
-                    <button
-                      onClick={() => setDeliverModal(card)}
-                      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-[#8B3A43] text-white text-sm font-medium rounded-lg hover:bg-[#7a3039] transition-colors"
-                    >
-                      <Camera className="w-4 h-4" />
-                      Livrer avec photo
-                    </button>
-                  </div>
-                )}
-
-                {allDelivered && card.lines[0]?.delivery_photo_url && (
-                  <div className="pt-2 border-t">
-                    <p className="text-xs text-green-600 flex items-center gap-1">
-                      <Check className="w-3 h-3" />
-                      Livré à {card.lines[0].delivered_at && format(new Date(card.lines[0].delivered_at), 'HH:mm', { locale: fr })}
-                    </p>
-                  </div>
-                )}
+        {/* Route suggestion */}
+        {view === 'active' && sortedRoute.length > 1 && (
+          <div className="flex items-center gap-2.5 px-3.5 py-3 rounded-[14px] bg-mf-vert-olive/8 border border-mf-vert-olive/20 mb-3">
+            <span className="text-[18px]">🗺</span>
+            <div className="flex-1 min-w-0">
+              <div className="font-body text-[11px] font-medium text-mf-marron-glace">Itinéraire suggéré</div>
+              <div className="font-body text-[13px] font-medium text-mf-vert-olive truncate">
+                {sortedRoute.join('  →  ')}
               </div>
-            );
-          })}
+            </div>
+          </div>
+        )}
+
+        {/* Cards */}
+        {displayed.length > 0 ? (
+          <div className="flex flex-col gap-2.5">
+            {displayed.map((card) => (
+              <DeliveryCard
+                key={card.key}
+                card={card}
+                onDeliver={handleDeliver}
+                isPending={deliverMutation.isPending || updateStatus.isPending}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <div className="text-[40px] mb-3 opacity-30">
+              {view === 'active' ? '🎉' : '📋'}
+            </div>
+            <div className="font-serif text-[20px] italic text-mf-muted">
+              {view === 'active' ? 'Tout est livré !' : 'Aucune livraison encore'}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Delivery Card — inline confirmation, no modal ─── */
+function DeliveryCard({ card, onDeliver, isPending }) {
+  const [confirming, setConfirming] = useState(false);
+  const [photo, setPhoto] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const fileRef = useRef(null);
+
+  const allDelivered = card.lines.every((l) => l.prep_status === 'delivered');
+  const hasReady = card.lines.some((l) => l.prep_status === 'ready');
+  const slotType = card.meal_slot?.slot_type;
+
+  const handlePhotoChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhoto(file);
+    setPreview(URL.createObjectURL(file));
+  };
+
+  const handleConfirm = () => {
+    onDeliver(card, photo);
+    setConfirming(false);
+    setPhoto(null);
+    setPreview(null);
+  };
+
+  const handleCancel = () => {
+    setConfirming(false);
+    setPhoto(null);
+    setPreview(null);
+  };
+
+  return (
+    <div className={`bg-white rounded-[16px] border border-mf-border overflow-hidden transition-all ${allDelivered ? 'opacity-55' : ''}`}>
+      {/* Card body */}
+      <div className="p-4">
+        <div className="flex gap-3.5 items-start">
+          {/* Stand badge — 64px, big and prominent */}
+          <div className={`min-w-[64px] h-[64px] rounded-[16px] flex flex-col items-center justify-center shrink-0 ${
+            allDelivered ? 'bg-status-green/12' : 'bg-mf-poudre/30'
+          }`}>
+            <span className={`font-body text-[20px] font-medium ${allDelivered ? 'text-status-green' : 'text-mf-rose'}`}>
+              {card.order?.stand || '—'}
+            </span>
+            {allDelivered && <span className="text-[10px]">✓✓</span>}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            {/* Name + slot */}
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span className="font-body text-[16px] font-medium text-mf-marron-glace truncate">
+                {card.order?.customer_first_name} {card.order?.customer_last_name}
+              </span>
+              <MfBadge variant={slotType === 'midi' ? 'olive' : 'poudre'}>
+                {slotType === 'midi' ? '☀' : '☽'}
+              </MfBadge>
+            </div>
+            <div className="font-body text-[12px] text-mf-muted">
+              {card.order?.order_number} · {card.lines.length} plat{card.lines.length > 1 ? 's' : ''}
+            </div>
+            {card.guest_name && (
+              <div className="font-body text-[12px] text-mf-rose font-medium mt-0.5">
+                {card.guest_name}
+              </div>
+            )}
+
+            {/* Items as compact pills */}
+            <div className="flex flex-wrap gap-1 mt-2">
+              {card.lines.map((line) => (
+                <span key={line.id} className="inline-flex items-center gap-1 px-2 py-1 rounded-pill bg-mf-blanc-casse font-body text-[12px] text-mf-marron-glace">
+                  <span className="text-[13px]">{TYPE_ICONS[line.menu_item?.type] || '●'}</span>
+                  {line.quantity > 1 ? `×${line.quantity}` : ''}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
+
+        {/* Date + slot info */}
+        {card.meal_slot?.slot_date && (
+          <div className="mt-2 font-body text-[11px] text-mf-muted">
+            {format(new Date(card.meal_slot.slot_date + 'T00:00:00'), 'EEEE d MMM', { locale: fr })}
+          </div>
+        )}
+
+        {/* Delivered info */}
+        {allDelivered && card.lines[0]?.delivered_at && (
+          <div className="mt-2.5 flex items-center gap-2">
+            <span className="font-body text-[12px] text-status-green">
+              ✓✓ Livré à {format(new Date(card.lines[0].delivered_at), 'HH:mm', { locale: fr })}
+            </span>
+            {card.lines[0]?.delivery_photo_url && (
+              <span className="px-2 py-0.5 rounded-pill bg-mf-vert-olive/12 font-body text-[9px] uppercase tracking-wide text-mf-vert-olive">
+                📷 Photo
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ═══ Action: Livrer button ═══ */}
+      {hasReady && !confirming && (
+        <button
+          onClick={() => setConfirming(true)}
+          className="w-full min-h-[54px] border-t border-mf-border border-x-0 border-b-0 cursor-pointer transition-all active:scale-[0.97] font-body text-[14px] uppercase tracking-[0.08em] font-medium flex items-center justify-center gap-2 bg-status-green/10 text-status-green"
+        >
+          ✓ Confirmer la livraison
+        </button>
       )}
 
-      {/* Deliver Modal */}
-      {deliverModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
-          <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">Confirmer la livraison</h3>
-              <button onClick={closeModal} className="p-1 hover:bg-gray-100 rounded-lg">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {/* ═══ Inline confirmation panel ═══ */}
+      {confirming && (
+        <div className="p-4 border-t border-mf-border bg-status-green/5">
+          <div className="font-body text-[13px] text-mf-marron-glace mb-2.5">
+            Livré au stand <strong>{card.order?.stand}</strong> ?
+          </div>
 
-            <div className="text-sm text-gray-600">
-              <p className="font-medium text-gray-900">
-                {deliverModal.order?.customer_first_name} {deliverModal.order?.customer_last_name}
-              </p>
-              <p>Stand {deliverModal.order?.stand} &bull; {deliverModal.meal_slot?.slot_type?.toUpperCase()}</p>
-              <p className="mt-1 text-gray-500">
-                {deliverModal.lines.filter((l) => l.prep_status === 'ready').length} article(s) à livrer
-              </p>
-            </div>
-
-            {/* Photo */}
-            <div>
-              {photoPreview ? (
-                <div className="relative">
-                  <img
-                    src={photoPreview}
-                    alt="Photo de livraison"
-                    className="w-full h-48 object-cover rounded-lg"
-                  />
-                  <button
-                    onClick={() => { setPhoto(null); setPhotoPreview(null); }}
-                    className="absolute top-2 right-2 p-1 bg-black/50 rounded-full text-white"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
+          {/* Photo capture */}
+          <div className="mb-3">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handlePhotoChange}
+              className="hidden"
+            />
+            {preview ? (
+              <div className="relative">
+                <img src={preview} alt="Photo livraison" className="w-full h-32 object-cover rounded-xl border border-mf-border" />
                 <button
-                  onClick={() => fileRef.current?.click()}
-                  className="w-full border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-[#8B3A43]/40 transition-colors"
+                  onClick={() => { setPhoto(null); setPreview(null); }}
+                  className="absolute top-2 right-2 w-6 h-6 rounded-full bg-white border border-mf-border flex items-center justify-center font-body text-[11px] text-mf-muted cursor-pointer"
                 >
-                  <Camera className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-500">Prendre une photo</p>
-                  <p className="text-xs text-gray-400">optionnel</p>
+                  ×
                 </button>
-              )}
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={handlePhotoChange}
-                className="hidden"
-              />
-            </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => fileRef.current?.click()}
+                className="w-full min-h-[52px] rounded-xl border-2 border-dashed border-mf-border bg-white cursor-pointer hover:border-mf-rose/30 transition-colors flex items-center justify-center gap-2 font-body text-[13px] text-mf-muted"
+              >
+                📷 Photo (optionnel)
+              </button>
+            )}
+          </div>
 
+          {/* Confirm / Cancel */}
+          <div className="flex gap-2">
             <button
-              onClick={handleDeliver}
-              disabled={deliverMutation.isPending}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white font-medium rounded-xl hover:bg-green-700 disabled:opacity-50 transition-colors"
+              onClick={handleCancel}
+              className="flex-1 min-h-[46px] rounded-pill border border-mf-border bg-white cursor-pointer font-body text-[12px] text-mf-marron-glace transition-all active:scale-[0.97]"
             >
-              {deliverMutation.isPending ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
-                  Livraison en cours...
-                </>
-              ) : (
-                <>
-                  <Check className="w-5 h-5" />
-                  Confirmer la livraison
-                </>
-              )}
+              Annuler
+            </button>
+            <button
+              onClick={handleConfirm}
+              disabled={isPending}
+              className="flex-[2] min-h-[46px] rounded-pill border-none bg-status-green cursor-pointer font-body text-[13px] uppercase tracking-[0.08em] font-medium text-mf-blanc-casse transition-all active:scale-[0.97] disabled:opacity-50"
+            >
+              {isPending ? 'En cours...' : "✓✓ C'est livré"}
             </button>
           </div>
         </div>
