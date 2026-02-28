@@ -1,111 +1,219 @@
-# CLAUDE.md — Event Eats (Maison Félicien)
+# CLAUDE.md — Maison Félicien · Event Booking System
 
-## Projet
+> Lis ce fichier EN ENTIER avant de coder quoi que ce soit.
+> Lis aussi `docs/DESIGN_SYSTEM_MF.md` et `docs/REDESIGN_BRIEF.md` pour le design.
+
+---
+
+## 1. Projet
+
 Outil de réservation de commandes repas pour clients lors d'événements (salons, foires, congrès).
-Traiteur "Maison Félicien" — service midi et soir sur plusieurs jours.
+**Maison Félicien** — traiteur premium, service midi et soir sur plusieurs jours.
 
-## Stack technique
+### Utilisateurs
+| Rôle | Besoins |
+|------|---------|
+| **Client** (90% du trafic) | Commander des repas pour N jours, choisir midi/soir, payer en ligne |
+| **Admin** | Gérer événements, menus, commandes, facturation, stats |
+| **Staff Cuisine** | Voir les plats à préparer, avancer le pipeline par plat |
+| **Staff Livraison** | Voir les commandes prêtes, confirmer livraison par stand + photo |
+
+---
+
+## 2. Stack technique
+
 - **Frontend** : React 18 + Vite 6 + Tailwind CSS + shadcn/ui
 - **Backend/DB** : Supabase (PostgreSQL + Auth + RLS + Edge Functions)
-- **Paiement** : Stripe Checkout (session côté serveur via Edge Function)
+- **Paiement** : Stripe Checkout (session via Edge Function)
 - **Déploiement** : Vercel (front) + Supabase (back)
 - **Routing** : React Router v6
 - **State** : TanStack React Query v5
+- **Fonts** : Ariens Nobela (display) + Questrial (corps) — fichiers dans `public/fonts/`
 
-## Architecture des données
+---
 
-### Concepts clés
-- **Event** : un salon/événement avec dates début-fin
-- **Meal Slot** : créneau repas = 1 jour + midi OU soir (auto-généré à la création d'un événement)
-- **Menu Item** : un plat (entrée, plat, dessert, boisson) avec prix et tags allergènes
-- **Slot Menu Item** : association plat ↔ créneau (permet menus différents midi vs soir)
-- **Order** : commande globale d'un client = flux finance (facturation totale)
-- **Order Line** : ligne unitaire = 1 plat pour 1 créneau = flux admin (cuisine + livraison)
+## 3. Base de données Supabase (DÉJÀ EN PLACE)
+
+Projet : `MF_booking-system` (nodywhjtymmzzxllggnu) — eu-west-1
+
+### Tables existantes
+```
+profiles         (user_id, role, display_name, email, phone)
+events           (name, start_date, end_date, is_active, meal_service, menu_categories, menu_price_midi, menu_price_soir)
+meal_slots       (event_id, slot_date, slot_type[midi|soir], is_active, max_orders)
+menu_items       (event_id, name, type[entree|plat|dessert|boisson], price, description, image_url, available, tags[])
+event_menu_items (event_id, menu_item_id, custom_price, available)
+slot_menu_items  (meal_slot_id, menu_item_id)
+orders           (event_id, profile_id, customer_*, stand, order_number, total_amount, payment_status, stripe_*, delivery_method, company_name, billing_*)
+order_lines      (order_id, meal_slot_id, menu_item_id, quantity, unit_price, prep_status[pending|preparing|ready|delivered], prepared_by/at, delivered_by/at, delivery_photo_url, guest_name)
+```
+
+### Enums
+- `user_role` : admin, staff, customer
+- `meal_slot_type` : midi, soir
+- `menu_item_type` : entree, plat, dessert, boisson
+- `payment_status` : pending, paid, refunded, cancelled
+- `prep_status` : pending, preparing, ready, delivered
 
 ### Distinction flux finance vs flux admin
 ```
-FLUX FINANCE (Order) :
-  → Client commande pour N jours, midi et/ou soir
-  → Facture globale avec montant total
-  → Paiement Stripe unique
-  → Statut : pending → paid → refunded
+FLUX FINANCE (orders) :
+  Client commande pour N jours → facture globale → paiement Stripe unique
+  Statut : pending → paid → refunded
 
-FLUX ADMIN (Order Line) :
-  → Chaque jour/créneau génère des lignes séparées
-  → La cuisine voit : "Jour X, midi : préparer 3 entrées César, 2 plats boeuf..."
-  → Pipeline : pending → preparing → ready → delivered
-  → Chaque ligne est indépendante (peut être en retard, etc.)
+FLUX ADMIN (order_lines) :
+  Chaque plat/créneau = 1 ligne → pipeline cuisine indépendant
+  Statut : pending → preparing → ready → delivered
 ```
 
-### Rôles utilisateur
-- **admin** : tout voir, tout modifier (événements, menus, commandes, users)
-- **staff** : voir les commandes, gérer la préparation et livraison
-- **customer** : passer commande, voir ses propres commandes
+RLS est activé sur toutes les tables.
 
-## Structure fichiers
+---
+
+## 4. Structure fichiers cible
 
 ```
 src/
 ├── api/
-│   └── supabase.js          # Client Supabase + helpers
+│   └── supabase.js              # Client Supabase
 ├── hooks/
-│   ├── useEvents.js          # CRUD événements
-│   ├── useMealSlots.js       # Créneaux repas
-│   ├── useMenuItems.js       # Articles menu
-│   ├── useOrders.js          # Commandes (flux finance)
-│   ├── useOrderLines.js      # Lignes commande (flux admin)
-│   └── useAuth.js            # Auth + profil + rôle
+│   ├── useAuth.js               # Auth + profil + rôle
+│   ├── useEvents.js             # CRUD événements
+│   ├── useMealSlots.js          # Créneaux repas
+│   ├── useMenuItems.js          # Articles menu
+│   ├── useOrders.js             # Commandes
+│   └── useOrderLines.js         # Lignes (cuisine/livraison)
 ├── lib/
-│   ├── AuthContext.jsx        # Provider auth Supabase
-│   ├── RoleGuard.jsx          # Protection routes par rôle
+│   ├── AuthContext.jsx           # Provider auth Supabase
+│   ├── RoleGuard.jsx             # Protection routes par rôle
 │   └── utils.js
 ├── components/
-│   ├── order/                 # Composants flow commande client
-│   ├── kitchen/               # Composants vue cuisine
-│   ├── invoice/               # Génération factures
-│   └── ui/                    # shadcn/ui components
+│   ├── ui/                       # shadcn/ui + composants MF custom
+│   ├── layout/
+│   │   ├── AdminSidebar.jsx      # Sidebar admin (permanent)
+│   │   ├── StaffHeader.jsx       # Header staff (cuisine/livraison)
+│   │   └── ClientHeader.jsx      # Header client (logo + nav)
+│   ├── order/                    # Flow commande client
+│   ├── kitchen/                  # Composants cuisine
+│   └── delivery/                 # Composants livraison
 ├── pages/
-│   ├── Order.jsx              # Page commande client (main page)
-│   ├── OrderSuccess.jsx       # Confirmation + QR + facture
-│   ├── AdminDashboard.jsx     # Tableau de bord admin
-│   ├── AdminEvent.jsx         # Gestion événements
-│   ├── AdminMenu.jsx          # Gestion menus + créneaux
-│   ├── AdminOrders.jsx        # Vue commandes (finance)
-│   ├── StaffKitchen.jsx       # Vue cuisine (préparation)
-│   ├── StaffDelivery.jsx      # Vue livraison
-│   └── CustomerProfile.jsx    # Profil + historique client
-└── supabase/
-    ├── migrations/            # SQL migrations
-    └── functions/             # Edge Functions (Stripe webhooks)
+│   ├── MainPage.jsx              # Landing / accueil événement
+│   ├── OrderPage.jsx             # Flow commande client (4 étapes)
+│   ├── OrderSuccess.jsx          # Confirmation
+│   ├── AdminDashboard.jsx        # Tableau de bord
+│   ├── AdminMenu.jsx             # Gestion menus
+│   ├── AdminOrders.jsx           # Gestion commandes
+│   ├── AdminEvent.jsx            # Gestion événements
+│   ├── StaffKitchen.jsx          # Vue cuisine kanban
+│   └── StaffDelivery.jsx         # Vue livraisons
+└── styles/
+    └── fonts.css                 # @font-face Ariens Nobela + Questrial
+
+public/
+├── fonts/
+│   ├── AriensNobela.otf
+│   ├── AriensNobela.ttf
+│   └── Questrial-Regular.ttf
+└── brand/
+    ├── Logo_Rose.svg
+    ├── Symbole-Rose.svg
+    └── Monogramme-Rose.svg
 ```
 
-## Conventions de code
+---
+
+## 5. Design System — Résumé rapide
+
+> Détails complets dans `docs/DESIGN_SYSTEM_MF.md`
+
+### Palette
+| Token Tailwind | Hex | Usage |
+|----------------|-----|-------|
+| `mf-rose` | `#8B3A43` | Primaire — titres, boutons, accents |
+| `mf-vieux-rose` | `#BF646D` | Sous-titres, labels secondaires |
+| `mf-poudre` | `#E5B7B3` | Fonds actifs, hover, badges |
+| `mf-vert-olive` | `#968A42` | Tags allergènes, accents nature |
+| `mf-blanc-casse` | `#F0F0E6` | Background pages |
+| `mf-marron-glace` | `#392D31` | Texte courant |
+
+### Typographies
+- **Ariens Nobela** : grands titres seulement (>28px), ornementale
+- **Questrial** : tout le reste — sous-titres (uppercase + tracking), corps, boutons, labels
+
+### Shapes
+- Boutons/inputs : `rounded-full` (pill, 50px)
+- Cards : `rounded-2xl` (20px)
+- Tags : `rounded-full` (petit)
+
+### Règles absolues
+1. **Zéro gris froid** — tous les neutres sont teintés chauds
+2. **Zéro bleu** — palette exclusivement chaude + olive
+3. **Beaucoup d'air** — style Monte Newcastle, espacé, premium
+4. **Pas d'ombre lourde** — bordures subtiles, transitions douces
+5. **Français** pour tous les textes UI
+
+### tailwind.config.js — ajouter :
+```js
+theme: {
+  extend: {
+    colors: {
+      mf: {
+        rose: '#8B3A43',
+        'vieux-rose': '#BF646D',
+        poudre: '#E5B7B3',
+        'vert-olive': '#968A42',
+        'blanc-casse': '#F0F0E6',
+        'marron-glace': '#392D31',
+      }
+    },
+    fontFamily: {
+      display: ['"Ariens Nobela"', 'Georgia', 'serif'],
+      body: ['Questrial', 'sans-serif'],
+    }
+  }
+}
+```
+
+---
+
+## 6. Conventions de code
+
 - Composants React : fonction + export default
-- Hooks custom : préfixe `use`, retournent { data, isLoading, error, mutate }
-- Queries React Query : queryKey cohérent `['entity', id?, filters?]`
-- Supabase : toujours utiliser les hooks, jamais d'appel direct dans les composants
-- CSS : Tailwind utility classes, pas de CSS custom
-- Français pour les labels UI, anglais pour le code
+- Hooks custom : préfixe `use`, retournent `{ data, isLoading, error, mutate }`
+- Queries React Query : queryKey `['entity', id?, filters?]`
+- Supabase : toujours via hooks, jamais d'appel direct dans les composants
+- CSS : Tailwind utility classes avec tokens MF, pas de CSS inline sauf cas exceptionnel
+- Labels UI : français. Noms de variables/fonctions : anglais
+- Imports : relatifs avec `@/` alias
 
-## Variables d'environnement
+---
+
+## 7. Variables d'environnement
+
 ```
-VITE_SUPABASE_URL=https://xxx.supabase.co
+VITE_SUPABASE_URL=https://nodywhjtymmzzxllggnu.supabase.co
 VITE_SUPABASE_ANON_KEY=xxx
 VITE_STRIPE_PUBLISHABLE_KEY=pk_test_xxx
 ```
 
-## Commandes
+---
+
+## 8. Commandes
+
 ```bash
-npm run dev       # Dev server (Vite)
-npm run build     # Build production
-npx supabase db push   # Appliquer migrations
-npx supabase functions serve  # Edge Functions local
+npm run dev           # Dev server Vite
+npm run build         # Build production
+npm run preview       # Preview build local
 ```
 
-## Contexte migration
-Ce projet est une migration depuis Base44 (BaaS propriétaire).
-Le code source original est dans `/docs/original-base44/`.
-La logique métier frontend est à conserver, seule la couche données change :
+---
+
+## 9. Contexte migration
+
+Ce projet migre depuis Base44 (BaaS propriétaire).
+Code source original : `docs/original-base44/` (si disponible).
+
+Mapping :
 - `base44.entities.X.filter()` → `supabase.from('x').select().eq()`
 - `base44.entities.X.create()` → `supabase.from('x').insert()`
 - `base44.auth.me()` → `supabase.auth.getUser()`

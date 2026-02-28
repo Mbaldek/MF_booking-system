@@ -1,10 +1,11 @@
 @import "tailwindcss";
 
-/* Brand fonts */
+/* ─── Brand Fonts ─── */
 @font-face {
   font-family: 'Ariens Nobela';
-  src: url('/fonts/AriensNobela.ttf') format('truetype');
-  font-weight: normal;
+  src: url('/fonts/AriensNobela.otf') format('opentype'),
+       url('/fonts/AriensNobela.ttf') format('truetype');
+  font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
@@ -12,35 +13,61 @@
 @font-face {
   font-family: 'Questrial';
   src: url('/fonts/Questrial-Regular.ttf') format('truetype');
-  font-weight: normal;
+  font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 
-/* Brand CSS variables */
-:root {
-  --brand-rose: #8B3A43;
-  --brand-poudre: #E5B7B3;
-  --brand-vert: #968A42;
-  --brand-cream: #faf6f5;
+/* ─── Tailwind v4 Theme Tokens ─── */
+@theme {
+  /* MF Colors */
+  --color-mf-rose: #8B3A43;
+  --color-mf-vieux-rose: #BF646D;
+  --color-mf-poudre: #E5B7B3;
+  --color-mf-vert-olive: #968A42;
+  --color-mf-blanc-casse: #F0F0E6;
+  --color-mf-marron-glace: #392D31;
+  --color-mf-white: #FDFAF7;
+  --color-mf-border: #E5D9D0;
+  --color-mf-muted: #9A8A7C;
+  --color-mf-muted-light: #C4B5A8;
 
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --primary: #8B3A43;
-  --primary-foreground: #ffffff;
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --border: oklch(0.922 0 0);
-  --ring: #8B3A43;
-  --radius: 0.5rem;
+  /* Status colors (admin) */
+  --color-status-green: #4A7C59;
+  --color-status-orange: #C4793A;
+  --color-status-red: #A63D40;
+
+  /* Font families */
+  --font-display: 'Ariens Nobela', 'Georgia', serif;
+  --font-body: 'Questrial', system-ui, sans-serif;
+  --font-serif: 'Georgia', 'Times New Roman', serif;
+
+  /* Border radius */
+  --radius-pill: 50px;
+  --radius-card: 20px;
+
+  /* Custom animation */
+  --animate-fade-up: fade-up 0.4s ease-out both;
 }
 
-/* Brand font utility */
-.font-brand {
-  font-family: 'Ariens Nobela', Georgia, serif;
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-/* Questrial as default body font */
+/* ─── Base Styles ─── */
 body {
   font-family: 'Questrial', system-ui, -apple-system, sans-serif;
+  color: #392D31;
+}
+
+/* Legacy utility (keep for existing pages) */
+.font-brand {
+  font-family: 'Ariens Nobela', Georgia, serif;
 }

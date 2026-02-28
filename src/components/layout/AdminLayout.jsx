@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
+import AdminSidebar from './AdminSidebar';
 import {
   TrendingUp, Calendar, UtensilsCrossed, ShoppingBag,
   ClipboardList, BarChart3, Mail, Users, Home, Menu, X, LogOut,
@@ -9,7 +10,7 @@ import {
 const navItems = [
   { path: '/admin', label: 'Tableau de bord', icon: TrendingUp, end: true },
   { path: '/admin/events', label: 'Événements', icon: Calendar },
-  { path: '/admin/menu', label: 'Menus', icon: UtensilsCrossed },
+  { path: '/admin/menu', label: 'La Carte', icon: UtensilsCrossed },
   { path: '/admin/orders', label: 'Commandes', icon: ShoppingBag },
   { path: '/admin/operations', label: 'Prépa & Livraison', icon: ClipboardList },
   { path: '/admin/stats', label: 'Statistiques', icon: BarChart3 },
@@ -28,36 +29,36 @@ export default function AdminLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-mf-blanc-casse">
       {/* Mobile Header */}
-      <header className="lg:hidden bg-white border-b sticky top-0 z-40 shadow-sm">
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-[#8B3A43] rounded-lg flex items-center justify-center p-1.5">
-              <img src="/monogram-white.svg" alt="MF" className="w-full h-full" />
-            </div>
+      <header className="lg:hidden bg-white border-b border-mf-border sticky top-0 z-40">
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-3">
             <div>
-              <h1 className="text-sm font-bold text-gray-900 font-brand">Maison Félicien</h1>
-              <p className="text-xs text-gray-500">Administration</p>
+              <div className="font-body text-[8px] uppercase tracking-[0.3em] text-mf-vieux-rose">Maison</div>
+              <div className="font-serif text-[18px] italic text-mf-rose leading-none">Félicien</div>
             </div>
+            <span className="font-body text-[8px] uppercase tracking-[0.1em] text-mf-rose bg-mf-rose/8 rounded-pill px-2 py-0.5">
+              Admin
+            </span>
           </div>
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 rounded-lg hover:bg-gray-100"
+            className="p-2 rounded-card hover:bg-mf-poudre/20 transition-colors cursor-pointer border-none bg-transparent"
           >
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {mobileMenuOpen ? <X className="w-5 h-5 text-mf-marron-glace" /> : <Menu className="w-5 h-5 text-mf-marron-glace" />}
           </button>
         </div>
 
         {mobileMenuOpen && (
-          <nav className="border-t bg-white pb-2">
+          <nav className="border-t border-mf-border bg-white pb-2">
             <Link
               to="/"
-              className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 border-b"
+              className="flex items-center gap-3 px-5 py-3 hover:bg-mf-poudre/10 border-b border-mf-border text-mf-muted font-body text-[13px]"
               onClick={() => setMobileMenuOpen(false)}
             >
-              <Home className="w-5 h-5 text-gray-600" />
-              <span className="text-sm font-medium">Retour accueil</span>
+              <Home className="w-4 h-4" />
+              Retour accueil
             </Link>
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -66,95 +67,34 @@ export default function AdminLayout() {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center gap-3 px-4 py-3 hover:bg-gray-50 border-b ${
-                    active ? 'bg-[#8B3A43]/10 text-[#8B3A43] font-semibold' : 'text-gray-700'
+                  className={`flex items-center gap-3 px-5 py-3 border-b border-mf-border font-body text-[13px] transition-colors ${
+                    active ? 'bg-mf-poudre/20 text-mf-rose' : 'text-mf-muted hover:text-mf-marron-glace'
                   }`}
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  <Icon className="w-5 h-5" />
-                  <span className="text-sm">{item.label}</span>
+                  <Icon className="w-4 h-4" />
+                  {item.label}
                 </Link>
               );
             })}
+            <button
+              onClick={() => { signOut(); setMobileMenuOpen(false); }}
+              className="flex items-center gap-3 px-5 py-3 w-full text-mf-muted hover:text-mf-rose font-body text-[13px] cursor-pointer bg-transparent border-none"
+            >
+              <LogOut className="w-4 h-4" />
+              Déconnexion
+            </button>
           </nav>
         )}
       </header>
 
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col fixed left-0 top-0 h-screen w-64 bg-white border-r shadow-sm">
-        <div className="p-6 border-b">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#8B3A43] rounded-lg flex items-center justify-center p-2">
-              <img src="/monogram-white.svg" alt="MF" className="w-full h-full" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-gray-900 font-brand">Maison Félicien</h1>
-              <p className="text-xs text-gray-500">Administration</p>
-            </div>
-          </div>
-        </div>
-
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          <Link
-            to="/"
-            className="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
-          >
-            <Home className="w-5 h-5" />
-            <span className="text-sm font-medium">Retour accueil</span>
-          </Link>
-
-          <div className="pt-4 pb-2 px-4">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-              Administration
-            </p>
-          </div>
-
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item);
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  active
-                    ? 'bg-[#8B3A43] text-white font-semibold shadow-md'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <Icon className="w-5 h-5" />
-                <span className="text-sm">{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="p-4 border-t">
-          <div className="flex items-center gap-3 px-2 mb-3">
-            <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-              <span className="text-xs font-bold text-gray-600">
-                {(profile?.display_name || profile?.email || '?')[0].toUpperCase()}
-              </span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">
-                {profile?.display_name || profile?.email}
-              </p>
-              <p className="text-xs text-gray-500">Admin</p>
-            </div>
-          </div>
-          <button
-            onClick={signOut}
-            className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <LogOut className="w-4 h-4" />
-            Déconnexion
-          </button>
-        </div>
-      </aside>
+      <div className="hidden lg:block">
+        <AdminSidebar />
+      </div>
 
       {/* Main Content */}
-      <main className="lg:ml-64">
+      <main className="lg:ml-[220px]">
         <Outlet />
       </main>
     </div>
