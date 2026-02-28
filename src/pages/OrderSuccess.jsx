@@ -139,12 +139,12 @@ export default function OrderSuccess() {
           <div className="bg-[#8B3A43]/5 border border-[#8B3A43]/20 rounded-lg p-4">
             {order.delivery_method === 'retrait' ? (
               <p className="text-sm text-gray-700">
-                Vous avez choisi le <strong>retrait sur place</strong>. Vous recevrez un email et/ou un SMS
+                Vous avez choisi le <strong>retrait sur place</strong>. Vous recevrez un email
                 lorsque votre commande sera prête à être retirée.
               </p>
             ) : (
               <p className="text-sm text-gray-700">
-                Votre commande sera <strong>livrée à votre stand</strong>. Vous recevrez un email et/ou un SMS
+                Votre commande sera <strong>livrée à votre stand</strong>. Vous recevrez un email
                 pour vous informer de l'avancement de la préparation et de la livraison.
               </p>
             )}

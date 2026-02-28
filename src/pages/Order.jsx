@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { ChevronDown, ArrowLeft, Calendar, Plus, Trash2, User } from 'lucide-react';
 import { useActiveEvents } from '@/hooks/useEvents';
-import { useMealSlots } from '@/hooks/useMealSlots';
+import { useMealSlots, useSlotMenuCounts } from '@/hooks/useMealSlots';
 import { useEventMenuItems } from '@/hooks/useMenuItems';
 import { useCreateOrder } from '@/hooks/useOrders';
 import { supabase } from '@/api/supabase';
@@ -82,6 +82,7 @@ export default function OrderPage() {
   const effectiveEvent = activeEvents.length === 1 ? activeEvents[0] : selectedEvent;
   const eventId = effectiveEvent?.id;
   const { data: allMealSlots = [] } = useMealSlots(eventId);
+  const { data: slotCounts = {} } = useSlotMenuCounts(eventId);
   const { data: menuItems = [] } = useEventMenuItems(eventId);
   const showPicker = !effectiveEvent && activeEvents.length > 1;
 
@@ -422,7 +423,7 @@ export default function OrderPage() {
             </div>
 
             <div className="mt-6">
-              <SlotSelector slots={mealSlots} selectedSlotIds={selectedSlotIds} onToggleSlot={handleToggleSlotWithExpand} />
+              <SlotSelector slots={mealSlots} selectedSlotIds={selectedSlotIds} onToggleSlot={handleToggleSlotWithExpand} slotCounts={slotCounts} />
             </div>
 
             {selectedSlotsByDate.length > 0 && (

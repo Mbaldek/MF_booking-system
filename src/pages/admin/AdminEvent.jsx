@@ -4,6 +4,7 @@ import { fr } from 'date-fns/locale';
 import { Plus, Pencil, Trash2, X, Check, Calendar, Image, UtensilsCrossed, ChevronDown } from 'lucide-react';
 import { useEvents, useCreateEvent, useUpdateEvent, useDeleteEvent } from '@/hooks/useEvents';
 import { useMenuCatalog, useAllEventMenuItems, useLinkMenuToEvent, useUnlinkMenuFromEvent, useUpdateEventMenuItem } from '@/hooks/useMenuItems';
+import { useMealSlots, useUpdateSlotCapacity } from '@/hooks/useMealSlots';
 import { supabase } from '@/api/supabase';
 
 const TYPE_LABELS = { entree: 'Entrées', plat: 'Plats', dessert: 'Desserts', boisson: 'Boissons' };
@@ -304,6 +305,48 @@ function EventImageUpload({ event, onUpdate }) {
   );
 }
 
+function SlotCapacityConfig({ eventId }) {
+  const { data: slots = [] } = useMealSlots(eventId);
+  const updateCapacity = useUpdateSlotCapacity();
+  const currentMax = slots.length > 0 ? slots[0].max_orders : null;
+  const [value, setValue] = useState(currentMax ?? '');
+
+  const handleSave = () => {
+    updateCapacity.mutate({ eventId, maxOrders: value });
+  };
+
+  return (
+    <div className="flex items-center gap-3">
+      <label className="text-sm text-gray-600 whitespace-nowrap">Capacité max par créneau :</label>
+      <input
+        type="number"
+        min="1"
+        placeholder="Illimité"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        className="w-24 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent"
+      />
+      <button
+        type="button"
+        onClick={handleSave}
+        disabled={updateCapacity.isPending}
+        className="px-3 py-1.5 text-xs font-medium bg-[#8B3A43] text-white rounded-lg hover:bg-[#7a3039] disabled:opacity-50 transition-colors"
+      >
+        {updateCapacity.isPending ? '...' : 'Appliquer'}
+      </button>
+      {value && (
+        <button
+          type="button"
+          onClick={() => { setValue(''); updateCapacity.mutate({ eventId, maxOrders: null }); }}
+          className="text-xs text-gray-400 hover:text-gray-600"
+        >
+          Retirer la limite
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function AdminEvent() {
   const { data: events = [], isLoading, error } = useEvents();
   const createEvent = useCreateEvent();
@@ -461,6 +504,11 @@ export default function AdminEvent() {
                       </div>
                     </div>
                   )}
+                </div>
+
+                {/* Slot capacity */}
+                <div className="border-t px-6 py-3">
+                  <SlotCapacityConfig eventId={event.id} />
                 </div>
 
                 {/* Menu config toggle */}

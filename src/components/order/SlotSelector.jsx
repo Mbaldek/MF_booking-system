@@ -3,7 +3,7 @@ import { fr } from 'date-fns/locale';
 
 const slotLabels = { midi: 'Midi', soir: 'Soir' };
 
-export default function SlotSelector({ slots, selectedSlotIds, onToggleSlot }) {
+export default function SlotSelector({ slots, selectedSlotIds, onToggleSlot, slotCounts = {} }) {
   // Group slots by date
   const slotsByDate = slots.reduce((acc, slot) => {
     const date = slot.slot_date;
@@ -24,20 +24,29 @@ export default function SlotSelector({ slots, selectedSlotIds, onToggleSlot }) {
             <div className="grid grid-cols-2 gap-2">
               {dateSlots.map((slot) => {
                 const isSelected = selectedSlotIds.includes(slot.id);
+                const currentCount = slotCounts[slot.id] || 0;
+                const isFull = slot.max_orders != null && currentCount >= slot.max_orders;
+                const isDisabled = isFull && !isSelected;
+
                 return (
                   <button
                     key={slot.id}
                     type="button"
-                    onClick={() => onToggleSlot(slot.id)}
+                    onClick={() => !isDisabled && onToggleSlot(slot.id)}
+                    disabled={isDisabled}
                     className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-all text-left ${
-                      isSelected
-                        ? 'border-[#8B3A43] bg-[#8B3A43]/5'
-                        : 'border-gray-200 hover:border-gray-300'
+                      isDisabled
+                        ? 'border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed'
+                        : isSelected
+                          ? 'border-[#8B3A43] bg-[#8B3A43]/5'
+                          : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
                     <div
                       className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
-                        isSelected ? 'bg-[#8B3A43] border-[#8B3A43]' : 'border-gray-300'
+                        isDisabled
+                          ? 'border-gray-300 bg-gray-100'
+                          : isSelected ? 'bg-[#8B3A43] border-[#8B3A43]' : 'border-gray-300'
                       }`}
                     >
                       {isSelected && (
@@ -46,9 +55,19 @@ export default function SlotSelector({ slots, selectedSlotIds, onToggleSlot }) {
                         </svg>
                       )}
                     </div>
-                    <span className="font-medium text-sm">
+                    <span className={`font-medium text-sm ${isDisabled ? 'text-gray-400' : ''}`}>
                       {slotLabels[slot.slot_type] || slot.slot_type}
                     </span>
+                    {isFull && (
+                      <span className="ml-auto text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-red-100 text-red-600">
+                        Complet
+                      </span>
+                    )}
+                    {!isFull && slot.max_orders != null && (
+                      <span className="ml-auto text-[10px] text-gray-400">
+                        {slot.max_orders - currentCount} place{slot.max_orders - currentCount > 1 ? 's' : ''}
+                      </span>
+                    )}
                   </button>
                 );
               })}
