@@ -36,7 +36,7 @@ export default function StaffHeader({
         <div className="w-px h-8 bg-mf-border" />
 
         <span
-          className={`font-body text-[10px] uppercase tracking-[0.1em] text-${cfg.color} bg-${cfg.color}/8 rounded-pill px-3 py-1`}
+          className={`font-body text-[10px] uppercase tracking-widest ${cfg.textCls} ${cfg.bgCls} rounded-pill px-3 py-1`}
         >
           {cfg.label}
         </span>
