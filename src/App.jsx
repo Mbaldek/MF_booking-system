@@ -66,13 +66,13 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             {/* Public */}
-            <Route path="/" element={<HomePage />} />
+            <Route path="/" element={<MainPageTest />} />
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/order" element={<OrderPage />} />
+            <Route path="/order" element={<OrderFunnelTest />} />
             <Route path="/order/success/:orderId" element={<OrderSuccess />} />
             <Route path="/my-orders" element={<CustomerOrders />} />
-            <Route path="/order-test" element={<OrderFunnelTest />} />
-            <Route path="/home-test" element={<MainPageTest />} />
+            <Route path="/home-old" element={<HomePage />} />
+            <Route path="/order-old" element={<OrderPage />} />
             {/* Admin */}
             <Route
               path="/admin"

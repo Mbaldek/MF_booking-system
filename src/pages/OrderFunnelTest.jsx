@@ -350,8 +350,8 @@ export default function OrderFunnelTest() {
       <div className="min-h-screen flex items-center justify-center p-4" style={{ background: MF.cream }}>
         <div className="rounded-2xl border p-8 max-w-md text-center" style={{ background: MF.white, borderColor: MF.border }}>
           <p style={{ color: MF.muted }}>Aucun événement actif.</p>
-          <Link to="/order" className="text-sm hover:underline mt-4 inline-block" style={{ color: MF.rose }}>
-            Retour à la commande classique
+          <Link to="/" className="text-sm hover:underline mt-4 inline-block" style={{ color: MF.rose }}>
+            Retour à l'accueil
           </Link>
         </div>
       </div>
@@ -788,12 +788,6 @@ export default function OrderFunnelTest() {
         )}
       </div>
 
-      {/* ─── TEST BADGE ─── */}
-      <div className="fixed top-4 right-4 z-50">
-        <Link to="/order" className="px-3 py-1.5 text-[10px] uppercase tracking-wider rounded-full" style={{ background: `${MF.rose}15`, color: MF.rose, border: `1px solid ${MF.rose}30` }}>
-          Version classique
-        </Link>
-      </div>
     </div>
   );
 }
