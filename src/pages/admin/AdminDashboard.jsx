@@ -18,48 +18,48 @@ const modules = [
     description: 'Créer et gérer vos événements, salons et foires',
     to: '/admin/events',
     icon: Calendar,
-    gradient: 'from-blue-500 to-blue-600',
-    shadow: 'shadow-blue-200',
+    bg: 'bg-[#8B3A43]/10',
+    iconColor: 'text-[#8B3A43]',
   },
   {
     title: 'Menus',
     description: 'Composer les menus et gérer les plats disponibles',
     to: '/admin/menu',
     icon: UtensilsCrossed,
-    gradient: 'from-green-500 to-green-600',
-    shadow: 'shadow-green-200',
+    bg: 'bg-[#968A42]/15',
+    iconColor: 'text-[#968A42]',
   },
   {
     title: 'Commandes',
     description: 'Suivre et gérer toutes les commandes clients',
     to: '/admin/orders',
     icon: ShoppingBag,
-    gradient: 'from-purple-500 to-purple-600',
-    shadow: 'shadow-purple-200',
+    bg: 'bg-[#BF646D]/15',
+    iconColor: 'text-[#BF646D]',
   },
   {
     title: 'Suivi livraisons',
     description: 'Gérer la préparation et la livraison des repas',
     to: '/admin/delivery',
     icon: MapPin,
-    gradient: 'from-orange-500 to-orange-600',
-    shadow: 'shadow-orange-200',
+    bg: 'bg-[#E5B7B3]/40',
+    iconColor: 'text-[#8B3A43]',
   },
   {
     title: 'Statistiques',
     description: 'Analyser les ventes, revenus et tendances',
     to: '/admin/stats',
     icon: BarChart3,
-    gradient: 'from-pink-500 to-pink-600',
-    shadow: 'shadow-pink-200',
+    bg: 'bg-[#8B3A43]/10',
+    iconColor: 'text-[#8B3A43]',
   },
   {
     title: 'Accès & droits',
     description: 'Gérer les utilisateurs, rôles et permissions',
     to: '/admin/users',
     icon: Users,
-    gradient: 'from-indigo-500 to-indigo-600',
-    shadow: 'shadow-indigo-200',
+    bg: 'bg-[#392D31]/10',
+    iconColor: 'text-[#392D31]',
   },
 ];
 
@@ -89,33 +89,33 @@ export default function AdminDashboard() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#F0F0E6] flex items-center justify-center">
         <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto" />
-          <p className="text-sm text-gray-500">Chargement du tableau de bord...</p>
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#8B3A43] mx-auto" />
+          <p className="text-sm text-[#9A8A7C]">Chargement du tableau de bord...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="min-h-screen bg-[#F0F0E6]">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-[#FDFAF7] border-b border-[#E5D9D0]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">MF</span>
+              <div className="w-10 h-10 bg-[#8B3A43] rounded-2xl flex items-center justify-center">
+                <span className="text-[#F0F0E6] font-bold text-sm">MF</span>
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Tableau de bord</h1>
-                <p className="text-sm text-gray-500">Maison Félicien — Administration</p>
+                <h1 className="text-xl font-bold text-[#392D31]">Tableau de bord</h1>
+                <p className="text-sm text-[#9A8A7C]">Maison Félicien — Administration</p>
               </div>
             </div>
             <Link
               to="/"
-              className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              className="text-sm text-[#9A8A7C] hover:text-[#392D31] transition-colors"
             >
               Retour au site
             </Link>
@@ -127,42 +127,42 @@ export default function AdminDashboard() {
         {/* Stat cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
           {/* Active events */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="bg-[#FDFAF7] rounded-2xl border border-[#E5D9D0] p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-500">Événements actifs</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">{stats.activeCount}</p>
+                <p className="text-[11px] font-medium text-[#9A8A7C] uppercase tracking-wider">Événements actifs</p>
+                <p className="text-3xl font-bold text-[#392D31] mt-1">{stats.activeCount}</p>
               </div>
-              <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center">
-                <Calendar className="w-6 h-6 text-blue-600" />
+              <div className="w-12 h-12 bg-[#E5B7B3]/30 rounded-2xl flex items-center justify-center">
+                <Calendar className="w-6 h-6 text-[#8B3A43]" />
               </div>
             </div>
           </div>
 
           {/* Total orders */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="bg-[#FDFAF7] rounded-2xl border border-[#E5D9D0] p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-500">Commandes totales</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">{stats.totalOrders}</p>
+                <p className="text-[11px] font-medium text-[#9A8A7C] uppercase tracking-wider">Commandes totales</p>
+                <p className="text-3xl font-bold text-[#392D31] mt-1">{stats.totalOrders}</p>
               </div>
-              <div className="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center">
-                <ShoppingBag className="w-6 h-6 text-purple-600" />
+              <div className="w-12 h-12 bg-[#8B3A43]/10 rounded-2xl flex items-center justify-center">
+                <ShoppingBag className="w-6 h-6 text-[#BF646D]" />
               </div>
             </div>
           </div>
 
           {/* Total revenue */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="bg-[#FDFAF7] rounded-2xl border border-[#E5D9D0] p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-500">Revenu total</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">
+                <p className="text-[11px] font-medium text-[#9A8A7C] uppercase tracking-wider">Revenu total</p>
+                <p className="text-3xl font-bold text-[#392D31] mt-1" style={{ fontFamily: "'Georgia', serif", fontStyle: 'italic' }}>
                   {stats.totalRevenue.toFixed(2).replace('.', ',')} €
                 </p>
               </div>
-              <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-green-600" />
+              <div className="w-12 h-12 bg-[#968A42]/15 rounded-2xl flex items-center justify-center">
+                <TrendingUp className="w-6 h-6 text-[#968A42]" />
               </div>
             </div>
           </div>
@@ -170,7 +170,7 @@ export default function AdminDashboard() {
 
         {/* Module cards */}
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Modules</h2>
+          <h2 className="text-[11px] font-medium text-[#BF646D] uppercase tracking-[0.18em] mb-4">Modules</h2>
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {modules.map((mod) => {
               const Icon = mod.icon;
@@ -178,17 +178,17 @@ export default function AdminDashboard() {
                 <Link
                   key={mod.to}
                   to={mod.to}
-                  className={`group bg-white rounded-xl shadow-sm border border-gray-100 p-5 sm:p-6 hover:shadow-lg hover:scale-[1.02] transition-all duration-200 ${mod.shadow}`}
+                  className="group bg-[#FDFAF7] rounded-2xl border border-[#E5D9D0] p-5 sm:p-6 hover:border-[#8B3A43] transition-colors duration-200"
                 >
                   <div
-                    className={`w-12 h-12 bg-gradient-to-br ${mod.gradient} rounded-xl flex items-center justify-center mb-4`}
+                    className={`w-12 h-12 ${mod.bg} rounded-2xl flex items-center justify-center mb-4`}
                   >
-                    <Icon className="w-6 h-6 text-white" />
+                    <Icon className={`w-6 h-6 ${mod.iconColor}`} />
                   </div>
-                  <h3 className="font-semibold text-gray-900 group-hover:text-gray-700 transition-colors">
+                  <h3 className="font-semibold text-[#392D31] group-hover:text-[#8B3A43] transition-colors">
                     {mod.title}
                   </h3>
-                  <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+                  <p className="text-sm text-[#9A8A7C] mt-1 leading-relaxed">
                     {mod.description}
                   </p>
                 </Link>
