@@ -13,6 +13,7 @@ import HomePage from '@/pages/HomePage';
 import LoginPage from '@/pages/LoginPage';
 import OrderPage from '@/pages/Order';
 import OrderSuccess from '@/pages/OrderSuccess';
+import CustomerOrders from '@/pages/CustomerOrders';
 // Admin pages
 import AdminDashboard from '@/pages/admin/AdminDashboard';
 import AdminEvent from '@/pages/admin/AdminEvent';
@@ -67,6 +68,7 @@ export default function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/order" element={<OrderPage />} />
             <Route path="/order/success/:orderId" element={<OrderSuccess />} />
+            <Route path="/my-orders" element={<CustomerOrders />} />
             {/* Admin */}
             <Route
               path="/admin"

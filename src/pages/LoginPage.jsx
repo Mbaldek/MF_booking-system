@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
+import { supabase } from '@/api/supabase';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
   const { signIn } = useAuth();
   const navigate = useNavigate();
 
@@ -26,14 +29,34 @@ export default function LoginPage() {
     }
   }
 
+  async function handleResetPassword() {
+    if (!email) {
+      setError('Veuillez saisir votre email pour réinitialiser le mot de passe');
+      return;
+    }
+    setResetLoading(true);
+    setError('');
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/login`,
+      });
+      if (resetError) throw resetError;
+      setResetSent(true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setResetLoading(false);
+    }
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#faf6f5] to-[#f0e6e4] px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center mx-auto mb-4">
-            <span className="text-white text-xl font-bold">MF</span>
+          <div className="w-14 h-14 bg-[#8B3A43] rounded-xl flex items-center justify-center mx-auto mb-4 p-2.5">
+            <img src="/monogram-white.svg" alt="MF" className="w-full h-full" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Maison Félicien</h1>
+          <h1 className="text-2xl font-bold text-gray-900 font-brand">Maison Félicien</h1>
           <p className="text-gray-500 text-sm mt-1">Connexion à votre espace</p>
         </div>
 
@@ -41,6 +64,12 @@ export default function LoginPage() {
           {error && (
             <div className="bg-red-50 text-red-700 text-sm p-3 rounded-lg">
               {error}
+            </div>
+          )}
+
+          {resetSent && (
+            <div className="bg-green-50 text-green-700 text-sm p-3 rounded-lg">
+              Un email de réinitialisation a été envoyé à {email}
             </div>
           )}
 
@@ -54,7 +83,7 @@ export default function LoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent"
               placeholder="votre@email.com"
             />
           </div>
@@ -69,22 +98,33 @@ export default function LoginPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent"
               placeholder="••••••••"
             />
+          </div>
+
+          <div className="text-right">
+            <button
+              type="button"
+              onClick={handleResetPassword}
+              disabled={resetLoading}
+              className="text-xs text-[#8B3A43] hover:underline disabled:opacity-50"
+            >
+              {resetLoading ? 'Envoi...' : 'Mot de passe oublié ?'}
+            </button>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full py-2.5 bg-[#8B3A43] text-white text-sm font-medium rounded-lg hover:bg-[#7a3039] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? 'Connexion...' : 'Se connecter'}
           </button>
 
           <div className="text-center">
             <Link to="/" className="text-sm text-gray-500 hover:text-gray-700">
-              ← Retour à l'accueil
+              &larr; Retour à l'accueil
             </Link>
           </div>
         </form>

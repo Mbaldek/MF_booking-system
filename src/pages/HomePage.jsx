@@ -84,10 +84,16 @@ export default function HomePage() {
           </div>
         </div>
 
-        {isAuthenticated && (profile?.role === 'admin' || profile?.role === 'staff') && (
+        {isAuthenticated && (
           <div className="mt-12 p-6 bg-white rounded-xl shadow-sm">
             <p className="text-sm text-gray-500 mb-3">Espace personnel</p>
             <div className="flex flex-wrap justify-center gap-3">
+              <Link
+                to="/my-orders"
+                className="px-4 py-2 border border-[#8B3A43] text-[#8B3A43] text-sm font-medium rounded-lg hover:bg-[#8B3A43]/5 transition-colors"
+              >
+                Mes commandes
+              </Link>
               {profile?.role === 'admin' && (
                 <Link
                   to="/admin"
@@ -96,12 +102,14 @@ export default function HomePage() {
                   Administration
                 </Link>
               )}
-              <Link
-                to="/staff/kitchen"
-                className="px-4 py-2 bg-[#968A42] text-white text-sm font-medium rounded-lg hover:bg-[#857939] transition-colors"
-              >
-                Espace staff
-              </Link>
+              {(profile?.role === 'admin' || profile?.role === 'staff') && (
+                <Link
+                  to="/staff/kitchen"
+                  className="px-4 py-2 bg-[#968A42] text-white text-sm font-medium rounded-lg hover:bg-[#857939] transition-colors"
+                >
+                  Espace staff
+                </Link>
+              )}
             </div>
           </div>
         )}

@@ -57,6 +57,18 @@ export default function MenuSelector({ type, items, selectedId, onSelect, requir
                   {item.description && (
                     <p className="text-xs text-gray-500 mt-0.5">{item.description}</p>
                   )}
+                  {item.tags && item.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {item.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="inline-block px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-amber-100 text-amber-800"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </button>

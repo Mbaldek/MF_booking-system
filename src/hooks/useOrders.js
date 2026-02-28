@@ -92,6 +92,25 @@ export function useOrderById(orderId) {
   });
 }
 
+export function useMyOrders() {
+  return useQuery({
+    queryKey: ['orders', 'mine'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*, event:events(id, name)')
+        .eq('customer_email', user.email)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
 export function useUpdateOrder() {
   const qc = useQueryClient();
   return useMutation({
