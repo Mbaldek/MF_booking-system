@@ -13,9 +13,9 @@ import MenuSelector from '@/components/order/MenuSelector';
 
 function EventPicker({ events, onSelect }) {
   return (
-    <div className="bg-slate-50 px-3 py-4 sm:px-4 sm:py-8 min-h-screen">
+    <div className="bg-[#F0F0E6] px-3 py-4 sm:px-4 sm:py-8 min-h-screen">
       <div className="fixed top-4 right-4 z-50 flex gap-2">
-        <Link to="/login" className="px-3 py-1.5 text-xs font-medium bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg shadow hover:bg-gray-50 transition-all">
+        <Link to="/login" className="px-4 py-1.5 text-xs font-medium bg-[#FDFAF7] border border-[#E5D9D0] rounded-full hover:border-[#8B3A43] transition-all uppercase tracking-wider">
           Connexion
         </Link>
       </div>
@@ -23,7 +23,7 @@ function EventPicker({ events, onSelect }) {
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="text-center space-y-3">
           <img src="/logo.svg" alt="Maison Félicien" className="h-12 mx-auto" />
-          <p className="text-sm text-gray-500">Choisissez votre événement pour commander</p>
+          <p className="text-sm text-[#9A8A7C]">Choisissez votre événement pour commander</p>
         </div>
 
         <div className="grid gap-4">
@@ -31,24 +31,24 @@ function EventPicker({ events, onSelect }) {
             <button
               key={event.id}
               onClick={() => onSelect(event)}
-              className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 text-left hover:border-[#8B3A43]/30 hover:shadow-md transition-all group"
+              className="bg-[#FDFAF7] rounded-2xl border border-[#E5D9D0] p-5 text-left hover:border-[#8B3A43] transition-all group"
             >
               <div className="flex gap-4">
                 {event.image_url ? (
-                  <img src={event.image_url} alt={event.name} className="w-20 h-20 object-cover rounded-lg shrink-0" />
+                  <img src={event.image_url} alt={event.name} className="w-20 h-20 object-cover rounded-xl shrink-0" />
                 ) : (
-                  <div className="w-20 h-20 bg-gradient-to-br from-[#E5B7B3]/30 to-[#8B3A43]/10 rounded-lg shrink-0 flex items-center justify-center">
+                  <div className="w-20 h-20 bg-[#E5B7B3]/20 rounded-xl shrink-0 flex items-center justify-center">
                     <Calendar className="w-8 h-8 text-[#8B3A43]/50" />
                   </div>
                 )}
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-semibold text-gray-900 group-hover:text-[#8B3A43] transition-colors">{event.name}</h3>
-                  <p className="text-sm text-gray-500 mt-1 flex items-center gap-1.5">
+                  <h3 className="text-lg font-semibold text-[#392D31] group-hover:text-[#8B3A43] transition-colors">{event.name}</h3>
+                  <p className="text-sm text-[#9A8A7C] mt-1 flex items-center gap-1.5">
                     <Calendar className="w-4 h-4" />
                     {format(new Date(event.start_date + 'T00:00:00'), 'd MMM', { locale: fr })} — {format(new Date(event.end_date + 'T00:00:00'), 'd MMM yyyy', { locale: fr })}
                   </p>
                   {event.description && (
-                    <p className="text-xs text-gray-400 mt-1 line-clamp-2">{event.description}</p>
+                    <p className="text-xs text-[#C4B5A8] mt-1 line-clamp-2">{event.description}</p>
                   )}
                 </div>
               </div>
@@ -256,7 +256,7 @@ export default function OrderPage() {
   // Loading
   if (eventsLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#faf6f5] to-[#f0e6e4] flex items-center justify-center">
+      <div className="min-h-screen bg-[#F0F0E6] flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#8B3A43]" />
       </div>
     );
@@ -265,9 +265,9 @@ export default function OrderPage() {
   // No active events
   if (activeEvents.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#faf6f5] to-[#f0e6e4] flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl shadow-sm p-8 max-w-md text-center">
-          <p className="text-gray-600">Aucun événement actif pour le moment.</p>
+      <div className="min-h-screen bg-[#F0F0E6] flex items-center justify-center p-4">
+        <div className="bg-[#FDFAF7] rounded-2xl border border-[#E5D9D0] p-8 max-w-md text-center">
+          <p className="text-[#9A8A7C]">Aucun événement actif pour le moment.</p>
           <Link to="/" className="text-sm text-[#8B3A43] hover:underline mt-4 inline-block">Retour à l'accueil</Link>
         </div>
       </div>
@@ -298,16 +298,16 @@ export default function OrderPage() {
   const slotLabels = { midi: 'Midi', soir: 'Soir' };
 
   return (
-    <div className="bg-slate-50 px-3 py-4 sm:px-4 sm:py-8 min-h-screen">
+    <div className="bg-[#F0F0E6] px-3 py-4 sm:px-4 sm:py-8 min-h-screen">
       <div className="fixed top-4 right-4 z-50 flex gap-2">
-        <Link to="/login" className="px-3 py-1.5 text-xs font-medium bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg shadow hover:bg-gray-50 transition-all">
+        <Link to="/login" className="px-4 py-1.5 text-xs font-medium bg-[#FDFAF7] border border-[#E5D9D0] rounded-full hover:border-[#8B3A43] transition-all uppercase tracking-wider">
           Connexion
         </Link>
       </div>
 
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Event hero with image */}
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div className="bg-[#FDFAF7] rounded-2xl border border-[#E5D9D0] overflow-hidden">
           {ev.image_url && (
             <img src={ev.image_url} alt={ev.name} className="w-full h-40 object-cover" />
           )}
@@ -318,11 +318,11 @@ export default function OrderPage() {
                 <ArrowLeft className="w-3 h-3" /> Changer d'événement
               </button>
             )}
-            <h1 className="text-2xl font-semibold text-gray-900 mb-1">{ev.name}</h1>
-            <p className="text-sm text-gray-500">
+            <h1 className="text-2xl font-semibold text-[#392D31] mb-1" style={{ fontFamily: "'Georgia', serif", fontStyle: 'italic' }}>{ev.name}</h1>
+            <p className="text-sm text-[#9A8A7C]">
               {format(new Date(ev.start_date + 'T00:00:00'), 'd MMM', { locale: fr })} — {format(new Date(ev.end_date + 'T00:00:00'), 'd MMM yyyy', { locale: fr })}
             </p>
-            {ev.description && <p className="text-xs text-gray-400 mt-2">{ev.description}</p>}
+            {ev.description && <p className="text-xs text-[#C4B5A8] mt-2">{ev.description}</p>}
             <div className="flex justify-center gap-4 mt-3">
               {Number(ev.menu_price_midi) > 0 && (
                 <span className="text-sm font-medium text-[#8B3A43] bg-[#8B3A43]/10 px-3 py-1 rounded-full">
@@ -339,11 +339,11 @@ export default function OrderPage() {
         </div>
 
         {/* Order form */}
-        <div className="bg-white rounded-xl shadow-sm border p-6">
+        <div className="bg-[#FDFAF7] rounded-2xl border border-[#E5D9D0] p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Delivery method */}
             <div>
-              <h2 className="text-lg font-semibold text-gray-900 mb-3">Mode de retrait</h2>
+              <h2 className="text-lg text-[#8B3A43] mb-3" style={{ fontFamily: "'Georgia', serif", fontStyle: 'italic' }}>Mode de retrait</h2>
               <div className="grid grid-cols-2 gap-3">
                 {[
                   { value: 'retrait', label: 'Retrait', desc: 'Je viens chercher ma commande' },
@@ -353,22 +353,22 @@ export default function OrderPage() {
                     key={option.value}
                     type="button"
                     onClick={() => setFormData({ ...formData, delivery_method: option.value })}
-                    className={`p-4 rounded-xl border-2 text-left transition-all ${
+                    className={`p-4 rounded-2xl border-[1.5px] text-left transition-all ${
                       formData.delivery_method === option.value
-                        ? 'border-[#8B3A43] bg-[#8B3A43]/5'
-                        : 'border-gray-200 hover:border-gray-300'
+                        ? 'border-[#8B3A43] bg-[#E5B7B3]/15'
+                        : 'border-[#E5D9D0] hover:border-[#BF646D]/40'
                     }`}
                   >
                     <p className={`text-sm font-semibold ${
-                      formData.delivery_method === option.value ? 'text-[#8B3A43]' : 'text-gray-700'
+                      formData.delivery_method === option.value ? 'text-[#8B3A43]' : 'text-[#392D31]'
                     }`}>{option.label}</p>
-                    <p className="text-xs text-gray-500 mt-1">{option.desc}</p>
+                    <p className="text-xs text-[#9A8A7C] mt-1">{option.desc}</p>
                   </button>
                 ))}
               </div>
             </div>
 
-            <h2 className="text-lg font-semibold text-gray-900">Informations de facturation</h2>
+            <h2 className="text-lg text-[#8B3A43]" style={{ fontFamily: "'Georgia', serif", fontStyle: 'italic' }}>Informations de facturation</h2>
             <div className="grid md:grid-cols-2 gap-4">
               {[
                 { id: 'first_name', label: 'Prénom', type: 'text' },
@@ -376,48 +376,48 @@ export default function OrderPage() {
                 { id: 'stand', label: 'Stand', type: 'text' },
                 { id: 'phone', label: 'Téléphone', type: 'tel' },
               ].map((field) => (
-                <div key={field.id} className="space-y-1">
-                  <label htmlFor={field.id} className="block text-sm font-medium text-gray-700">{field.label} *</label>
+                <div key={field.id} className="space-y-1.5">
+                  <label htmlFor={field.id} className="block text-[11px] uppercase tracking-[0.12em] font-medium text-[#8B3A43]">{field.label} *</label>
                   <input id={field.id} type={field.type} required value={formData[field.id]}
                     onChange={(e) => setFormData({ ...formData, [field.id]: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent" />
+                    className="w-full px-4 py-2.5 border border-[#E5D9D0] rounded-full text-sm text-[#392D31] placeholder-[#C4B5A8] focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent bg-white" />
                 </div>
               ))}
-              <div className="space-y-1 md:col-span-2">
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email *</label>
+              <div className="space-y-1.5 md:col-span-2">
+                <label htmlFor="email" className="block text-[11px] uppercase tracking-[0.12em] font-medium text-[#8B3A43]">Email *</label>
                 <input id="email" type="email" required value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent" />
+                  className="w-full px-4 py-2.5 border border-[#E5D9D0] rounded-full text-sm text-[#392D31] placeholder-[#C4B5A8] focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent bg-white" />
               </div>
             </div>
 
             {/* Billing address */}
-            <div className="pt-4 border-t">
-              <h2 className="text-lg font-semibold text-gray-900 mb-3">Adresse de facturation</h2>
+            <div className="pt-4 border-t border-[#E5D9D0]">
+              <h2 className="text-lg text-[#8B3A43] mb-3" style={{ fontFamily: "'Georgia', serif", fontStyle: 'italic' }}>Adresse de facturation</h2>
               <div className="grid md:grid-cols-2 gap-4">
-                <div className="space-y-1 md:col-span-2">
-                  <label htmlFor="company_name" className="block text-sm font-medium text-gray-700">Nom de l'entreprise</label>
+                <div className="space-y-1.5 md:col-span-2">
+                  <label htmlFor="company_name" className="block text-[11px] uppercase tracking-[0.12em] font-medium text-[#8B3A43]">Nom de l'entreprise</label>
                   <input id="company_name" type="text" value={formData.company_name}
                     onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent" />
+                    className="w-full px-4 py-2.5 border border-[#E5D9D0] rounded-full text-sm text-[#392D31] placeholder-[#C4B5A8] focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent bg-white" />
                 </div>
-                <div className="space-y-1 md:col-span-2">
-                  <label htmlFor="billing_address" className="block text-sm font-medium text-gray-700">Adresse *</label>
+                <div className="space-y-1.5 md:col-span-2">
+                  <label htmlFor="billing_address" className="block text-[11px] uppercase tracking-[0.12em] font-medium text-[#8B3A43]">Adresse *</label>
                   <input id="billing_address" type="text" required value={formData.billing_address}
                     onChange={(e) => setFormData({ ...formData, billing_address: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent" />
+                    className="w-full px-4 py-2.5 border border-[#E5D9D0] rounded-full text-sm text-[#392D31] placeholder-[#C4B5A8] focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent bg-white" />
                 </div>
-                <div className="space-y-1">
-                  <label htmlFor="billing_postal_code" className="block text-sm font-medium text-gray-700">Code postal *</label>
+                <div className="space-y-1.5">
+                  <label htmlFor="billing_postal_code" className="block text-[11px] uppercase tracking-[0.12em] font-medium text-[#8B3A43]">Code postal *</label>
                   <input id="billing_postal_code" type="text" required value={formData.billing_postal_code}
                     onChange={(e) => setFormData({ ...formData, billing_postal_code: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent" />
+                    className="w-full px-4 py-2.5 border border-[#E5D9D0] rounded-full text-sm text-[#392D31] placeholder-[#C4B5A8] focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent bg-white" />
                 </div>
-                <div className="space-y-1">
-                  <label htmlFor="billing_city" className="block text-sm font-medium text-gray-700">Ville *</label>
+                <div className="space-y-1.5">
+                  <label htmlFor="billing_city" className="block text-[11px] uppercase tracking-[0.12em] font-medium text-[#8B3A43]">Ville *</label>
                   <input id="billing_city" type="text" required value={formData.billing_city}
                     onChange={(e) => setFormData({ ...formData, billing_city: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent" />
+                    className="w-full px-4 py-2.5 border border-[#E5D9D0] rounded-full text-sm text-[#392D31] placeholder-[#C4B5A8] focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent bg-white" />
                 </div>
               </div>
             </div>
@@ -435,11 +435,11 @@ export default function OrderPage() {
                   }, 0);
 
                   return (
-                    <div key={date} className="border rounded-xl overflow-hidden">
+                    <div key={date} className="border border-[#E5D9D0] rounded-2xl overflow-hidden">
                       <button type="button" onClick={() => toggleDay(date)}
-                        className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 transition-colors text-left">
+                        className="w-full flex items-center justify-between p-4 bg-[#F0F0E6] hover:bg-[#E5D9D0]/30 transition-colors text-left">
                         <div className="flex items-center gap-3">
-                          <span className="text-base font-medium text-gray-900 capitalize">
+                          <span className="text-base font-medium text-[#392D31] capitalize">
                             {format(new Date(date + 'T00:00:00'), 'EEEE d MMMM', { locale: fr })}
                           </span>
                           {dayMenuCount > 0 && (
@@ -448,11 +448,11 @@ export default function OrderPage() {
                             </span>
                           )}
                         </div>
-                        <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                        <ChevronDown className={`w-5 h-5 text-[#C4B5A8] transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                       </button>
 
                       {isExpanded && (
-                        <div className="p-4 space-y-6">
+                        <div className="p-4 space-y-6 bg-[#FDFAF7]">
                           {slots.map((slot) => {
                             const guests = slotGuests[slot.id] || [];
                             const menuPrice = slot.slot_type === 'soir' ? Number(ev.menu_price_soir) : Number(ev.menu_price_midi);
@@ -461,17 +461,17 @@ export default function OrderPage() {
                               <div key={slot.id} className="space-y-4">
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-3">
-                                    <p className="text-sm font-semibold text-[#8B3A43] uppercase tracking-wide">
+                                    <p className="text-[11px] font-semibold text-[#8B3A43] uppercase tracking-[0.12em]">
                                       {slotLabels[slot.slot_type]}
                                     </p>
-                                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                                    <span className="text-xs text-[#9A8A7C] bg-[#F0F0E6] px-2 py-0.5 rounded-full">
                                       {menuPrice.toFixed(2)}€ / menu
                                     </span>
                                   </div>
                                   <button
                                     type="button"
                                     onClick={() => handleAddGuest(slot.id)}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#8B3A43] bg-[#8B3A43]/10 rounded-lg hover:bg-[#8B3A43]/20 transition-colors"
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#8B3A43] bg-[#8B3A43]/10 rounded-full hover:bg-[#8B3A43]/20 transition-colors uppercase tracking-wider"
                                   >
                                     <Plus className="w-3.5 h-3.5" />
                                     Ajouter un menu
@@ -479,28 +479,28 @@ export default function OrderPage() {
                                 </div>
 
                                 {guests.length === 0 && (
-                                  <p className="text-sm text-gray-400 text-center py-4 border-2 border-dashed border-gray-200 rounded-lg">
+                                  <p className="text-sm text-[#C4B5A8] text-center py-4 border-2 border-dashed border-[#E5D9D0] rounded-2xl">
                                     Ajoutez au moins un menu pour ce créneau
                                   </p>
                                 )}
 
                                 {guests.map((guest, guestIndex) => (
-                                  <div key={guestIndex} className="border border-gray-200 rounded-xl p-4 space-y-4 bg-gray-50/50">
+                                  <div key={guestIndex} className="border border-[#E5D9D0] rounded-2xl p-4 space-y-4 bg-[#F0F0E6]/50">
                                     <div className="flex items-center justify-between gap-3">
                                       <div className="flex items-center gap-2 flex-1">
-                                        <User className="w-4 h-4 text-gray-400 shrink-0" />
+                                        <User className="w-4 h-4 text-[#C4B5A8] shrink-0" />
                                         <input
                                           type="text"
                                           placeholder="Prénom du convive *"
                                           value={guest.name}
                                           onChange={(e) => handleGuestNameChange(slot.id, guestIndex, e.target.value)}
-                                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent"
+                                          className="flex-1 px-4 py-2 border border-[#E5D9D0] rounded-full text-sm text-[#392D31] placeholder-[#C4B5A8] focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent bg-white"
                                         />
                                       </div>
                                       <button
                                         type="button"
                                         onClick={() => handleRemoveGuest(slot.id, guestIndex)}
-                                        className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                        className="p-1.5 text-[#BF646D] hover:text-[#8B3A43] hover:bg-[#E5B7B3]/20 rounded-full transition-colors"
                                         title="Supprimer ce menu"
                                       >
                                         <Trash2 className="w-4 h-4" />
@@ -557,16 +557,16 @@ export default function OrderPage() {
             )}
 
             {selectedSlotIds.length > 0 && (
-              <div className="pt-4 border-t flex justify-between items-center">
-                <span className="text-sm text-gray-600">
+              <div className="pt-4 border-t border-[#E5D9D0] flex justify-between items-center">
+                <span className="text-sm text-[#9A8A7C]">
                   {selectedSlotIds.reduce((c, sid) => c + (slotGuests[sid]?.length || 0), 0)} menu(s) sur {selectedSlotIds.length} créneau{selectedSlotIds.length > 1 ? 'x' : ''}
                 </span>
-                <span className="text-2xl font-semibold">{total.toFixed(2)}€</span>
+                <span className="text-2xl text-[#8B3A43]" style={{ fontFamily: "'Georgia', serif", fontStyle: 'italic' }}>{total.toFixed(2)}€</span>
               </div>
             )}
 
             <button type="submit" disabled={!isFormValid || createOrder.isPending}
-              className="w-full py-3 bg-[#8B3A43] text-white font-medium rounded-xl hover:bg-[#7a3039] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2">
+              className="w-full py-3.5 bg-[#8B3A43] text-[#F0F0E6] font-medium rounded-full hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 uppercase tracking-[0.12em] text-[13px]">
               {createOrder.isPending ? (
                 <><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" /> Traitement en cours...</>
               ) : (

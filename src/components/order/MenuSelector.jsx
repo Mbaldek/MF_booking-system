@@ -11,11 +11,11 @@ export default function MenuSelector({ type, items, selectedId, onSelect, requir
   return (
     <div className="space-y-2">
       <div className="flex items-baseline gap-2">
-        <p className="text-sm font-semibold text-gray-700">{typeLabels[type] || type}</p>
+        <p className="text-[11px] uppercase tracking-[0.18em] text-[#BF646D] font-medium">{typeLabels[type] || type}</p>
         {required ? (
-          <span className="text-xs text-red-500 font-medium">obligatoire</span>
+          <span className="text-[10px] text-[#8B3A43] font-medium">obligatoire</span>
         ) : (
-          <span className="text-xs text-gray-400">optionnel</span>
+          <span className="text-[10px] text-[#C4B5A8]">optionnel</span>
         )}
       </div>
       <div className="grid gap-2">
@@ -27,23 +27,21 @@ export default function MenuSelector({ type, items, selectedId, onSelect, requir
               type="button"
               onClick={() => {
                 if (required) {
-                  // Radio behavior: always select, no deselect
                   onSelect(item.id);
                 } else {
-                  // Checkbox behavior: toggle
                   onSelect(isSelected ? null : item.id);
                 }
               }}
-              className={`flex items-start justify-between gap-4 p-3 rounded-lg border-2 transition-all text-left ${
+              className={`flex items-start justify-between gap-4 p-3 rounded-2xl border-[1.5px] transition-all text-left ${
                 isSelected
-                  ? 'border-[#8B3A43] bg-[#8B3A43]/5'
-                  : 'border-gray-200 hover:border-gray-300'
+                  ? 'border-[#8B3A43] bg-[#E5B7B3]/15'
+                  : 'border-[#E5D9D0] hover:border-[#BF646D]/40'
               }`}
             >
               <div className="flex items-start gap-3 flex-1">
                 <div
                   className={`w-5 h-5 rounded${required ? '-full' : ''} border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                    isSelected ? 'bg-[#8B3A43] border-[#8B3A43]' : 'border-gray-300'
+                    isSelected ? 'bg-[#8B3A43] border-[#8B3A43]' : 'border-[#E5D9D0]'
                   }`}
                 >
                   {isSelected && (
@@ -53,16 +51,16 @@ export default function MenuSelector({ type, items, selectedId, onSelect, requir
                   )}
                 </div>
                 <div className="flex-1">
-                  <span className="font-medium text-sm">{item.name}</span>
+                  <span className={`font-medium text-sm ${isSelected ? 'text-[#8B3A43]' : 'text-[#392D31]'}`}>{item.name}</span>
                   {item.description && (
-                    <p className="text-xs text-gray-500 mt-0.5">{item.description}</p>
+                    <p className="text-xs text-[#9A8A7C] mt-0.5">{item.description}</p>
                   )}
                   {item.tags && item.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1">
                       {item.tags.map((tag) => (
                         <span
                           key={tag}
-                          className="inline-block px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-amber-100 text-amber-800"
+                          className="inline-block px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-[#968A42]/10 text-[#968A42]"
                         >
                           {tag}
                         </span>

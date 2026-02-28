@@ -90,17 +90,17 @@ export default function OrderSuccess() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600" />
+      <div className="min-h-screen bg-[#F0F0E6] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#8B3A43]" />
       </div>
     );
   }
 
   if (!order) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl shadow-sm p-8 max-w-md text-center space-y-3">
-          <p className="text-gray-600">Commande introuvable.</p>
+      <div className="min-h-screen bg-[#F0F0E6] flex items-center justify-center p-4">
+        <div className="bg-[#FDFAF7] rounded-2xl border border-[#E5D9D0] p-8 max-w-md text-center space-y-3">
+          <p className="text-[#9A8A7C]">Commande introuvable.</p>
           <Link to="/order" className="text-sm text-[#8B3A43] hover:underline">Retour aux commandes</Link>
         </div>
       </div>
@@ -114,67 +114,67 @@ export default function OrderSuccess() {
     : '';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 py-8 px-4">
+    <div className="min-h-screen bg-[#F0F0E6] py-8 px-4">
       <div className="max-w-2xl mx-auto space-y-6">
 
         {/* Success header */}
-        <div className="bg-white rounded-xl shadow-lg p-8 text-center space-y-4">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-            <CheckCircle2 className="w-10 h-10 text-green-600" />
+        <div className="bg-[#FDFAF7] rounded-2xl border border-[#E5D9D0] p-8 text-center space-y-4">
+          <div className="w-16 h-16 bg-[#E5B7B3]/30 rounded-full flex items-center justify-center mx-auto">
+            <CheckCircle2 className="w-10 h-10 text-[#8B3A43]" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Commande confirmée !</h1>
-          <p className="text-gray-600">
-            Votre commande <span className="font-mono font-semibold text-gray-900">{order.order_number}</span> a bien été enregistrée.
+          <h1 className="text-2xl font-bold text-[#8B3A43]" style={{ fontFamily: "'Georgia', serif", fontStyle: 'italic' }}>Commande confirmée !</h1>
+          <p className="text-[#9A8A7C]">
+            Votre commande <span className="font-mono font-semibold text-[#392D31]">{order.order_number}</span> a bien été enregistrée.
           </p>
           {eventName && (
-            <p className="text-sm text-gray-500">{eventName} — {eventDates}</p>
+            <p className="text-sm text-[#9A8A7C]">{eventName} — {eventDates}</p>
           )}
         </div>
 
         {/* Delivery method communication */}
-        <div className="bg-white rounded-xl shadow-lg p-6 space-y-3">
-          <h2 className="text-lg font-semibold text-gray-900">
+        <div className="bg-[#FDFAF7] rounded-2xl border border-[#E5D9D0] p-6 space-y-3">
+          <h2 className="text-lg text-[#8B3A43]" style={{ fontFamily: "'Georgia', serif", fontStyle: 'italic' }}>
             {order.delivery_method === 'retrait' ? 'Retrait de votre commande' : 'Livraison de votre commande'}
           </h2>
-          <div className="bg-[#8B3A43]/5 border border-[#8B3A43]/20 rounded-lg p-4">
+          <div className="bg-[#8B3A43]/5 border border-[#8B3A43]/20 rounded-2xl p-4">
             {order.delivery_method === 'retrait' ? (
-              <p className="text-sm text-gray-700">
+              <p className="text-sm text-[#392D31]">
                 Vous avez choisi le <strong>retrait sur place</strong>. Vous recevrez un email
                 lorsque votre commande sera prête à être retirée.
               </p>
             ) : (
-              <p className="text-sm text-gray-700">
+              <p className="text-sm text-[#392D31]">
                 Votre commande sera <strong>livrée à votre stand</strong>. Vous recevrez un email
                 pour vous informer de l'avancement de la préparation et de la livraison.
               </p>
             )}
           </div>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-[#C4B5A8]">
             Notifications envoyées à : {order.customer_email}
             {order.customer_phone && ` / ${order.customer_phone}`}
           </p>
         </div>
 
         {/* Order summary (visible on screen) */}
-        <div className="bg-white rounded-xl shadow-lg p-6 space-y-5">
-          <h2 className="text-lg font-semibold text-gray-900">Récapitulatif</h2>
+        <div className="bg-[#FDFAF7] rounded-2xl border border-[#E5D9D0] p-6 space-y-5">
+          <h2 className="text-lg text-[#8B3A43]" style={{ fontFamily: "'Georgia', serif", fontStyle: 'italic' }}>Récapitulatif</h2>
 
           {/* Customer info */}
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="flex items-center gap-2 text-gray-600">
-              <User className="w-4 h-4 text-gray-400" />
+            <div className="flex items-center gap-2 text-[#9A8A7C]">
+              <User className="w-4 h-4 text-[#C4B5A8]" />
               {order.customer_first_name} {order.customer_last_name}
             </div>
-            <div className="flex items-center gap-2 text-gray-600">
-              <MapPin className="w-4 h-4 text-gray-400" />
+            <div className="flex items-center gap-2 text-[#9A8A7C]">
+              <MapPin className="w-4 h-4 text-[#C4B5A8]" />
               Stand {order.stand}
             </div>
-            <div className="flex items-center gap-2 text-gray-600">
-              <Mail className="w-4 h-4 text-gray-400" />
+            <div className="flex items-center gap-2 text-[#9A8A7C]">
+              <Mail className="w-4 h-4 text-[#C4B5A8]" />
               {order.customer_email}
             </div>
-            <div className="flex items-center gap-2 text-gray-600">
-              <Phone className="w-4 h-4 text-gray-400" />
+            <div className="flex items-center gap-2 text-[#9A8A7C]">
+              <Phone className="w-4 h-4 text-[#C4B5A8]" />
               {order.customer_phone}
             </div>
             <div className="col-span-2 flex items-center gap-2">
@@ -187,7 +187,7 @@ export default function OrderSuccess() {
               </span>
             </div>
             {(order.billing_address || order.company_name) && (
-              <div className="col-span-2 text-xs text-gray-500 pt-1 border-t border-gray-100">
+              <div className="col-span-2 text-xs text-[#9A8A7C] pt-1 border-t border-[#E5D9D0]">
                 {order.company_name && <p className="font-medium">{order.company_name}</p>}
                 {order.billing_address && (
                   <p>{order.billing_address}, {order.billing_postal_code} {order.billing_city}</p>
@@ -199,10 +199,10 @@ export default function OrderSuccess() {
           {/* Lines grouped by slot + guest */}
           <div className="space-y-4">
             {grouped.map((group, gi) => (
-              <div key={gi} className="border border-gray-100 rounded-lg overflow-hidden">
-                <div className="bg-gray-50 px-4 py-2 flex items-center gap-2">
-                  <CalendarDays className="w-4 h-4 text-gray-400" />
-                  <span className="text-sm font-medium text-gray-700">
+              <div key={gi} className="border border-[#E5D9D0] rounded-2xl overflow-hidden">
+                <div className="bg-[#F0F0E6] px-4 py-2 flex items-center gap-2">
+                  <CalendarDays className="w-4 h-4 text-[#C4B5A8]" />
+                  <span className="text-sm font-medium text-[#392D31]">
                     {format(new Date(group.date), 'EEEE d MMMM', { locale: fr })}
                   </span>
                   <span className="text-xs px-2 py-0.5 rounded-full bg-[#8B3A43]/10 text-[#8B3A43] font-medium">
@@ -214,17 +214,17 @@ export default function OrderSuccess() {
                     </span>
                   )}
                   {group.menu_unit_price != null && (
-                    <span className="ml-auto text-xs font-medium text-gray-600">
+                    <span className="ml-auto text-xs font-medium text-[#9A8A7C]">
                       {group.menu_unit_price.toFixed(2)}€
                     </span>
                   )}
                 </div>
-                <div className="divide-y divide-gray-50">
+                <div className="divide-y divide-[#E5D9D0]/50 bg-[#FDFAF7]">
                   {group.items.map((item, i) => (
                     <div key={i} className="px-4 py-2.5 flex items-center gap-2">
-                      <UtensilsCrossed className="w-3.5 h-3.5 text-gray-300" />
-                      <span className="text-sm text-gray-700">{item.name}</span>
-                      <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">
+                      <UtensilsCrossed className="w-3.5 h-3.5 text-[#E5D9D0]" />
+                      <span className="text-sm text-[#392D31]">{item.name}</span>
+                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-[#F0F0E6] text-[#9A8A7C]">
                         {TYPE_LABELS[item.type] || item.type}
                       </span>
                     </div>
@@ -235,9 +235,9 @@ export default function OrderSuccess() {
           </div>
 
           {/* Total */}
-          <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-            <span className="text-base font-semibold text-gray-900">Total</span>
-            <span className="text-xl font-bold text-gray-900">{Number(order.total_amount).toFixed(2)}€</span>
+          <div className="flex items-center justify-between pt-4 border-t border-[#E5D9D0]">
+            <span className="text-base font-semibold text-[#392D31]">Total</span>
+            <span className="text-xl text-[#8B3A43]" style={{ fontFamily: "'Georgia', serif", fontStyle: 'italic' }}>{Number(order.total_amount).toFixed(2)}€</span>
           </div>
 
           {/* Payment status */}
@@ -261,14 +261,14 @@ export default function OrderSuccess() {
           <button
             onClick={handleDownloadPDF}
             disabled={downloading}
-            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-[#8B3A43] text-white font-medium rounded-xl hover:bg-[#7a3039] transition-colors disabled:opacity-50"
+            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3.5 bg-[#8B3A43] text-[#F0F0E6] font-medium rounded-full hover:opacity-90 transition-all disabled:opacity-50 uppercase tracking-[0.12em] text-[13px]"
           >
             <Download className="w-4 h-4" />
             {downloading ? 'Génération...' : 'Télécharger la facture (PDF)'}
           </button>
           <Link
             to="/order"
-            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-white text-gray-700 font-medium rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors"
+            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3.5 bg-[#FDFAF7] text-[#392D31] font-medium rounded-full border border-[#E5D9D0] hover:border-[#8B3A43] transition-all uppercase tracking-[0.12em] text-[13px]"
           >
             <ArrowLeft className="w-4 h-4" />
             Nouvelle commande
@@ -276,7 +276,7 @@ export default function OrderSuccess() {
         </div>
       </div>
 
-      {/* Hidden invoice template for PDF generation — uses QRCodeCanvas for html2canvas compatibility */}
+      {/* Hidden invoice template for PDF generation — uses inline styles for html2canvas compatibility */}
       <div className="fixed left-[-9999px] top-0">
         <div ref={invoiceRef} style={{ width: '794px', padding: '40px', backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }}>
           {/* PDF Header */}

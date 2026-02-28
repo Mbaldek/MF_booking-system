@@ -47,14 +47,14 @@ export default function OrderHistory() {
   };
 
   return (
-    <div className="min-h-screen px-3 py-4 sm:px-4 sm:py-8">
+    <div className="min-h-screen bg-[#F0F0E6] px-3 py-4 sm:px-4 sm:py-8">
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="text-center space-y-2">
-          <h1 className="text-2xl font-semibold text-gray-900">Mes commandes</h1>
-          <p className="text-sm text-gray-500">Retrouvez vos commandes en saisissant votre email</p>
+          <h1 className="text-2xl text-[#8B3A43]" style={{ fontFamily: "'Georgia', serif", fontStyle: 'italic' }}>Mes commandes</h1>
+          <p className="text-sm text-[#9A8A7C]">Retrouvez vos commandes en saisissant votre email</p>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border p-6">
+        <div className="bg-[#FDFAF7] rounded-2xl border border-[#E5D9D0] p-6">
           <form onSubmit={handleSearch} className="flex gap-3">
             <input
               type="email"
@@ -62,12 +62,12 @@ export default function OrderHistory() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="votre@email.com"
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent"
+              className="flex-1 px-4 py-2.5 border border-[#E5D9D0] rounded-full text-sm text-[#392D31] placeholder-[#C4B5A8] focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent bg-white"
             />
             <button
               type="submit"
               disabled={loading}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[#8B3A43] text-white text-sm font-medium rounded-lg hover:bg-[#7a3039] disabled:opacity-50 transition-colors"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#8B3A43] text-[#F0F0E6] text-[13px] font-medium rounded-full hover:opacity-90 disabled:opacity-50 transition-all uppercase tracking-wider"
             >
               {loading ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
@@ -80,14 +80,14 @@ export default function OrderHistory() {
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-600">{error}</div>
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-sm text-red-600">{error}</div>
         )}
 
         {orders !== null && orders.length === 0 && (
-          <div className="bg-white rounded-xl shadow-sm p-12 text-center">
-            <ShoppingBag className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 font-medium">Aucune commande trouvée</p>
-            <p className="text-sm text-gray-400 mt-1">Vérifiez l'adresse email saisie.</p>
+          <div className="bg-[#FDFAF7] rounded-2xl border border-[#E5D9D0] p-12 text-center">
+            <ShoppingBag className="w-12 h-12 text-[#E5D9D0] mx-auto mb-4" />
+            <p className="text-[#392D31] font-medium">Aucune commande trouvée</p>
+            <p className="text-sm text-[#C4B5A8] mt-1">Vérifiez l'adresse email saisie.</p>
           </div>
         )}
 
@@ -97,23 +97,23 @@ export default function OrderHistory() {
               <Link
                 key={order.id}
                 to={`/order/success/${order.id}`}
-                className="block bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:border-[#8B3A43]/30 hover:shadow-md transition-all group"
+                className="block bg-[#FDFAF7] rounded-2xl border border-[#E5D9D0] p-5 hover:border-[#8B3A43] transition-all group"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-2 flex-1 min-w-0">
                     <div className="flex items-center gap-3">
-                      <span className="font-mono text-sm font-semibold text-gray-900">{order.order_number}</span>
+                      <span className="font-mono text-sm font-semibold text-[#392D31]">{order.order_number}</span>
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PAYMENT_COLORS[order.payment_status] || 'bg-gray-100 text-gray-600'}`}>
                         {PAYMENT_LABELS[order.payment_status] || order.payment_status}
                       </span>
                     </div>
                     {order.event && (
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <div className="flex items-center gap-2 text-sm text-[#9A8A7C]">
                         <Calendar className="w-3.5 h-3.5" />
                         <span>{order.event.name}</span>
                       </div>
                     )}
-                    <div className="flex items-center gap-4 text-xs text-gray-400">
+                    <div className="flex items-center gap-4 text-xs text-[#C4B5A8]">
                       <span className="flex items-center gap-1">
                         <MapPin className="w-3 h-3" />
                         Stand {order.stand}
@@ -122,8 +122,8 @@ export default function OrderHistory() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-lg font-semibold text-gray-900">{Number(order.total_amount).toFixed(2)}€</span>
-                    <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-[#8B3A43] transition-colors" />
+                    <span className="text-lg font-semibold text-[#392D31]">{Number(order.total_amount).toFixed(2)}€</span>
+                    <ArrowRight className="w-4 h-4 text-[#E5D9D0] group-hover:text-[#8B3A43] transition-colors" />
                   </div>
                 </div>
               </Link>
