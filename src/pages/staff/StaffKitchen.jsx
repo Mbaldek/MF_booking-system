@@ -1,270 +1,289 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { ChefHat, Search, Check, Undo2 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useActiveEvent } from '@/hooks/useEvents';
-import { useKitchenLines, useUpdateOrderLineStatus } from '@/hooks/useOrderLines';
+import { useOrderLines, useUpdateOrderLineStatus } from '@/hooks/useOrderLines';
 import { useAuth } from '@/lib/AuthContext';
+import { supabase } from '@/api/supabase';
+import StaffHeader from '@/components/layout/StaffHeader';
+import MfBadge from '@/components/ui/MfBadge';
 import EventSelector from '@/components/admin/EventSelector';
 
-const statusColors = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  preparing: 'bg-blue-100 text-blue-800',
-  ready: 'bg-green-100 text-green-800',
-};
+const COLUMNS = [
+  { key: 'pending', label: 'En attente', color: 'mf-muted', icon: '◷' },
+  { key: 'preparing', label: 'En préparation', color: 'status-orange', icon: '🔥' },
+  { key: 'ready', label: 'Prêts', color: 'mf-vert-olive', icon: '✓' },
+  { key: 'delivered', label: 'Livrés', color: 'status-green', icon: '🚚' },
+];
 
-const statusLabels = {
-  pending: 'En attente',
-  preparing: 'En préparation',
-  ready: 'Prêt',
-};
+const NEXT_STATUS = { pending: 'preparing', preparing: 'ready', ready: 'delivered' };
+const TYPE_ICONS = { entree: '🥗', plat: '🍽', dessert: '🍰', boisson: '🥤' };
 
 export default function StaffKitchen() {
-  const [search, setSearch] = useState('');
-  const [dateFilter, setDateFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
   const [selectedEventId, setSelectedEventId] = useState(null);
+  const [slotFilter, setSlotFilter] = useState('all');
+  const [viewMode, setViewMode] = useState('kanban');
 
+  const queryClient = useQueryClient();
   const { profile } = useAuth();
   const { data: activeEvent } = useActiveEvent();
   const eventId = selectedEventId ?? activeEvent?.id;
-  const { data: lines = [], isLoading } = useKitchenLines(eventId);
+
+  // Fetch ALL order lines (not just kitchen — we need delivered for kanban)
+  const { data: allLines = [], isLoading } = useOrderLines(eventId);
   const updateStatus = useUpdateOrderLineStatus();
 
-  // Stats
-  const stats = useMemo(() => {
-    const pending = lines.filter((l) => l.prep_status === 'pending').length;
-    const preparing = lines.filter((l) => l.prep_status === 'preparing').length;
-    const ready = lines.filter((l) => l.prep_status === 'ready').length;
-    return { pending, preparing, ready, total: lines.length };
-  }, [lines]);
+  // ─── Supabase Realtime ───
+  useEffect(() => {
+    if (!eventId) return;
+    const channel = supabase
+      .channel('kitchen-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'order_lines' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['order_lines'] });
+        }
+      )
+      .subscribe();
 
-  // Available dates for filter
-  const availableDates = useMemo(() => {
-    const dates = new Set(lines.map((l) => l.meal_slot?.slot_date).filter(Boolean));
-    return [...dates].sort();
-  }, [lines]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [eventId, queryClient]);
 
-  // Group lines by order + slot for card display
-  const cards = useMemo(() => {
-    let filtered = lines;
+  // ─── Filter by slot ───
+  const filteredLines = useMemo(() => {
+    if (slotFilter === 'all') return allLines;
+    return allLines.filter((l) => l.meal_slot?.slot_type === slotFilter);
+  }, [allLines, slotFilter]);
 
-    if (search) {
-      const q = search.toLowerCase();
-      filtered = filtered.filter(
-        (l) =>
-          l.order?.customer_first_name?.toLowerCase().includes(q) ||
-          l.order?.customer_last_name?.toLowerCase().includes(q) ||
-          l.order?.stand?.toLowerCase().includes(q) ||
-          l.order?.order_number?.toLowerCase().includes(q)
-      );
-    }
+  // ─── Stats ───
+  const totalItems = filteredLines.length;
+  const delivered = filteredLines.filter((l) => l.prep_status === 'delivered').length;
+  const progress = totalItems > 0 ? (delivered / totalItems) * 100 : 0;
 
-    if (dateFilter !== 'all') {
-      filtered = filtered.filter((l) => l.meal_slot?.slot_date === dateFilter);
-    }
+  // ─── Column items ───
+  const columnItems = (status) =>
+    filteredLines.filter((l) => l.prep_status === status);
 
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter((l) => l.prep_status === statusFilter);
-    }
-
-    // Group by order_id + meal_slot_id + guest_name
-    const grouped = {};
-    filtered.forEach((line) => {
-      const key = `${line.order_id}-${line.meal_slot_id}-${line.guest_name || ''}`;
-      if (!grouped[key]) {
-        grouped[key] = {
-          key,
-          order: line.order,
-          meal_slot: line.meal_slot,
-          guest_name: line.guest_name,
-          lines: [],
-        };
-      }
-      grouped[key].lines.push(line);
-    });
-
-    // Sort by date then slot type
-    return Object.values(grouped).sort((a, b) => {
-      const dateA = a.meal_slot?.slot_date || '';
-      const dateB = b.meal_slot?.slot_date || '';
-      if (dateA !== dateB) return dateA.localeCompare(dateB);
-      return (a.meal_slot?.slot_type === 'midi' ? 0 : 1) - (b.meal_slot?.slot_type === 'midi' ? 0 : 1);
-    });
-  }, [lines, search, dateFilter, statusFilter]);
-
-  const handleMarkReady = (cardLines) => {
-    const ids = cardLines.filter((l) => l.prep_status !== 'ready').map((l) => l.id);
-    if (ids.length === 0) return;
+  // ─── Advance single line ───
+  const advanceLine = (lineId, currentStatus) => {
+    const next = NEXT_STATUS[currentStatus];
+    if (!next) return;
     updateStatus.mutate({
-      ids,
-      prep_status: 'ready',
-      prepared_by: profile?.display_name || profile?.email || 'staff',
+      ids: [lineId],
+      prep_status: next,
+      prepared_by: next !== 'delivered' ? (profile?.display_name || profile?.email || 'staff') : undefined,
+      delivered_by: next === 'delivered' ? (profile?.display_name || profile?.email || 'staff') : undefined,
     });
-  };
-
-  const handleUndo = (cardLines) => {
-    const ids = cardLines.filter((l) => l.prep_status === 'ready').map((l) => l.id);
-    if (ids.length === 0) return;
-    updateStatus.mutate({ ids, prep_status: 'pending' });
   };
 
   if (isLoading) {
     return (
-      <div className="p-6 flex items-center justify-center min-h-[50vh]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600" />
+      <div className="min-h-screen bg-mf-blanc-casse">
+        <StaffHeader role="kitchen" />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-mf-rose" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-          <ChefHat className="w-6 h-6" />
-          Préparation cuisine
-        </h1>
+    <div className="min-h-screen bg-mf-blanc-casse">
+      {/* ─── Header ─── */}
+      <StaffHeader
+        role="kitchen"
+        slotFilter={slotFilter}
+        onSlotFilterChange={setSlotFilter}
+        progress={progress}
+      >
+        {/* View toggle */}
+        <div className="flex gap-0.5">
+          {['kanban', 'list'].map((v) => (
+            <button
+              key={v}
+              onClick={() => setViewMode(v)}
+              className={`w-8 h-8 rounded-lg border flex items-center justify-center text-[14px] cursor-pointer transition-all duration-200 ${
+                viewMode === v
+                  ? 'bg-mf-rose text-mf-blanc-casse border-mf-rose'
+                  : 'bg-white text-mf-muted border-mf-border hover:border-mf-rose/30'
+              }`}
+            >
+              {v === 'kanban' ? '▦' : '≡'}
+            </button>
+          ))}
+        </div>
+
+        {/* Event selector */}
         <EventSelector selectedEventId={selectedEventId} onEventChange={setSelectedEventId} />
-      </div>
+      </StaffHeader>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-center">
-          <p className="text-2xl font-bold text-yellow-700">{stats.pending}</p>
-          <p className="text-xs text-yellow-600">En attente</p>
-        </div>
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
-          <p className="text-2xl font-bold text-blue-700">{stats.preparing}</p>
-          <p className="text-xs text-blue-600">En préparation</p>
-        </div>
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-          <p className="text-2xl font-bold text-green-700">{stats.ready}</p>
-          <p className="text-xs text-green-600">Prêts</p>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Rechercher nom, stand, commande..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
-        </div>
-        <div className="flex gap-2">
-          <select
-            value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-          >
-            <option value="all">Toutes les dates</option>
-            {availableDates.map((d) => (
-              <option key={d} value={d}>
-                {format(new Date(d + 'T00:00:00'), 'd MMM', { locale: fr })}
-              </option>
-            ))}
-          </select>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-          >
-            <option value="all">Tous statuts</option>
-            <option value="pending">En attente</option>
-            <option value="preparing">En préparation</option>
-            <option value="ready">Prêt</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Cards */}
-      {cards.length === 0 ? (
-        <div className="text-center py-12">
-          <ChefHat className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500">Aucune commande à préparer</p>
-        </div>
-      ) : (
-        <div className="grid gap-3">
-          {cards.map((card) => {
-            const allReady = card.lines.every((l) => l.prep_status === 'ready');
-            const someReady = card.lines.some((l) => l.prep_status === 'ready');
-
+      {/* ─── Kanban View ─── */}
+      {viewMode === 'kanban' && (
+        <div className="grid grid-cols-4 gap-4 p-5 min-h-[calc(100vh-60px)]">
+          {COLUMNS.map((col) => {
+            const items = columnItems(col.key);
             return (
-              <div
-                key={card.key}
-                className={`bg-white border rounded-xl p-4 space-y-3 ${
-                  allReady ? 'border-green-300 bg-green-50/50' : 'border-gray-200'
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="font-semibold text-gray-900">
-                      {card.order?.customer_first_name} {card.order?.customer_last_name}
-                    </p>
-                    <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500">
-                      <span>Stand {card.order?.stand}</span>
-                      <span>&bull;</span>
-                      <span className="font-mono">{card.order?.order_number}</span>
-                    </div>
-                    {card.guest_name && (
-                      <p className="text-sm text-purple-600 font-medium mt-1">Menu : {card.guest_name}</p>
-                    )}
+              <div key={col.key} className="flex flex-col">
+                {/* Column header */}
+                <div
+                  className={`flex items-center justify-between px-3.5 py-3 rounded-t-card mb-2.5 border-b-2`}
+                  style={{
+                    background: `var(--color-${col.color}, #9A8A7C)10`,
+                    borderBottomColor: `var(--color-${col.color}, #9A8A7C)40`,
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-[14px]">{col.icon}</span>
+                    <span className={`font-body text-[12px] uppercase tracking-widest font-medium text-${col.color}`}>
+                      {col.label}
+                    </span>
                   </div>
-                  <div className="text-right text-xs">
-                    <p className="font-medium capitalize">
-                      {card.meal_slot?.slot_date &&
-                        format(new Date(card.meal_slot.slot_date + 'T00:00:00'), 'd MMM', { locale: fr })}
-                    </p>
-                    <p className="text-purple-600 font-semibold uppercase">
-                      {card.meal_slot?.slot_type}
-                    </p>
-                  </div>
+                  <span
+                    className={`font-body text-[12px] font-medium w-6 h-6 rounded-full flex items-center justify-center text-${col.color} bg-${col.color}/15`}
+                  >
+                    {items.length}
+                  </span>
                 </div>
 
-                <div className="space-y-1.5">
-                  {card.lines.map((line) => (
-                    <div key={line.id} className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium ${statusColors[line.prep_status]}`}>
-                          {statusLabels[line.prep_status]}
-                        </span>
-                        <span>{line.menu_item?.name}</span>
-                      </div>
-                      <span className="text-xs text-gray-400 capitalize">{line.menu_item?.type}</span>
-                    </div>
+                {/* Cards */}
+                <div className="flex flex-col gap-2 flex-1">
+                  {items.map((line) => (
+                    <PrepCard
+                      key={line.id}
+                      line={line}
+                      colColor={col.color}
+                      onAdvance={advanceLine}
+                    />
                   ))}
-                </div>
-
-                <div className="flex gap-2 pt-2 border-t">
-                  {!allReady && (
-                    <button
-                      onClick={() => handleMarkReady(card.lines)}
-                      disabled={updateStatus.isPending}
-                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
-                    >
-                      <Check className="w-4 h-4" />
-                      Marquer prêt
-                    </button>
-                  )}
-                  {someReady && (
-                    <button
-                      onClick={() => handleUndo(card.lines)}
-                      disabled={updateStatus.isPending}
-                      className="flex items-center justify-center gap-1.5 px-3 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
-                    >
-                      <Undo2 className="w-4 h-4" />
-                      Annuler
-                    </button>
+                  {items.length === 0 && (
+                    <div className="text-center py-8 rounded-card border-2 border-dashed border-mf-border">
+                      <span className="font-body text-[13px] text-mf-muted">Aucun élément</span>
+                    </div>
                   )}
                 </div>
               </div>
             );
           })}
         </div>
+      )}
+
+      {/* ─── List View ─── */}
+      {viewMode === 'list' && (
+        <div className="p-5 max-w-[900px] mx-auto space-y-6">
+          {COLUMNS.filter((c) => c.key !== 'delivered').map((col) => {
+            const items = columnItems(col.key);
+            if (items.length === 0) return null;
+            return (
+              <div key={col.key}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className={`font-body text-[12px] uppercase tracking-widest font-medium text-${col.color}`}>
+                    {col.label}
+                  </span>
+                  <span className={`font-body text-[11px] px-2 py-0.5 rounded-pill bg-${col.color}/12 text-${col.color}`}>
+                    {items.length}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  {items.map((line) => {
+                    const nextStatus = NEXT_STATUS[line.prep_status];
+                    const nextCol = nextStatus ? COLUMNS.find((c) => c.key === nextStatus) : null;
+                    return (
+                      <div
+                        key={line.id}
+                        className="flex items-center gap-3 px-4 py-3 bg-mf-white rounded-xl border border-mf-border"
+                        style={{ borderLeftWidth: 3, borderLeftColor: `var(--color-${col.color}, #9A8A7C)` }}
+                      >
+                        <span className="text-[16px]">{TYPE_ICONS[line.menu_item?.type] || '●'}</span>
+                        <div className="flex-1 min-w-0">
+                          <span className="font-body text-[14px] font-medium text-mf-marron-glace">
+                            {line.menu_item?.name}
+                          </span>
+                          {line.quantity > 1 && (
+                            <span className="font-body text-[12px] text-mf-muted ml-1">×{line.quantity}</span>
+                          )}
+                        </div>
+                        <span className="font-body text-[12px] text-mf-muted truncate max-w-[120px]">
+                          {line.order?.customer_first_name} {line.order?.customer_last_name}
+                        </span>
+                        <span className="font-body text-[11px] text-mf-marron-glace">{line.order?.stand}</span>
+                        {nextCol && (
+                          <button
+                            onClick={() => advanceLine(line.id, line.prep_status)}
+                            className={`font-body text-[10px] uppercase tracking-wide px-3.5 py-1.5 rounded-pill border-none cursor-pointer transition-all active:scale-[0.97] text-mf-blanc-casse bg-${nextCol.color}`}
+                          >
+                            {nextCol.label} →
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Prep Card (kanban) ─── */
+function PrepCard({ line, colColor, onAdvance }) {
+  const nextStatus = NEXT_STATUS[line.prep_status];
+  const nextCol = nextStatus ? COLUMNS.find((c) => c.key === nextStatus) : null;
+  const slotType = line.meal_slot?.slot_type;
+
+  return (
+    <div
+      className="bg-mf-white rounded-card border border-mf-border p-3.5 transition-all duration-200 hover:border-mf-rose/20"
+      style={{ borderLeftWidth: 3, borderLeftColor: `var(--color-${colColor}, #9A8A7C)` }}
+    >
+      {/* Order ref + slot badge */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1.5">
+          <span className="font-body text-[11px] text-mf-rose font-medium">{line.order?.order_number}</span>
+          <span className="font-body text-[9px] uppercase tracking-wide text-mf-muted px-2 py-0.5 rounded-pill bg-mf-blanc-casse">
+            {line.order?.stand}
+          </span>
+        </div>
+        <MfBadge variant={slotType === 'midi' ? 'olive' : 'poudre'}>
+          {slotType === 'midi' ? '☀ midi' : '☽ soir'}
+        </MfBadge>
+      </div>
+
+      {/* Item details */}
+      <div className="flex items-center gap-2 mb-1.5">
+        <span className="text-[16px]">{TYPE_ICONS[line.menu_item?.type] || '●'}</span>
+        <div className="min-w-0">
+          <div className="font-body text-[14px] font-medium text-mf-marron-glace truncate">
+            {line.menu_item?.name}
+          </div>
+          <div className="font-body text-[11px] text-mf-muted truncate">
+            {line.quantity > 1 ? `×${line.quantity} · ` : ''}
+            {line.guest_name || `${line.order?.customer_first_name} ${line.order?.customer_last_name}`}
+          </div>
+        </div>
+      </div>
+
+      {/* Date */}
+      {line.meal_slot?.slot_date && (
+        <div className="font-body text-[10px] text-mf-muted mb-2">
+          {format(new Date(line.meal_slot.slot_date + 'T00:00:00'), 'EEE d MMM', { locale: fr })}
+        </div>
+      )}
+
+      {/* Advance button */}
+      {nextCol && (
+        <button
+          onClick={() => onAdvance(line.id, line.prep_status)}
+          className={`w-full mt-1 py-2 rounded-pill border-2 cursor-pointer transition-all duration-200 active:scale-[0.97] font-body text-[11px] uppercase tracking-wide font-medium flex items-center justify-center gap-1.5 border-${nextCol.color}/30 bg-${nextCol.color}/8 text-${nextCol.color} hover:bg-${nextCol.color}/15`}
+        >
+          <span>{nextCol.icon}</span> {nextCol.label} →
+        </button>
       )}
     </div>
   );
