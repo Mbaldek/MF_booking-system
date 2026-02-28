@@ -14,6 +14,8 @@ import LoginPage from '@/pages/LoginPage';
 import OrderPage from '@/pages/Order';
 import OrderSuccess from '@/pages/OrderSuccess';
 import CustomerOrders from '@/pages/CustomerOrders';
+import OrderFunnelTest from '@/pages/OrderFunnelTest';
+import MainPageTest from '@/pages/MainPageTest';
 // Admin pages
 import AdminDashboard from '@/pages/admin/AdminDashboard';
 import AdminEvent from '@/pages/admin/AdminEvent';
@@ -69,6 +71,8 @@ export default function App() {
             <Route path="/order" element={<OrderPage />} />
             <Route path="/order/success/:orderId" element={<OrderSuccess />} />
             <Route path="/my-orders" element={<CustomerOrders />} />
+            <Route path="/order-test" element={<OrderFunnelTest />} />
+            <Route path="/home-test" element={<MainPageTest />} />
             {/* Admin */}
             <Route
               path="/admin"
