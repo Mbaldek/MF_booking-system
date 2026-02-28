@@ -2,15 +2,16 @@ import { useState, useMemo, useRef } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
-  ClipboardList, Search, Check, Undo2, Camera, X, Package, ChefHat, Truck,
+  ClipboardList, Search, Check, Undo2, Camera, X, Package, ChefHat, Truck, Trash2,
 } from 'lucide-react';
 import { useActiveEvent } from '@/hooks/useEvents';
 import {
   useKitchenLines, useDeliveryLines,
-  useUpdateOrderLineStatus, useDeliverWithPhoto,
+  useUpdateOrderLineStatus, useDeliverWithPhoto, useDeleteOrderLines,
 } from '@/hooks/useOrderLines';
 import { useAuth } from '@/lib/AuthContext';
 import EventSelector from '@/components/admin/EventSelector';
+import ConfirmDeleteModal from '@/components/admin/ConfirmDeleteModal';
 
 const prepStatusColors = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -45,6 +46,8 @@ export default function AdminOperations() {
   const { data: deliveryLines = [], isLoading: deliveryLoading } = useDeliveryLines(eventId);
   const updateStatus = useUpdateOrderLineStatus();
   const deliverMutation = useDeliverWithPhoto();
+  const deleteLines = useDeleteOrderLines();
+  const [deleteModal, setDeleteModal] = useState(null); // card to delete
 
   const lines = activeTab === 'prep' ? kitchenLines : deliveryLines;
   const isLoading = activeTab === 'prep' ? kitchenLoading : deliveryLoading;
@@ -344,14 +347,24 @@ export default function AdminOperations() {
                       </p>
                     )}
                   </div>
-                  <div className="text-right text-xs">
-                    <p className="font-medium capitalize">
-                      {card.meal_slot?.slot_date &&
-                        format(new Date(card.meal_slot.slot_date + 'T00:00:00'), 'd MMM', { locale: fr })}
-                    </p>
-                    <p className="text-[#8B3A43] font-semibold uppercase">
-                      {card.meal_slot?.slot_type}
-                    </p>
+                  <div className="flex items-start gap-2">
+                    <div className="text-right text-xs">
+                      <p className="font-medium capitalize">
+                        {card.meal_slot?.slot_date &&
+                          format(new Date(card.meal_slot.slot_date + 'T00:00:00'), 'd MMM', { locale: fr })}
+                      </p>
+                      <p className="text-[#8B3A43] font-semibold uppercase">
+                        {card.meal_slot?.slot_type}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setDeleteModal(card)}
+                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Supprimer"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
 
@@ -513,6 +526,26 @@ export default function AdminOperations() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Delete modal (double validation) */}
+      {deleteModal && (
+        <ConfirmDeleteModal
+          title="Supprimer ce menu"
+          description={`Le menu de ${deleteModal.guest_name || 'ce convive'} (${deleteModal.order?.order_number}, ${deleteModal.lines.length} article${deleteModal.lines.length > 1 ? 's' : ''}) sera définitivement supprimé. Cette action est irréversible.`}
+          confirmText="SUPPRIMER"
+          onConfirm={async () => {
+            try {
+              const ids = deleteModal.lines.map((l) => l.id);
+              await deleteLines.mutateAsync(ids);
+              setDeleteModal(null);
+            } catch (err) {
+              alert(`Erreur: ${err.message}`);
+            }
+          }}
+          onCancel={() => setDeleteModal(null)}
+          loading={deleteLines.isPending}
+        />
       )}
     </div>
   );

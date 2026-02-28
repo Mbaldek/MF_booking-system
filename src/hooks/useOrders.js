@@ -111,6 +111,27 @@ export function useMyOrders() {
   });
 }
 
+export function useDeleteOrder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id) => {
+      // Delete order lines first, then the order
+      const { error: linesError } = await supabase
+        .from('order_lines')
+        .delete()
+        .eq('order_id', id);
+      if (linesError) throw linesError;
+
+      const { error } = await supabase.from('orders').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['orders'] });
+      qc.invalidateQueries({ queryKey: ['order_lines'] });
+    },
+  });
+}
+
 export function useUpdateOrder() {
   const qc = useQueryClient();
   return useMutation({

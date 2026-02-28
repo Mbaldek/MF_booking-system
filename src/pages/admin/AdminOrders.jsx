@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Search, ShoppingBag, ChevronDown, ChevronUp, X, AlertTriangle } from 'lucide-react';
+import { Search, ShoppingBag, ChevronDown, ChevronUp, X, AlertTriangle, Trash2 } from 'lucide-react';
 import { useActiveEvent } from '@/hooks/useEvents';
 import EventSelector from '@/components/admin/EventSelector';
-import { useOrders, useUpdateOrder } from '@/hooks/useOrders';
+import { useOrders, useUpdateOrder, useDeleteOrder } from '@/hooks/useOrders';
+import ConfirmDeleteModal from '@/components/admin/ConfirmDeleteModal';
 import { useOrderLines } from '@/hooks/useOrderLines';
 import { groupOrderLines, sortedSlotEntries } from '@/lib/groupOrderLines';
 import { supabase } from '@/api/supabase';
@@ -104,13 +105,14 @@ function Spinner() {
 
 const PAGE_SIZE = 20;
 
-function FinancialTab({ orders, orderLines, updateOrder }) {
+function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [expandedId, setExpandedId] = useState(null);
   const [confirmModal, setConfirmModal] = useState(null); // { order, action: 'cancel'|'refund' }
   const [actionLoading, setActionLoading] = useState(false);
   const [page, setPage] = useState(0);
+  const [deleteModal, setDeleteModal] = useState(null); // order to delete
 
   /* line lookup keyed by order_id */
   const linesByOrder = useMemo(() => {
@@ -319,6 +321,16 @@ function FinancialTab({ orders, orderLines, updateOrder }) {
 
                 {/* action buttons */}
                 <div className="pt-2 border-t border-gray-200 flex justify-end gap-2">
+                  {(order.payment_status === 'cancelled' || order.payment_status === 'refunded') && (
+                    <button
+                      type="button"
+                      onClick={() => setDeleteModal(order)}
+                      className="rounded-lg border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors inline-flex items-center gap-1.5"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Supprimer
+                    </button>
+                  )}
                   {canCancel && (
                     <button
                       type="button"
@@ -368,6 +380,26 @@ function FinancialTab({ orders, orderLines, updateOrder }) {
             Suivant &rarr;
           </button>
         </div>
+      )}
+
+      {/* Delete modal (double validation) */}
+      {deleteModal && (
+        <ConfirmDeleteModal
+          title="Supprimer la commande"
+          description={`La commande ${deleteModal.order_number} (${deleteModal.customer_first_name} ${deleteModal.customer_last_name}) et toutes ses lignes seront définitivement supprimées. Cette action est irréversible.`}
+          confirmText={deleteModal.order_number}
+          onConfirm={async () => {
+            try {
+              await deleteOrder.mutateAsync(deleteModal.id);
+              setDeleteModal(null);
+              setExpandedId(null);
+            } catch (err) {
+              alert(`Erreur: ${err.message}`);
+            }
+          }}
+          onCancel={() => setDeleteModal(null)}
+          loading={deleteOrder.isPending}
+        />
       )}
 
       {/* Confirm modal */}
@@ -542,6 +574,7 @@ export default function AdminOrders() {
   const { data: orders, isLoading: ordersLoading } = useOrders(eventId);
   const { data: orderLines, isLoading: linesLoading } = useOrderLines(eventId);
   const updateOrder = useUpdateOrder();
+  const deleteOrder = useDeleteOrder();
 
   const isLoading = eventLoading || ordersLoading || linesLoading;
 
@@ -579,6 +612,7 @@ export default function AdminOrders() {
           orders={orders}
           orderLines={orderLines}
           updateOrder={updateOrder}
+          deleteOrder={deleteOrder}
         />
       ) : (
         <DailyTab orderLines={orderLines} />

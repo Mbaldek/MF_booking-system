@@ -6,6 +6,7 @@ import { useEvents, useCreateEvent, useUpdateEvent, useDeleteEvent } from '@/hoo
 import { useMenuCatalog, useAllEventMenuItems, useLinkMenuToEvent, useUnlinkMenuFromEvent, useUpdateEventMenuItem } from '@/hooks/useMenuItems';
 import { useMealSlots, useUpdateSlotCapacity } from '@/hooks/useMealSlots';
 import { supabase } from '@/api/supabase';
+import ConfirmDeleteModal from '@/components/admin/ConfirmDeleteModal';
 
 const TYPE_LABELS = { entree: 'Entrées', plat: 'Plats', dessert: 'Desserts', boisson: 'Boissons' };
 const TYPE_ORDER = ['entree', 'plat', 'dessert', 'boisson'];
@@ -356,6 +357,7 @@ export default function AdminEvent() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [expandedMenuId, setExpandedMenuId] = useState(null);
+  const [deleteModal, setDeleteModal] = useState(null); // event to delete
 
   const handleCreate = async (formData) => {
     try {
@@ -385,10 +387,15 @@ export default function AdminEvent() {
     }
   };
 
-  const handleDelete = async (event) => {
-    if (!window.confirm(`Supprimer l'événement "${event.name}" ? Cette action est irréversible.`)) return;
+  const handleDelete = (event) => {
+    setDeleteModal(event);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteModal) return;
     try {
-      await deleteEvent.mutateAsync(event.id);
+      await deleteEvent.mutateAsync(deleteModal.id);
+      setDeleteModal(null);
     } catch (err) {
       console.error('Erreur lors de la suppression:', err);
       alert('Erreur lors de la suppression.');
@@ -536,6 +543,18 @@ export default function AdminEvent() {
           </div>
         )}
       </div>
+
+      {/* Delete modal (double validation) */}
+      {deleteModal && (
+        <ConfirmDeleteModal
+          title="Supprimer l'événement"
+          description={`L'événement "${deleteModal.name}" et toutes ses données (créneaux, commandes) seront définitivement supprimés. Cette action est irréversible.`}
+          confirmText={deleteModal.name}
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteModal(null)}
+          loading={deleteEvent.isPending}
+        />
+      )}
     </div>
   );
 }

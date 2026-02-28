@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Plus, Pencil, Trash2, X, Check, UtensilsCrossed } from 'lucide-react';
 import { useMenuCatalog, useCreateMenuItem, useUpdateMenuItem, useDeleteMenuItem } from '@/hooks/useMenuItems';
+import ConfirmDeleteModal from '@/components/admin/ConfirmDeleteModal';
 
 const TYPES = [
   { value: 'entree', label: 'Entrée' },
@@ -45,6 +46,7 @@ export default function AdminMenu() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [deleteModal, setDeleteModal] = useState(null); // item to delete
 
   const openCreateForm = () => {
     setEditingId(null);
@@ -105,11 +107,15 @@ export default function AdminMenu() {
     }
   };
 
-  const handleDelete = async (item) => {
-    if (!window.confirm(`Supprimer "${item.name}" ? Cette action est irréversible.`)) return;
+  const handleDelete = (item) => {
+    setDeleteModal(item);
+  };
 
+  const confirmDelete = async () => {
+    if (!deleteModal) return;
     try {
-      await deleteMenuItem.mutateAsync(item.id);
+      await deleteMenuItem.mutateAsync(deleteModal.id);
+      setDeleteModal(null);
     } catch (error) {
       console.error('Erreur lors de la suppression:', error);
       alert('Erreur lors de la suppression. Veuillez réessayer.');
@@ -406,6 +412,18 @@ export default function AdminMenu() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Delete modal (double validation) */}
+      {deleteModal && (
+        <ConfirmDeleteModal
+          title="Supprimer l'article"
+          description={`L'article "${deleteModal.name}" sera définitivement supprimé du catalogue. Cette action est irréversible.`}
+          confirmText={deleteModal.name}
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteModal(null)}
+          loading={deleteMenuItem.isPending}
+        />
       )}
     </div>
   );

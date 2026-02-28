@@ -93,6 +93,23 @@ export function useDeliveryLines(eventId) {
   });
 }
 
+export function useDeleteOrderLines() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (ids) => {
+      const { error } = await supabase
+        .from('order_lines')
+        .delete()
+        .in('id', ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['order_lines'] });
+      qc.invalidateQueries({ queryKey: ['orders'] });
+    },
+  });
+}
+
 export function useUpdateOrderLineStatus() {
   const qc = useQueryClient();
   return useMutation({
