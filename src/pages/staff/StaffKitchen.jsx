@@ -18,20 +18,21 @@ const COLUMNS = [
 ];
 
 const NEXT_STATUS = { pending: 'preparing', preparing: 'ready', ready: 'delivered' };
+const STATUS_ORDER = { pending: 0, preparing: 1, ready: 2, delivered: 3 };
 const TYPE_ICONS = { entree: '🥗', plat: '🍽', dessert: '🍰', boisson: '🥤' };
+const TYPE_SORT = { entree: 0, plat: 1, dessert: 2, boisson: 3 };
 
 export default function StaffKitchen() {
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [slotFilter, setSlotFilter] = useState('all');
   const [viewMode, setViewMode] = useState('kanban');
-  const [deliveryModal, setDeliveryModal] = useState(null); // { lineId, lineName }
+  const [deliveryModal, setDeliveryModal] = useState(null); // { lineIds, groupName }
 
   const queryClient = useQueryClient();
   const { profile } = useAuth();
   const { data: activeEvent } = useActiveEvent();
   const eventId = selectedEventId ?? activeEvent?.id;
 
-  // Fetch ALL order lines (not just kitchen — we need delivered for kanban)
   const { data: allLines = [], isLoading } = useOrderLines(eventId);
   const updateStatus = useUpdateOrderLineStatus();
   const deliverWithPhoto = useDeliverWithPhoto();
@@ -61,26 +62,56 @@ export default function StaffKitchen() {
     return allLines.filter((l) => l.meal_slot?.slot_type === slotFilter);
   }, [allLines, slotFilter]);
 
+  // ─── Group lines by order + meal slot ───
+  const groupedOrders = useMemo(() => {
+    const groups = {};
+    filteredLines.forEach((line) => {
+      const key = `${line.order_id}_${line.meal_slot_id}`;
+      if (!groups[key]) {
+        groups[key] = {
+          key,
+          order: line.order,
+          mealSlot: line.meal_slot,
+          guestName: line.guest_name || `${line.order?.customer_first_name || ''} ${line.order?.customer_last_name || ''}`.trim(),
+          lines: [],
+          lineIds: [],
+        };
+      }
+      groups[key].lines.push(line);
+      groups[key].lineIds.push(line.id);
+    });
+
+    // Determine group status = minimum status across all lines
+    Object.values(groups).forEach((g) => {
+      g.status = g.lines.reduce(
+        (min, l) => (STATUS_ORDER[l.prep_status] < STATUS_ORDER[min] ? l.prep_status : min),
+        g.lines[0].prep_status
+      );
+      // Sort lines by type for consistent display
+      g.lines.sort((a, b) => (TYPE_SORT[a.menu_item?.type] ?? 99) - (TYPE_SORT[b.menu_item?.type] ?? 99));
+    });
+
+    return Object.values(groups);
+  }, [filteredLines]);
+
   // ─── Stats ───
-  const totalItems = filteredLines.length;
-  const delivered = filteredLines.filter((l) => l.prep_status === 'delivered').length;
-  const progress = totalItems > 0 ? (delivered / totalItems) * 100 : 0;
+  const totalGroups = groupedOrders.length;
+  const deliveredGroups = groupedOrders.filter((g) => g.status === 'delivered').length;
+  const progress = totalGroups > 0 ? (deliveredGroups / totalGroups) * 100 : 0;
 
-  // ─── Column items ───
-  const columnItems = (status) =>
-    filteredLines.filter((l) => l.prep_status === status);
+  // ─── Column items (grouped) ───
+  const columnItems = (status) => groupedOrders.filter((g) => g.status === status);
 
-  // ─── Advance single line ───
-  const advanceLine = (lineId, currentStatus, lineName) => {
-    const next = NEXT_STATUS[currentStatus];
+  // ─── Advance entire group ───
+  const advanceGroup = (group) => {
+    const next = NEXT_STATUS[group.status];
     if (!next) return;
-    // For ready → delivered, open photo modal
     if (next === 'delivered') {
-      setDeliveryModal({ lineId, lineName: lineName || '' });
+      setDeliveryModal({ lineIds: group.lineIds, groupName: group.guestName });
       return;
     }
     updateStatus.mutate({
-      ids: [lineId],
+      ids: group.lineIds,
       prep_status: next,
       prepared_by: profile?.display_name || profile?.email || 'staff',
     });
@@ -89,7 +120,7 @@ export default function StaffKitchen() {
   const handleDeliverWithPhoto = (photo) => {
     if (!deliveryModal) return;
     deliverWithPhoto.mutate({
-      lineId: deliveryModal.lineId,
+      lineIds: deliveryModal.lineIds,
       photo,
       delivered_by: profile?.display_name || profile?.email || 'staff',
     }, { onSuccess: () => setDeliveryModal(null) });
@@ -98,7 +129,7 @@ export default function StaffKitchen() {
   const handleDeliverSkip = () => {
     if (!deliveryModal) return;
     updateStatus.mutate({
-      ids: [deliveryModal.lineId],
+      ids: deliveryModal.lineIds,
       prep_status: 'delivered',
       delivered_by: profile?.display_name || profile?.email || 'staff',
     }, { onSuccess: () => setDeliveryModal(null) });
@@ -175,17 +206,17 @@ export default function StaffKitchen() {
 
                 {/* Cards */}
                 <div className="flex flex-col gap-2 flex-1">
-                  {items.map((line) => (
-                    <PrepCard
-                      key={line.id}
-                      line={line}
+                  {items.map((group) => (
+                    <OrderCard
+                      key={group.key}
+                      group={group}
                       colColor={col.color}
-                      onAdvance={advanceLine}
+                      onAdvance={advanceGroup}
                     />
                   ))}
                   {items.length === 0 && (
                     <div className="text-center py-8 rounded-card border-2 border-dashed border-mf-border">
-                      <span className="font-body text-[13px] text-mf-muted">Aucun élément</span>
+                      <span className="font-body text-[13px] text-mf-muted">Aucun element</span>
                     </div>
                   )}
                 </div>
@@ -212,31 +243,28 @@ export default function StaffKitchen() {
                   </span>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  {items.map((line) => {
-                    const nextStatus = NEXT_STATUS[line.prep_status];
+                  {items.map((group) => {
+                    const nextStatus = NEXT_STATUS[group.status];
                     const nextCol = nextStatus ? COLUMNS.find((c) => c.key === nextStatus) : null;
                     return (
                       <div
-                        key={line.id}
+                        key={group.key}
                         className="flex items-center gap-3 px-4 py-3 bg-mf-white rounded-xl border border-mf-border"
                         style={{ borderLeftWidth: 3, borderLeftColor: `var(--color-${col.color}, #9A8A7C)` }}
                       >
-                        <span className="text-[16px]">{TYPE_ICONS[line.menu_item?.type] || '●'}</span>
                         <div className="flex-1 min-w-0">
-                          <span className="font-body text-[14px] font-medium text-mf-marron-glace">
-                            {line.menu_item?.name}
-                          </span>
-                          {line.quantity > 1 && (
-                            <span className="font-body text-[12px] text-mf-muted ml-1">×{line.quantity}</span>
-                          )}
+                          <div className="font-body text-[14px] font-medium text-mf-marron-glace">
+                            {group.guestName}
+                          </div>
+                          <div className="font-body text-[11px] text-mf-muted mt-0.5">
+                            {group.lines.map((l) => l.menu_item?.name).join(' + ')}
+                          </div>
                         </div>
-                        <span className="font-body text-[12px] text-mf-muted truncate max-w-[120px]">
-                          {line.order?.customer_first_name} {line.order?.customer_last_name}
-                        </span>
-                        <span className="font-body text-[11px] text-mf-marron-glace">{line.order?.stand}</span>
+                        <span className="font-body text-[11px] text-mf-rose font-medium">{group.order?.order_number}</span>
+                        <span className="font-body text-[11px] text-mf-marron-glace">{group.order?.stand}</span>
                         {nextCol && (
                           <button
-                            onClick={() => advanceLine(line.id, line.prep_status, line.menu_item?.name)}
+                            onClick={() => advanceGroup(group)}
                             className={`font-body text-[10px] uppercase tracking-wide px-3.5 py-1.5 rounded-pill border-none cursor-pointer transition-all active:scale-[0.97] text-mf-blanc-casse bg-${nextCol.color}`}
                           >
                             {nextStatus === 'delivered' ? 'Valider livraison' : nextCol.label} →
@@ -255,7 +283,8 @@ export default function StaffKitchen() {
       {/* ─── Delivery Photo Modal ─── */}
       {deliveryModal && (
         <DeliveryPhotoModal
-          lineName={deliveryModal.lineName}
+          groupName={deliveryModal.groupName}
+          itemCount={deliveryModal.lineIds.length}
           isPending={deliverWithPhoto.isPending || updateStatus.isPending}
           onConfirm={handleDeliverWithPhoto}
           onSkip={handleDeliverSkip}
@@ -266,11 +295,11 @@ export default function StaffKitchen() {
   );
 }
 
-/* ─── Prep Card (kanban) ─── */
-function PrepCard({ line, colColor, onAdvance }) {
-  const nextStatus = NEXT_STATUS[line.prep_status];
+/* ─── Order Card (kanban) — grouped by order+slot ─── */
+function OrderCard({ group, colColor, onAdvance }) {
+  const nextStatus = NEXT_STATUS[group.status];
   const nextCol = nextStatus ? COLUMNS.find((c) => c.key === nextStatus) : null;
-  const slotType = line.meal_slot?.slot_type;
+  const slotType = group.mealSlot?.slot_type;
 
   return (
     <div
@@ -280,41 +309,49 @@ function PrepCard({ line, colColor, onAdvance }) {
       {/* Order ref + slot badge */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
-          <span className="font-body text-[11px] text-mf-rose font-medium">{line.order?.order_number}</span>
-          <span className="font-body text-[9px] uppercase tracking-wide text-mf-muted px-2 py-0.5 rounded-pill bg-mf-blanc-casse">
-            {line.order?.stand}
-          </span>
+          <span className="font-body text-[11px] text-mf-rose font-medium">{group.order?.order_number}</span>
+          {group.order?.stand && (
+            <span className="font-body text-[9px] uppercase tracking-wide text-mf-muted px-2 py-0.5 rounded-pill bg-mf-blanc-casse">
+              {group.order.stand}
+            </span>
+          )}
         </div>
         <MfBadge variant={slotType === 'midi' ? 'olive' : 'poudre'}>
           {slotType === 'midi' ? '☀ midi' : '☽ soir'}
         </MfBadge>
       </div>
 
-      {/* Item details */}
-      <div className="flex items-center gap-2 mb-1.5">
-        <span className="text-[16px]">{TYPE_ICONS[line.menu_item?.type] || '●'}</span>
-        <div className="min-w-0">
-          <div className="font-body text-[14px] font-medium text-mf-marron-glace truncate">
-            {line.menu_item?.name}
+      {/* Guest name */}
+      <div className="font-body text-[14px] font-medium text-mf-marron-glace mb-2">
+        {group.guestName}
+      </div>
+
+      {/* Items list */}
+      <div className="space-y-1 mb-2">
+        {group.lines.map((line) => (
+          <div key={line.id} className="flex items-center gap-2">
+            <span className="text-[13px] w-5 text-center">{TYPE_ICONS[line.menu_item?.type] || '●'}</span>
+            <span className="font-body text-[12px] text-mf-marron-glace truncate flex-1">
+              {line.menu_item?.name}
+            </span>
+            {line.quantity > 1 && (
+              <span className="font-body text-[11px] text-mf-muted">x{line.quantity}</span>
+            )}
           </div>
-          <div className="font-body text-[11px] text-mf-muted truncate">
-            {line.quantity > 1 ? `×${line.quantity} · ` : ''}
-            {line.guest_name || `${line.order?.customer_first_name} ${line.order?.customer_last_name}`}
-          </div>
-        </div>
+        ))}
       </div>
 
       {/* Date */}
-      {line.meal_slot?.slot_date && (
+      {group.mealSlot?.slot_date && (
         <div className="font-body text-[10px] text-mf-muted mb-2">
-          {format(new Date(line.meal_slot.slot_date + 'T00:00:00'), 'EEE d MMM', { locale: fr })}
+          {format(new Date(group.mealSlot.slot_date + 'T00:00:00'), 'EEE d MMM', { locale: fr })}
         </div>
       )}
 
       {/* Advance button */}
       {nextCol && (
         <button
-          onClick={() => onAdvance(line.id, line.prep_status, line.menu_item?.name)}
+          onClick={() => onAdvance(group)}
           className={`w-full mt-1 py-2 rounded-pill border-2 cursor-pointer transition-all duration-200 active:scale-[0.97] font-body text-[11px] uppercase tracking-wide font-medium flex items-center justify-center gap-1.5 border-${nextCol.color}/30 bg-${nextCol.color}/8 text-${nextCol.color} hover:bg-${nextCol.color}/15`}
         >
           <span>{nextCol.icon}</span> {nextStatus === 'delivered' ? 'Valider livraison' : nextCol.label} →
@@ -325,7 +362,7 @@ function PrepCard({ line, colColor, onAdvance }) {
 }
 
 /* ─── Delivery Photo Modal ─── */
-function DeliveryPhotoModal({ lineName, isPending, onConfirm, onSkip, onClose }) {
+function DeliveryPhotoModal({ groupName, itemCount, isPending, onConfirm, onSkip, onClose }) {
   const [photo, setPhoto] = useState(null);
   const [preview, setPreview] = useState(null);
   const fileRef = useRef(null);
@@ -342,9 +379,9 @@ function DeliveryPhotoModal({ lineName, isPending, onConfirm, onSkip, onClose })
       <div onClick={onClose} className="absolute inset-0 bg-mf-marron-glace/40" />
       <div className="relative z-10 bg-mf-white rounded-card border border-mf-border p-6 w-full max-w-sm space-y-4">
         <h3 className="font-serif text-[20px] italic text-mf-rose">Valider la livraison</h3>
-        {lineName && (
-          <p className="font-body text-[13px] text-mf-marron-glace">{lineName}</p>
-        )}
+        <p className="font-body text-[13px] text-mf-marron-glace">
+          {groupName} — {itemCount} article{itemCount > 1 ? 's' : ''}
+        </p>
 
         {/* Photo capture */}
         <div>
@@ -363,7 +400,7 @@ function DeliveryPhotoModal({ lineName, isPending, onConfirm, onSkip, onClose })
                 onClick={() => { setPhoto(null); setPreview(null); }}
                 className="absolute top-2 right-2 w-7 h-7 rounded-full bg-mf-white border border-mf-border flex items-center justify-center font-body text-[12px] text-mf-muted cursor-pointer"
               >
-                ×
+                x
               </button>
             </div>
           ) : (

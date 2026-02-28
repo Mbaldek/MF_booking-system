@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/AuthContext';
 import AdminSidebar from './AdminSidebar';
 import {
   TrendingUp, Calendar, UtensilsCrossed, ShoppingBag,
-  ClipboardList, BarChart3, Mail, Users, Home, Menu, X, LogOut,
+  ClipboardList, BarChart3, Mail, Users, Home, Menu, X, LogOut, ChefHat,
 } from 'lucide-react';
 
 const navItems = [
@@ -59,6 +59,14 @@ export default function AdminLayout() {
             >
               <Home className="w-4 h-4" />
               Retour accueil
+            </Link>
+            <Link
+              to="/staff/kitchen"
+              className="flex items-center gap-3 px-5 py-3 hover:bg-mf-poudre/10 border-b border-mf-border text-mf-muted font-body text-[13px]"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <ChefHat className="w-4 h-4" />
+              Espace Staff
             </Link>
             {navItems.map((item) => {
               const Icon = item.icon;

@@ -142,13 +142,13 @@ export function useUpdateOrderLineStatus() {
 export function useDeliverWithPhoto() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ lineId, photo, delivered_by }) => {
+    mutationFn: async ({ lineId, lineIds, photo, delivered_by }) => {
+      const ids = lineIds || [lineId];
       let delivery_photo_url = null;
 
-      // Upload photo if provided
       if (photo) {
         const ext = photo.name?.split('.').pop() || 'jpg';
-        const path = `${lineId}-${Date.now()}.${ext}`;
+        const path = `${ids[0]}-${Date.now()}.${ext}`;
         const { error: uploadError } = await supabase.storage
           .from('delivery-photos')
           .upload(path, photo);
@@ -170,7 +170,7 @@ export function useDeliverWithPhoto() {
           delivered_by: delivered_by || null,
           delivery_photo_url,
         })
-        .eq('id', lineId)
+        .in('id', ids)
         .select();
 
       if (error) throw error;

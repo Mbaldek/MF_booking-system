@@ -2,7 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import {
   TrendingUp, Calendar, UtensilsCrossed, ShoppingBag,
-  ClipboardList, BarChart3, Mail, Users, Home, LogOut,
+  ClipboardList, BarChart3, Mail, Users, Home, LogOut, ChefHat,
 } from 'lucide-react';
 
 const navItems = [
@@ -48,6 +48,13 @@ export default function AdminSidebar() {
         >
           <Home className="w-4 h-4" />
           Accueil
+        </Link>
+        <Link
+          to="/staff/kitchen"
+          className="flex items-center gap-2.5 w-full px-6 py-2.5 text-mf-muted hover:text-mf-rose transition-all duration-200 font-body text-[13px] border-r-[2.5px] border-transparent"
+        >
+          <ChefHat className="w-4 h-4" />
+          Espace Staff
         </Link>
 
         <div className="h-px bg-mf-border mx-5 my-2" />
