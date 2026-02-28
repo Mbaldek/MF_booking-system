@@ -50,11 +50,20 @@ export default function AdminDashboard() {
   const recentOrders = useMemo(() => orders.slice(0, 5), [orders]);
 
   const pipeline = useMemo(() => [
-    { label: 'En attente', count: stats.pending, color: 'mf-muted' },
-    { label: 'En préparation', count: stats.preparing, color: 'status-orange' },
-    { label: 'Prêts', count: stats.ready, color: 'mf-vert-olive' },
-    { label: 'Livrés', count: stats.delivered, color: 'status-green' },
+    { label: 'En attente', count: stats.pending, textClass: 'text-mf-muted', bgClass: 'bg-mf-muted' },
+    { label: 'En préparation', count: stats.preparing, textClass: 'text-status-orange', bgClass: 'bg-status-orange' },
+    { label: 'Prêts', count: stats.ready, textClass: 'text-mf-vert-olive', bgClass: 'bg-mf-vert-olive' },
+    { label: 'Livrés', count: stats.delivered, textClass: 'text-status-green', bgClass: 'bg-status-green' },
   ], [stats]);
+
+  // Count lines per order for "Articles" column
+  const lineCountByOrder = useMemo(() => {
+    const counts = {};
+    for (const line of allLines) {
+      counts[line.order_id] = (counts[line.order_id] || 0) + 1;
+    }
+    return counts;
+  }, [allLines]);
 
   // Revenue grouped by day
   const revenueChart = useMemo(() => {
@@ -181,7 +190,7 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                   <span className="font-body text-[12px] text-mf-marron-glace">{o.stand || '—'}</span>
-                  <span className="font-body text-[12px] text-mf-marron-glace">—</span>
+                  <span className="font-body text-[12px] text-mf-marron-glace">{lineCountByOrder[o.id] || '—'}</span>
                   <span className="font-serif text-[13px] italic text-mf-marron-glace">
                     {Number(o.total_amount || 0).toFixed(2)} €
                   </span>
@@ -229,11 +238,11 @@ export default function AdminDashboard() {
                 <div key={p.label}>
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="font-body text-[12px] text-mf-marron-glace">{p.label}</span>
-                    <span className={`font-body text-[12px] font-medium text-${p.color}`}>{p.count}</span>
+                    <span className={`font-body text-[12px] font-medium ${p.textClass}`}>{p.count}</span>
                   </div>
                   <div className="h-1.5 rounded-full bg-mf-blanc-casse">
                     <div
-                      className={`h-full rounded-full bg-${p.color} transition-all duration-500`}
+                      className={`h-full rounded-full ${p.bgClass} transition-all duration-500`}
                       style={{ width: `${stats.total > 0 ? (p.count / stats.total) * 100 : 0}%` }}
                     />
                   </div>

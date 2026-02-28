@@ -8,8 +8,8 @@ export default function StaffHeader({
   children,
 }) {
   const roleConfig = {
-    kitchen: { label: '🍳 Cuisine', color: 'status-orange' },
-    delivery: { label: '🚚 Livraisons', color: 'status-green' },
+    kitchen: { label: '🍳 Cuisine', textCls: 'text-status-orange', bgCls: 'bg-status-orange/8' },
+    delivery: { label: '🚚 Livraisons', textCls: 'text-status-green', bgCls: 'bg-status-green/8' },
   };
 
   const cfg = roleConfig[role] || roleConfig.kitchen;

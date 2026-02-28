@@ -11,10 +11,12 @@ import StaffLayout from '@/components/layout/StaffLayout';
 // Public pages
 import HomePage from '@/pages/HomePage';
 import LoginPage from '@/pages/LoginPage';
-import OrderPage from '@/pages/Order';
+import OrderPageLegacy from '@/pages/Order';
 import OrderSuccess from '@/pages/OrderSuccess';
 import CustomerOrders from '@/pages/CustomerOrders';
 import OrderFunnelTest from '@/pages/OrderFunnelTest';
+import OrderPage from '@/pages/OrderPage';
+import MainPage from '@/pages/MainPage';
 import MainPageTest from '@/pages/MainPageTest';
 // Admin pages
 import AdminDashboard from '@/pages/admin/AdminDashboard';
@@ -66,13 +68,15 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             {/* Public */}
-            <Route path="/" element={<MainPageTest />} />
+            <Route path="/" element={<MainPage />} />
+            <Route path="/main-old" element={<MainPageTest />} />
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/order" element={<OrderFunnelTest />} />
+            <Route path="/order" element={<OrderPage />} />
             <Route path="/order/success/:orderId" element={<OrderSuccess />} />
             <Route path="/my-orders" element={<CustomerOrders />} />
             <Route path="/home-old" element={<HomePage />} />
-            <Route path="/order-old" element={<OrderPage />} />
+            <Route path="/order-old" element={<OrderFunnelTest />} />
+            <Route path="/order-legacy" element={<OrderPageLegacy />} />
             {/* Admin */}
             <Route
               path="/admin"

@@ -316,63 +316,170 @@ Dériver le style admin (sidebar + cards)
 
 ## Phase 4 — Pages Staff
 
+> ⚠️ **CRITIQUE : MOBILE-FIRST OBLIGATOIRE**
+> Les staff (cuisine + livraison) utilisent un TÉLÉPHONE, debout, en mouvement.
+> Le Kanban 4 colonnes desktop est INUTILISABLE en mobile (testé et validé).
+> Solution : design responsive — tabs mobile / kanban desktop.
+
 ### 11. StaffKitchen.jsx
-**Mockup** : `mockups-reference/StaffKitchen-MF.jsx`
+**Mockup mobile** : `mockups-reference/StaffKitchen-Mobile-MF.jsx` ← PRIORITAIRE
+**Mockup desktop** : `mockups-reference/StaffKitchen-MF.jsx` (kanban, pour écrans >1024px uniquement)
 
-Layout : `StaffHeader` + Kanban
+#### Architecture responsive
+```
+Mobile (<768px) → Tabs horizontaux + liste verticale de cards
+Tablet (768-1024px) → 2 colonnes max
+Desktop (>1024px) → Kanban 4 colonnes (original)
+```
 
-**Kanban 4 colonnes** : En attente → En préparation → Prêts → Livrés
+#### UX mobile (layout par défaut)
 
-Chaque carte = 1 `order_line` :
-- Icône type (🥗🍽🍰🥤)
-- Nom du plat, quantité
-- Réf commande + stand + nom client (JOIN orders)
-- Badge midi/soir
-- **Bouton avancer** → update `prep_status` dans order_lines
+**Header sticky** :
+- Logo compact + badge "🍳 Cuisine"
+- Filtre midi/soir (3 boutons pill compacts)
+- Barre de progression globale (% livré)
 
-Fonctionnalités :
-- Filtre midi/soir dans le header
-- Barre de progression globale (livrés/total)
-- Vue alternative en liste
-- **Realtime** : souscrire aux changements order_lines via Supabase realtime
+**Tab bar** (le pattern clé — remplace le kanban) :
+- 4 onglets : Attente | En cours | Prêts | Livrés
+- Chaque onglet = compteur + icône
+- Active = underline colorée (couleur du statut)
+- 1 seul onglet visible à la fois
 
+**Cards commande** (groupées par order, PAS par item isolé) :
+- Stand en badge GROS (64×64px) — c'est l'info n°1 en cuisine
+- Nom client + ref + badge midi/soir
+- Items repliables (tap pour déplier)
+- Chaque item a un bouton d'avancement individuel
+- **Bouton bulk** en bas de carte : "Commencer → Toute la commande"
+- Min-height 48px sur tous les boutons (zone pouce)
+
+**Footer fixe** (zone pouce) :
+- Compteur commandes dans le tab actif
+- Bouton "Tout avancer" pour action bulk
+
+#### Regroupement par commande (pas par plat)
+```
+AVANT (cassé mobile) :
+  Colonne "En attente" : Velouté, Suprême, Crème brûlée, Eau — 4 cards séparées
+  → Impossible de savoir que ça vient de la même commande
+
+APRÈS :
+  Card "CMD-847 · Sophie Martin · A-12" :
+    🥗 Velouté butternut      [Préparer]
+    🍽 Suprême de volaille     [Préparer]
+    🍰 Crème brûlée           [Préparer]
+    🥤 Eau minérale           [Préparer]
+    ─────────────────────────────────
+    [   Commencer → Toute la commande   ]
+```
+
+#### Data + Realtime
 ```js
-// Realtime subscription
+// Charger order_lines avec JOIN orders pour avoir le contexte commande
+const { data: lines } = useQuery({
+  queryKey: ['order_lines', event_id, slotFilter],
+  queryFn: () => supabase
+    .from('order_lines')
+    .select('*, orders!inner(id, order_number, customer_first_name, customer_last_name, stand), meal_slots!inner(slot_type), menu_items!inner(name, type)')
+    .eq('orders.event_id', event_id)
+    .order('created_at')
+})
+
+// Grouper côté client par order_id
+const grouped = groupBy(lines, 'order_id')
+
+// Realtime
 useEffect(() => {
   const channel = supabase.channel('kitchen')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'order_lines' }, (payload) => {
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'order_lines' }, () => {
       queryClient.invalidateQueries(['order_lines'])
     })
     .subscribe()
   return () => supabase.removeChannel(channel)
 }, [])
+
+// Avancer un item
+const advanceItem = useMutation({
+  mutationFn: ({ lineId, newStatus }) =>
+    supabase.from('order_lines').update({
+      prep_status: newStatus,
+      prepared_by: currentUser.display_name,
+      prepared_at: newStatus === 'ready' ? new Date().toISOString() : null,
+    }).eq('id', lineId),
+  onSuccess: () => queryClient.invalidateQueries(['order_lines'])
+})
+
+// Avancer toute une commande
+const advanceOrder = useMutation({
+  mutationFn: ({ orderLineIds, newStatus }) =>
+    supabase.from('order_lines').update({
+      prep_status: newStatus,
+      prepared_by: currentUser.display_name,
+    }).in('id', orderLineIds),
+  onSuccess: () => queryClient.invalidateQueries(['order_lines'])
+})
 ```
 
 ### 12. StaffDelivery.jsx
-**Mockup** : `mockups-reference/StaffDelivery-MF.jsx`
+**Mockup mobile** : `mockups-reference/StaffDelivery-Mobile-MF.jsx` ← PRIORITAIRE
+**Mockup desktop** : `mockups-reference/StaffDelivery-MF.jsx`
 
-Layout : `StaffHeader` + Liste de cards
+#### UX mobile
 
-Chaque card = 1 commande regroupée par stand :
-- Badge stand (gros, proéminent)
-- Nom client, n° commande, badge midi/soir
-- Liste items en pills
-- Alerte si notes (allergies)
-- Statuts : Prêt → En livraison → Livré
+**Header sticky** :
+- Logo compact + badge "🚚 Livraisons"
+- Badges compteurs (X à livrer / X en cours)
 
-Actions :
-- "Partir en livraison" → update toutes les order_lines du même order
-- "Confirmer livraison" → confirmation avec zone photo upload (Supabase Storage)
-- Itinéraire suggéré (stands à livrer triés)
+**2 onglets** (pas plus) : "À livrer (N)" | "Fait (N)"
 
-**Data** :
+**Suggestion d'itinéraire** (bandeau) :
+- "🗺 A-12 → B-08 → C-22" (stands triés par proximité/allée)
+
+**Cards livraison** :
+- Stand = élément dominant (badge 64×64, le plus gros de la carte)
+- Nom + ref + slot midi/soir
+- Items en pills compactes (emoji + ×qty seulement, pas besoin du nom complet pour le livreur)
+- Alerte allergies si notes présentes
+- **Bouton pleine largeur** min-height 54px :
+  - "🚚 Partir livrer" (orange) → passe en in_transit
+  - "✓ Confirmer la livraison" (vert) → ouvre confirmation inline
+- **Confirmation inline** (PAS de modal) :
+  - Zone photo optionnelle (dashed border, tap pour caméra)
+  - Boutons Annuler / "✓✓ C'est livré"
+
+#### Data
 ```js
-// Charger commandes avec lignes status = ready
-const { data } = useOrders({
-  event_id,
-  with_lines: true,
-  lines_status: ['ready', 'delivered'],
-  orderBy: 'stand'
+// Charger commandes prêtes à livrer
+const { data } = useQuery({
+  queryKey: ['deliveries', event_id],
+  queryFn: () => supabase
+    .from('orders')
+    .select('*, order_lines!inner(*, menu_items!inner(name, type), meal_slots!inner(slot_type))')
+    .eq('event_id', event_id)
+    .in('order_lines.prep_status', ['ready', 'delivered'])
+    .order('stand')
+})
+
+// Confirmer livraison + photo
+const confirmDelivery = useMutation({
+  mutationFn: async ({ orderId, photoFile }) => {
+    let photoUrl = null
+    if (photoFile) {
+      const { data } = await supabase.storage
+        .from('delivery-photos')
+        .upload(`${orderId}/${Date.now()}.jpg`, photoFile)
+      photoUrl = data?.path
+    }
+    return supabase.from('order_lines')
+      .update({
+        prep_status: 'delivered',
+        delivered_by: currentUser.display_name,
+        delivered_at: new Date().toISOString(),
+        delivery_photo_url: photoUrl,
+      })
+      .eq('order_id', orderId)
+      .eq('prep_status', 'ready')
+  }
 })
 ```
 
@@ -386,8 +493,10 @@ Activer Supabase Realtime sur `order_lines` et `orders` pour les vues Kitchen et
 ### Responsive
 - Client (MainPage, OrderPage) : **mobile-first**, max-width 520px centré
 - Admin : desktop, sidebar 220px + main fluid
-- Staff Kitchen : desktop large (kanban 4 colonnes)
-- Staff Delivery : **optimisé tablette/mobile** (les livreurs sont debout)
+- **Staff Kitchen** : **MOBILE-FIRST** — tabs + liste cards. Kanban uniquement >1024px.
+- **Staff Delivery** : **MOBILE-FIRST** — card stack. Le livreur est DEBOUT avec un TÉLÉPHONE.
+- Tous les boutons d'action staff : **min-height 48px** (zone pouce)
+- Pas de modal sur mobile staff → confirmation inline dans la card
 
 ### Transitions
 Toutes les interactions avec `transition-all duration-200` minimum.
