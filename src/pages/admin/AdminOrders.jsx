@@ -1,12 +1,13 @@
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Search, ShoppingBag, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, ShoppingBag, ChevronDown, ChevronUp, X, AlertTriangle } from 'lucide-react';
 import { useActiveEvent } from '@/hooks/useEvents';
 import EventSelector from '@/components/admin/EventSelector';
 import { useOrders, useUpdateOrder } from '@/hooks/useOrders';
 import { useOrderLines } from '@/hooks/useOrderLines';
 import { groupOrderLines, sortedSlotEntries } from '@/lib/groupOrderLines';
+import { supabase } from '@/api/supabase';
 
 /* ───────── helpers ───────── */
 
@@ -101,10 +102,15 @@ function Spinner() {
    TAB 1 — Factures globales (financial view)
    ═══════════════════════════════════════════════════ */
 
+const PAGE_SIZE = 20;
+
 function FinancialTab({ orders, orderLines, updateOrder }) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [expandedId, setExpandedId] = useState(null);
+  const [confirmModal, setConfirmModal] = useState(null); // { order, action: 'cancel'|'refund' }
+  const [actionLoading, setActionLoading] = useState(false);
+  const [page, setPage] = useState(0);
 
   /* line lookup keyed by order_id */
   const linesByOrder = useMemo(() => {
@@ -117,29 +123,7 @@ function FinancialTab({ orders, orderLines, updateOrder }) {
     return map;
   }, [orderLines]);
 
-  /* filtered orders */
-  const filtered = useMemo(() => {
-    let result = orders ?? [];
-
-    if (statusFilter !== 'all') {
-      result = result.filter((o) => o.payment_status === statusFilter);
-    }
-
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      result = result.filter((o) => {
-        const fullName = `${o.customer_first_name ?? ''} ${o.customer_last_name ?? ''}`.toLowerCase();
-        return (
-          fullName.includes(q) ||
-          (o.stand ?? '').toLowerCase().includes(q) ||
-          (o.customer_email ?? '').toLowerCase().includes(q) ||
-          (o.order_number ?? '').toLowerCase().includes(q)
-        );
-      });
-    }
-
-    return result;
-  }, [orders, statusFilter, search]);
+  /* filtered orders — see filteredAll in the action handlers section below */
 
   function toggleExpand(id) {
     setExpandedId((prev) => (prev === id ? null : id));
@@ -148,8 +132,53 @@ function FinancialTab({ orders, orderLines, updateOrder }) {
   function handleStatusUpdate(order) {
     const next = nextPaymentStatus(order.payment_status);
     if (!next) return;
+    if (next === 'refunded') {
+      setConfirmModal({ order, action: 'refund' });
+      return;
+    }
     updateOrder.mutate({ id: order.id, payment_status: next });
   }
+
+  async function handleConfirmAction() {
+    if (!confirmModal) return;
+    const { order, action } = confirmModal;
+    setActionLoading(true);
+
+    try {
+      if (action === 'cancel') {
+        updateOrder.mutate({ id: order.id, payment_status: 'cancelled' });
+      } else if (action === 'refund') {
+        const { data, error } = await supabase.functions.invoke('refund-order', {
+          body: { orderId: order.id },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        updateOrder.mutate({ id: order.id, payment_status: 'refunded' });
+      }
+    } catch (err) {
+      alert(`Erreur: ${err.message}`);
+    } finally {
+      setActionLoading(false);
+      setConfirmModal(null);
+    }
+  }
+
+  // Reset page when filters change
+  const filteredAll = useMemo(() => {
+    let result = orders ?? [];
+    if (statusFilter !== 'all') result = result.filter((o) => o.payment_status === statusFilter);
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      result = result.filter((o) => {
+        const fullName = `${o.customer_first_name ?? ''} ${o.customer_last_name ?? ''}`.toLowerCase();
+        return fullName.includes(q) || (o.stand ?? '').toLowerCase().includes(q) || (o.customer_email ?? '').toLowerCase().includes(q) || (o.order_number ?? '').toLowerCase().includes(q);
+      });
+    }
+    return result;
+  }, [orders, statusFilter, search]);
+
+  const totalPages = Math.ceil(filteredAll.length / PAGE_SIZE);
+  const paginated = filteredAll.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   return (
     <div className="space-y-4">
@@ -161,15 +190,15 @@ function FinancialTab({ orders, orderLines, updateOrder }) {
             type="text"
             placeholder="Rechercher par nom, stand, email, n° commande..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-10 pr-4 text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+            onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+            className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-10 pr-4 text-sm outline-none focus:border-[#8B3A43] focus:ring-2 focus:ring-[#8B3A43]/20"
           />
         </div>
 
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+          onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
+          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#8B3A43] focus:ring-2 focus:ring-[#8B3A43]/20"
         >
           <option value="all">Tous</option>
           <option value="pending">En attente</option>
@@ -179,17 +208,21 @@ function FinancialTab({ orders, orderLines, updateOrder }) {
         </select>
       </div>
 
+      <p className="text-xs text-gray-400">{filteredAll.length} commande{filteredAll.length !== 1 ? 's' : ''}</p>
+
       {/* order cards */}
-      {filtered.length === 0 && (
+      {paginated.length === 0 && (
         <p className="py-8 text-center text-sm text-gray-400">Aucune commande trouvee.</p>
       )}
 
-      {filtered.map((order) => {
+      {paginated.map((order) => {
         const isExpanded = expandedId === order.id;
         const lines = linesByOrder[order.id] ?? [];
         const grouped = groupOrderLines(lines);
         const slots = sortedSlotEntries(grouped);
         const next = nextPaymentStatus(order.payment_status);
+        const canCancel = order.payment_status === 'pending';
+        const canRefund = order.payment_status === 'paid';
 
         return (
           <div
@@ -208,6 +241,11 @@ function FinancialTab({ orders, orderLines, updateOrder }) {
                     {order.order_number}
                   </span>
                   {paymentBadge(order.payment_status)}
+                  {order.delivery_method && (
+                    <span className="inline-block rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600">
+                      {order.delivery_method === 'retrait' ? 'Retrait' : 'Livraison'}
+                    </span>
+                  )}
                 </div>
 
                 <p className="text-sm text-gray-700">
@@ -254,7 +292,7 @@ function FinancialTab({ orders, orderLines, updateOrder }) {
                     <p className="text-xs font-medium text-gray-500 mb-1">
                       {formatSlotHeader(slot.slot_date, slot.slot_type)}
                       {slot.guest_name && (
-                        <span className="ml-2 text-purple-600 font-semibold">{slot.guest_name}</span>
+                        <span className="ml-2 text-[#8B3A43] font-semibold">{slot.guest_name}</span>
                       )}
                     </p>
                     <ul className="space-y-0.5 pl-3">
@@ -279,24 +317,102 @@ function FinancialTab({ orders, orderLines, updateOrder }) {
                   </div>
                 ))}
 
-                {/* status update button */}
-                {next && (
-                  <div className="pt-2 border-t border-gray-200 flex justify-end">
+                {/* action buttons */}
+                <div className="pt-2 border-t border-gray-200 flex justify-end gap-2">
+                  {canCancel && (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmModal({ order, action: 'cancel' })}
+                      className="rounded-lg border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      Annuler
+                    </button>
+                  )}
+                  {next && (
                     <button
                       type="button"
                       onClick={() => handleStatusUpdate(order)}
                       disabled={updateOrder.isPending}
-                      className="rounded-lg bg-amber-500 px-4 py-1.5 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-50 transition-colors"
+                      className="rounded-lg bg-[#8B3A43] px-4 py-1.5 text-sm font-medium text-white hover:bg-[#7a3039] disabled:opacity-50 transition-colors"
                     >
                       {updateOrder.isPending ? '...' : nextPaymentLabel(order.payment_status)}
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             )}
           </div>
         );
       })}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2">
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 disabled:opacity-30 hover:bg-gray-50 transition-colors"
+          >
+            &larr; Precedent
+          </button>
+          <span className="text-sm text-gray-500">
+            Page {page + 1} / {totalPages}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+            disabled={page >= totalPages - 1}
+            className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 disabled:opacity-30 hover:bg-gray-50 transition-colors"
+          >
+            Suivant &rarr;
+          </button>
+        </div>
+      )}
+
+      {/* Confirm modal */}
+      {confirmModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-gray-900">
+                  {confirmModal.action === 'cancel' ? 'Annuler la commande' : 'Rembourser la commande'}
+                </h3>
+                <p className="text-sm text-gray-500">{confirmModal.order.order_number}</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-gray-600">
+              {confirmModal.action === 'cancel'
+                ? 'Cette commande sera marquee comme annulee. Cette action est irreversible.'
+                : `Le montant de ${Number(confirmModal.order.total_amount).toFixed(2)}€ sera rembourse via Stripe. Cette action est irreversible.`}
+            </p>
+
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => setConfirmModal(null)}
+                disabled={actionLoading}
+                className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Retour
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmAction}
+                disabled={actionLoading}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                {actionLoading ? 'En cours...' : 'Confirmer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
