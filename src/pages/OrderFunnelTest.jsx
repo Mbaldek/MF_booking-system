@@ -298,8 +298,6 @@ export default function OrderFunnelTest() {
           billing_address: formData.billing_address,
           billing_postal_code: formData.billing_postal_code,
           billing_city: formData.billing_city,
-          rgpd_consent: true,
-          rgpd_consent_date: new Date().toISOString(),
         },
         orderLines,
       });
