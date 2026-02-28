@@ -147,6 +147,7 @@ export default function OrderFunnelTest() {
   });
   const [selectedSlotIds, setSelectedSlotIds] = useState([]);
   const [slotGuests, setSlotGuests] = useState({});
+  const [rgpdConsent, setRgpdConsent] = useState(false);
 
   // Data hooks
   const { data: activeEvents = [], isLoading: eventsLoading } = useActiveEvents();
@@ -256,7 +257,7 @@ export default function OrderFunnelTest() {
     );
   });
 
-  const isStep3Valid = formData.billing_address && formData.billing_postal_code && formData.billing_city;
+  const isStep3Valid = formData.billing_address && formData.billing_postal_code && formData.billing_city && rgpdConsent;
 
   // Submit
   const handleSubmit = async () => {
@@ -297,6 +298,8 @@ export default function OrderFunnelTest() {
           billing_address: formData.billing_address,
           billing_postal_code: formData.billing_postal_code,
           billing_city: formData.billing_city,
+          rgpd_consent: true,
+          rgpd_consent_date: new Date().toISOString(),
         },
         orderLines,
       });
@@ -754,6 +757,25 @@ export default function OrderFunnelTest() {
                   {total.toFixed(2)}€
                 </span>
               </div>
+            </div>
+
+            {/* RGPD consent */}
+            <div className="rounded-[20px] border p-5" style={{ background: 'white', borderColor: MF.border }}>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={rgpdConsent}
+                  onChange={(e) => setRgpdConsent(e.target.checked)}
+                  className="mt-1 w-4 h-4 accent-[#8B3A43] shrink-0"
+                />
+                <span className="text-[13px] leading-relaxed" style={{ color: MF.dark, fontFamily: "'Questrial', sans-serif" }}>
+                  J'accepte que mes données soient utilisées pour le traitement de ma commande
+                  et la communication liée à cet événement.
+                  <span className="block text-[11px] mt-1" style={{ color: MF.muted }}>
+                    Conformément au RGPD, vos données ne seront pas transmises à des tiers.
+                  </span>
+                </span>
+              </label>
             </div>
 
             {/* Action buttons */}

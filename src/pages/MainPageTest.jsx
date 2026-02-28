@@ -1,8 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, User, ChevronDown, LogOut, Shield, ChefHat } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 import { useActiveEvents } from '@/hooks/useEvents';
 import { useMealSlots, useSlotMenuCounts } from '@/hooks/useMealSlots';
@@ -21,6 +21,19 @@ export default function MainPageTest() {
   const { isAuthenticated, profile, signOut } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [hoveredCat, setHoveredCat] = useState(null);
+  const [userDropdown, setUserDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    if (!userDropdown) return;
+    const handler = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setUserDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [userDropdown]);
 
   // Real data
   const { data: activeEvents = [] } = useActiveEvents();
@@ -69,29 +82,65 @@ export default function MainPageTest() {
       {/* ═══ NAVBAR ═══ */}
       <nav
         className="flex justify-between items-center sticky top-0 z-50"
-        style={{ padding: '18px 28px', background: 'white', borderBottom: `1px solid ${C.border}` }}
+        style={{ padding: '12px 28px', background: 'white', borderBottom: `1px solid ${C.border}` }}
       >
         <button
           onClick={() => setMenuOpen(!menuOpen)}
-          className="bg-transparent border-none cursor-pointer"
+          className="bg-transparent border-none cursor-pointer w-20"
           style={{ fontFamily: "'Questrial', sans-serif", fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: C.rose }}
         >
           {menuOpen ? 'Fermer' : 'Menu'}
         </button>
-        <div className="text-center">
-          <div style={{ fontFamily: "'Questrial', sans-serif", fontSize: 9, letterSpacing: '0.35em', textTransform: 'uppercase', color: C.vr, marginBottom: 1 }}>
-            Maison
-          </div>
-          <div style={{ fontFamily: "'Georgia', serif", fontSize: 22, fontStyle: 'italic', color: C.rose, lineHeight: 1 }}>
-            Félicien
-          </div>
-        </div>
-        <Link
-          to="/order"
-          style={{ fontFamily: "'Questrial', sans-serif", fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: C.rose, textDecoration: 'none' }}
-        >
-          Commander
+        <Link to="/" className="flex items-center justify-center">
+          <img src="/brand/Logo_Rose.svg" alt="Maison Félicien" style={{ height: 40 }} />
         </Link>
+        <div className="w-20 flex justify-end" ref={dropdownRef}>
+          {isAuthenticated ? (
+            <div className="relative">
+              <button
+                onClick={() => setUserDropdown(!userDropdown)}
+                className="flex items-center gap-1.5 bg-transparent border-none cursor-pointer py-1"
+                style={{ fontFamily: "'Questrial', sans-serif", fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: C.rose }}
+              >
+                <User className="w-4 h-4" />
+                <ChevronDown className="w-3 h-3" />
+              </button>
+              {userDropdown && (
+                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg py-2 z-50" style={{ border: `1px solid ${C.border}` }}>
+                  <div className="px-3 py-2" style={{ borderBottom: `1px solid ${C.border}` }}>
+                    <p className="text-[12px] truncate" style={{ color: C.dark }}>{profile?.display_name || profile?.email}</p>
+                    <p className="text-[10px] capitalize" style={{ color: C.muted }}>{profile?.role}</p>
+                  </div>
+                  {profile?.role === 'admin' && (
+                    <Link to="/admin" onClick={() => setUserDropdown(false)} className="flex items-center gap-2 px-3 py-2 text-[12px] no-underline hover:opacity-80" style={{ color: C.dark }}>
+                      <Shield className="w-3.5 h-3.5" style={{ color: C.muted }} /> Administration
+                    </Link>
+                  )}
+                  {(profile?.role === 'admin' || profile?.role === 'staff') && (
+                    <Link to="/staff/kitchen" onClick={() => setUserDropdown(false)} className="flex items-center gap-2 px-3 py-2 text-[12px] no-underline hover:opacity-80" style={{ color: C.dark }}>
+                      <ChefHat className="w-3.5 h-3.5" style={{ color: C.muted }} /> Espace Staff
+                    </Link>
+                  )}
+                  <button
+                    onClick={() => { signOut(); setUserDropdown(false); }}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-[12px] bg-transparent border-none cursor-pointer text-left hover:opacity-80"
+                    style={{ color: C.vr }}
+                  >
+                    <LogOut className="w-3.5 h-3.5" /> Déconnexion
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <Link
+              to="/login"
+              className="no-underline"
+              style={{ fontFamily: "'Questrial', sans-serif", fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: C.rose }}
+            >
+              Connexion
+            </Link>
+          )}
+        </div>
       </nav>
 
       {/* Side menu overlay */}
@@ -112,7 +161,6 @@ export default function MainPageTest() {
             {[
               { label: 'Commander', to: '/order' },
               { label: 'Mes Commandes', to: '/my-orders' },
-              { label: 'Connexion', to: '/login' },
             ].map(({ label, to }) => (
               <Link key={label} to={to} onClick={() => setMenuOpen(false)} style={{ textDecoration: 'none' }}>
                 <span style={{ fontFamily: "'Georgia', serif", fontSize: 28, fontStyle: 'italic', color: C.rose, lineHeight: 1.3 }}>
@@ -132,40 +180,13 @@ export default function MainPageTest() {
               </span>
               <ExternalLink className="w-4 h-4" style={{ color: C.vr }} />
             </a>
-            {isAuthenticated && (
-              <>
-                {profile?.role === 'admin' && (
-                  <Link to="/admin" onClick={() => setMenuOpen(false)} style={{ textDecoration: 'none' }}>
-                    <span style={{ fontFamily: "'Georgia', serif", fontSize: 28, fontStyle: 'italic', color: C.rose }}>Administration</span>
-                  </Link>
-                )}
-                {(profile?.role === 'admin' || profile?.role === 'staff') && (
-                  <Link to="/staff/kitchen" onClick={() => setMenuOpen(false)} style={{ textDecoration: 'none' }}>
-                    <span style={{ fontFamily: "'Georgia', serif", fontSize: 28, fontStyle: 'italic', color: C.rose }}>Espace Staff</span>
-                  </Link>
-                )}
-              </>
-            )}
             <div className="mt-auto pt-5" style={{ borderTop: `1px solid ${C.border}` }}>
               <div style={{ fontFamily: "'Questrial', sans-serif", fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase', color: C.muted, marginBottom: 6 }}>
                 Traiteur événementiel
               </div>
-              {isAuthenticated ? (
-                <div>
-                  <p className="text-[13px]" style={{ color: C.dark }}>{profile?.display_name || profile?.email}</p>
-                  <button
-                    onClick={() => { signOut(); setMenuOpen(false); }}
-                    className="text-[12px] bg-transparent border-none cursor-pointer mt-1"
-                    style={{ color: C.vr }}
-                  >
-                    Déconnexion
-                  </button>
-                </div>
-              ) : (
-                <Link to="/login" onClick={() => setMenuOpen(false)} className="text-[13px]" style={{ color: C.dark, textDecoration: 'none' }}>
-                  Se connecter
-                </Link>
-              )}
+              <div style={{ fontFamily: "'Questrial', sans-serif", fontSize: 13, color: C.dark, lineHeight: 1.6 }}>
+                Repas livrés sur stand,<br />salons & événements
+              </div>
             </div>
           </div>
         </div>
@@ -201,17 +222,28 @@ export default function MainPageTest() {
             Des repas d'exception livrés directement sur votre stand.
             Commandez pour votre équipe, nous nous occupons du reste.
           </p>
-          <Link
-            to="/order"
-            className="inline-block no-underline"
-            style={{
-              fontFamily: "'Questrial', sans-serif", fontSize: 12, letterSpacing: '0.14em',
-              textTransform: 'uppercase', padding: '15px 40px', borderRadius: 50,
-              background: C.rose, color: C.cream, fontWeight: 500,
-            }}
-          >
-            Commander maintenant
-          </Link>
+          <div className="flex flex-col items-center gap-3">
+            <Link
+              to="/order"
+              className="inline-block no-underline"
+              style={{
+                fontFamily: "'Questrial', sans-serif", fontSize: 12, letterSpacing: '0.14em',
+                textTransform: 'uppercase', padding: '15px 40px', borderRadius: 50,
+                background: C.rose, color: C.cream, fontWeight: 500,
+              }}
+            >
+              Commander maintenant
+            </Link>
+            <a
+              href="https://maisonfelicien.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 no-underline"
+              style={{ fontFamily: "'Questrial', sans-serif", fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: C.vr }}
+            >
+              Découvrir la boutique <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
         </div>
       </section>
 
@@ -435,7 +467,6 @@ export default function MainPageTest() {
           {[
             { label: 'Commander', to: '/order' },
             { label: 'Mes Commandes', to: '/my-orders' },
-            { label: 'Connexion', to: '/login' },
           ].map(({ label, to }) => (
             <Link
               key={label}
@@ -465,12 +496,6 @@ export default function MainPageTest() {
         </p>
       </footer>
 
-      {/* ─── TEST BADGE ─── */}
-      <div className="fixed bottom-4 right-4 z-50">
-        <Link to="/" className="px-3 py-1.5 text-[10px] uppercase tracking-wider rounded-full no-underline" style={{ background: `${C.rose}15`, color: C.rose, border: `1px solid ${C.rose}30` }}>
-          Version actuelle
-        </Link>
-      </div>
     </div>
   );
 }

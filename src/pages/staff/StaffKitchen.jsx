@@ -1,9 +1,9 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useQueryClient } from '@tanstack/react-query';
 import { useActiveEvent } from '@/hooks/useEvents';
-import { useOrderLines, useUpdateOrderLineStatus } from '@/hooks/useOrderLines';
+import { useOrderLines, useUpdateOrderLineStatus, useDeliverWithPhoto } from '@/hooks/useOrderLines';
 import { useAuth } from '@/lib/AuthContext';
 import { supabase } from '@/api/supabase';
 import StaffHeader from '@/components/layout/StaffHeader';
@@ -24,6 +24,7 @@ export default function StaffKitchen() {
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [slotFilter, setSlotFilter] = useState('all');
   const [viewMode, setViewMode] = useState('kanban');
+  const [deliveryModal, setDeliveryModal] = useState(null); // { lineId, lineName }
 
   const queryClient = useQueryClient();
   const { profile } = useAuth();
@@ -33,6 +34,7 @@ export default function StaffKitchen() {
   // Fetch ALL order lines (not just kitchen — we need delivered for kanban)
   const { data: allLines = [], isLoading } = useOrderLines(eventId);
   const updateStatus = useUpdateOrderLineStatus();
+  const deliverWithPhoto = useDeliverWithPhoto();
 
   // ─── Supabase Realtime ───
   useEffect(() => {
@@ -69,15 +71,37 @@ export default function StaffKitchen() {
     filteredLines.filter((l) => l.prep_status === status);
 
   // ─── Advance single line ───
-  const advanceLine = (lineId, currentStatus) => {
+  const advanceLine = (lineId, currentStatus, lineName) => {
     const next = NEXT_STATUS[currentStatus];
     if (!next) return;
+    // For ready → delivered, open photo modal
+    if (next === 'delivered') {
+      setDeliveryModal({ lineId, lineName: lineName || '' });
+      return;
+    }
     updateStatus.mutate({
       ids: [lineId],
       prep_status: next,
-      prepared_by: next !== 'delivered' ? (profile?.display_name || profile?.email || 'staff') : undefined,
-      delivered_by: next === 'delivered' ? (profile?.display_name || profile?.email || 'staff') : undefined,
+      prepared_by: profile?.display_name || profile?.email || 'staff',
     });
+  };
+
+  const handleDeliverWithPhoto = (photo) => {
+    if (!deliveryModal) return;
+    deliverWithPhoto.mutate({
+      lineId: deliveryModal.lineId,
+      photo,
+      delivered_by: profile?.display_name || profile?.email || 'staff',
+    }, { onSuccess: () => setDeliveryModal(null) });
+  };
+
+  const handleDeliverSkip = () => {
+    if (!deliveryModal) return;
+    updateStatus.mutate({
+      ids: [deliveryModal.lineId],
+      prep_status: 'delivered',
+      delivered_by: profile?.display_name || profile?.email || 'staff',
+    }, { onSuccess: () => setDeliveryModal(null) });
   };
 
   if (isLoading) {
@@ -212,10 +236,10 @@ export default function StaffKitchen() {
                         <span className="font-body text-[11px] text-mf-marron-glace">{line.order?.stand}</span>
                         {nextCol && (
                           <button
-                            onClick={() => advanceLine(line.id, line.prep_status)}
+                            onClick={() => advanceLine(line.id, line.prep_status, line.menu_item?.name)}
                             className={`font-body text-[10px] uppercase tracking-wide px-3.5 py-1.5 rounded-pill border-none cursor-pointer transition-all active:scale-[0.97] text-mf-blanc-casse bg-${nextCol.color}`}
                           >
-                            {nextCol.label} →
+                            {nextStatus === 'delivered' ? 'Valider livraison' : nextCol.label} →
                           </button>
                         )}
                       </div>
@@ -226,6 +250,17 @@ export default function StaffKitchen() {
             );
           })}
         </div>
+      )}
+
+      {/* ─── Delivery Photo Modal ─── */}
+      {deliveryModal && (
+        <DeliveryPhotoModal
+          lineName={deliveryModal.lineName}
+          isPending={deliverWithPhoto.isPending || updateStatus.isPending}
+          onConfirm={handleDeliverWithPhoto}
+          onSkip={handleDeliverSkip}
+          onClose={() => setDeliveryModal(null)}
+        />
       )}
     </div>
   );
@@ -279,12 +314,89 @@ function PrepCard({ line, colColor, onAdvance }) {
       {/* Advance button */}
       {nextCol && (
         <button
-          onClick={() => onAdvance(line.id, line.prep_status)}
+          onClick={() => onAdvance(line.id, line.prep_status, line.menu_item?.name)}
           className={`w-full mt-1 py-2 rounded-pill border-2 cursor-pointer transition-all duration-200 active:scale-[0.97] font-body text-[11px] uppercase tracking-wide font-medium flex items-center justify-center gap-1.5 border-${nextCol.color}/30 bg-${nextCol.color}/8 text-${nextCol.color} hover:bg-${nextCol.color}/15`}
         >
-          <span>{nextCol.icon}</span> {nextCol.label} →
+          <span>{nextCol.icon}</span> {nextStatus === 'delivered' ? 'Valider livraison' : nextCol.label} →
         </button>
       )}
+    </div>
+  );
+}
+
+/* ─── Delivery Photo Modal ─── */
+function DeliveryPhotoModal({ lineName, isPending, onConfirm, onSkip, onClose }) {
+  const [photo, setPhoto] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const fileRef = useRef(null);
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhoto(file);
+    setPreview(URL.createObjectURL(file));
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div onClick={onClose} className="absolute inset-0 bg-mf-marron-glace/40" />
+      <div className="relative z-10 bg-mf-white rounded-card border border-mf-border p-6 w-full max-w-sm space-y-4">
+        <h3 className="font-serif text-[20px] italic text-mf-rose">Valider la livraison</h3>
+        {lineName && (
+          <p className="font-body text-[13px] text-mf-marron-glace">{lineName}</p>
+        )}
+
+        {/* Photo capture */}
+        <div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+          {preview ? (
+            <div className="relative">
+              <img src={preview} alt="Photo livraison" className="w-full h-48 object-cover rounded-xl border border-mf-border" />
+              <button
+                onClick={() => { setPhoto(null); setPreview(null); }}
+                className="absolute top-2 right-2 w-7 h-7 rounded-full bg-mf-white border border-mf-border flex items-center justify-center font-body text-[12px] text-mf-muted cursor-pointer"
+              >
+                ×
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => fileRef.current?.click()}
+              className="w-full py-8 rounded-xl border-2 border-dashed border-mf-border bg-mf-blanc-casse cursor-pointer hover:border-mf-rose/30 transition-colors"
+            >
+              <div className="text-center">
+                <span className="text-[24px] block mb-1">📷</span>
+                <span className="font-body text-[12px] text-mf-muted">Prendre une photo de livraison</span>
+              </div>
+            </button>
+          )}
+        </div>
+
+        {/* Actions */}
+        <button
+          onClick={() => onConfirm(photo)}
+          disabled={isPending}
+          className="w-full py-3 rounded-pill bg-status-green text-mf-blanc-casse font-body text-[12px] uppercase tracking-widest font-medium cursor-pointer border-none transition-all disabled:opacity-50"
+        >
+          {isPending ? 'En cours...' : photo ? 'Valider avec photo' : 'Valider sans photo'}
+        </button>
+        {!photo && (
+          <button
+            onClick={onSkip}
+            disabled={isPending}
+            className="w-full py-2 font-body text-[11px] text-mf-muted cursor-pointer bg-transparent border-none hover:text-mf-rose transition-colors"
+          >
+            Passer sans photo →
+          </button>
+        )}
+      </div>
     </div>
   );
 }

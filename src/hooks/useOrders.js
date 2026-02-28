@@ -150,3 +150,17 @@ export function useUpdateOrder() {
     },
   });
 }
+
+export function useLookupOrders() {
+  return useMutation({
+    mutationFn: async ({ email, orderNumber }) => {
+      let query = supabase.from('orders').select('*, event:events(id, name)');
+      if (email) query = query.eq('customer_email', email);
+      if (orderNumber) query = query.eq('order_number', orderNumber);
+      query = query.order('created_at', { ascending: false });
+      const { data, error } = await query;
+      if (error) throw error;
+      return data;
+    },
+  });
+}

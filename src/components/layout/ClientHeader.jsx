@@ -1,10 +1,25 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
+import { User, ChevronDown, LogOut, Shield, ChefHat } from 'lucide-react';
 
 export default function ClientHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [userDropdown, setUserDropdown] = useState(false);
   const { isAuthenticated, profile, signOut } = useAuth();
+  const dropdownRef = useRef(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!userDropdown) return;
+    const handler = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setUserDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [userDropdown]);
 
   const menuLinks = [
     { to: '/order', label: 'Commander' },
@@ -14,32 +29,81 @@ export default function ClientHeader() {
   return (
     <>
       {/* ─── Sticky Navbar ─── */}
-      <nav className="sticky top-0 z-50 flex items-center justify-between px-7 py-4 bg-white border-b border-mf-border">
+      <nav className="sticky top-0 z-50 flex items-center justify-between px-7 py-3 bg-white border-b border-mf-border">
         {/* Left — Menu toggle */}
         <button
           onClick={() => setMenuOpen(!menuOpen)}
-          className="font-body text-[11px] uppercase tracking-[0.14em] text-mf-rose cursor-pointer py-1 bg-transparent border-none"
+          className="font-body text-[11px] uppercase tracking-[0.14em] text-mf-rose cursor-pointer py-1 bg-transparent border-none w-20"
         >
           {menuOpen ? 'Fermer' : 'Menu'}
         </button>
 
-        {/* Center — Logo */}
-        <Link to="/" className="text-center">
-          <div className="font-body text-[9px] tracking-[0.35em] uppercase text-mf-vieux-rose mb-0.5">
-            Maison
-          </div>
-          <div className="font-serif text-[22px] italic text-mf-rose leading-none">
-            Félicien
-          </div>
+        {/* Center — SVG Logo */}
+        <Link to="/" className="flex items-center justify-center">
+          <img src="/brand/Logo_Rose.svg" alt="Maison Félicien" className="h-10" />
         </Link>
 
-        {/* Right — Commander */}
-        <Link
-          to="/order"
-          className="font-body text-[11px] uppercase tracking-[0.14em] text-mf-rose py-1"
-        >
-          Commander
-        </Link>
+        {/* Right — Auth area */}
+        <div className="w-20 flex justify-end" ref={dropdownRef}>
+          {isAuthenticated ? (
+            <div className="relative">
+              <button
+                onClick={() => setUserDropdown(!userDropdown)}
+                className="flex items-center gap-1.5 font-body text-[11px] uppercase tracking-[0.1em] text-mf-rose cursor-pointer bg-transparent border-none py-1"
+              >
+                <User className="w-4 h-4" />
+                <ChevronDown className="w-3 h-3" />
+              </button>
+
+              {userDropdown && (
+                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl border border-mf-border shadow-lg py-2 z-50">
+                  <div className="px-3 py-2 border-b border-mf-border">
+                    <p className="font-body text-[12px] text-mf-marron-glace truncate">
+                      {profile?.display_name || profile?.email}
+                    </p>
+                    <p className="font-body text-[10px] text-mf-muted capitalize">{profile?.role}</p>
+                  </div>
+
+                  {profile?.role === 'admin' && (
+                    <Link
+                      to="/admin"
+                      onClick={() => setUserDropdown(false)}
+                      className="flex items-center gap-2 px-3 py-2 font-body text-[12px] text-mf-marron-glace hover:bg-mf-blanc-casse transition-colors"
+                    >
+                      <Shield className="w-3.5 h-3.5 text-mf-muted" />
+                      Administration
+                    </Link>
+                  )}
+                  {(profile?.role === 'admin' || profile?.role === 'staff') && (
+                    <Link
+                      to="/staff/kitchen"
+                      onClick={() => setUserDropdown(false)}
+                      className="flex items-center gap-2 px-3 py-2 font-body text-[12px] text-mf-marron-glace hover:bg-mf-blanc-casse transition-colors"
+                    >
+                      <ChefHat className="w-3.5 h-3.5 text-mf-muted" />
+                      Espace Staff
+                    </Link>
+                  )}
+
+                  <button
+                    onClick={() => { signOut(); setUserDropdown(false); }}
+                    className="flex items-center gap-2 w-full px-3 py-2 font-body text-[12px] text-mf-vieux-rose hover:bg-mf-blanc-casse transition-colors bg-transparent border-none cursor-pointer text-left"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    Déconnexion
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <Link
+              to="/login"
+              className="font-body text-[11px] uppercase tracking-[0.14em] text-mf-rose py-1"
+            >
+              Connexion
+            </Link>
+          )}
+        </div>
       </nav>
 
       {/* ─── Side Menu Overlay ─── */}
@@ -83,26 +147,6 @@ export default function ClientHeader() {
               Boutique
             </a>
 
-            {/* Auth links */}
-            {isAuthenticated && profile?.role === 'admin' && (
-              <Link
-                to="/admin"
-                onClick={() => setMenuOpen(false)}
-                className="font-serif text-[22px] italic text-mf-muted leading-snug hover:text-mf-rose transition-colors"
-              >
-                Administration
-              </Link>
-            )}
-            {isAuthenticated && (profile?.role === 'admin' || profile?.role === 'staff') && (
-              <Link
-                to="/staff/kitchen"
-                onClick={() => setMenuOpen(false)}
-                className="font-serif text-[22px] italic text-mf-muted leading-snug hover:text-mf-rose transition-colors"
-              >
-                Espace Staff
-              </Link>
-            )}
-
             {/* Footer */}
             <div className="mt-auto pt-5 border-t border-mf-border">
               <div className="font-body text-[10px] uppercase tracking-[0.14em] text-mf-muted mb-1.5">
@@ -111,23 +155,6 @@ export default function ClientHeader() {
               <div className="font-body text-[13px] text-mf-marron-glace leading-relaxed">
                 Repas livrés sur stand,<br />salons & événements
               </div>
-
-              {isAuthenticated ? (
-                <button
-                  onClick={() => { signOut(); setMenuOpen(false); }}
-                  className="mt-4 font-body text-[11px] uppercase tracking-[0.1em] text-mf-muted hover:text-mf-rose bg-transparent border-none cursor-pointer"
-                >
-                  Déconnexion
-                </button>
-              ) : (
-                <Link
-                  to="/login"
-                  onClick={() => setMenuOpen(false)}
-                  className="mt-4 inline-block font-body text-[11px] uppercase tracking-[0.1em] text-mf-rose"
-                >
-                  Connexion
-                </Link>
-              )}
             </div>
           </div>
         </div>

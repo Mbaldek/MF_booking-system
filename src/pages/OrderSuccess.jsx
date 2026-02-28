@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Download, ArrowLeft, CheckCircle2, User, MapPin, Mail, Phone, CalendarDays, UtensilsCrossed } from 'lucide-react';
+import { Download, ArrowLeft, Home, CheckCircle2, User, MapPin, Mail, Phone, CalendarDays, UtensilsCrossed } from 'lucide-react';
 import { useOrderById } from '@/hooks/useOrders';
 import { useOrderLinesByOrder } from '@/hooks/useOrderLines';
 
@@ -257,22 +257,31 @@ export default function OrderSuccess() {
         </div>
 
         {/* Actions */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <button
-            onClick={handleDownloadPDF}
-            disabled={downloading}
-            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3.5 bg-[#8B3A43] text-[#F0F0E6] font-medium rounded-full hover:opacity-90 transition-all disabled:opacity-50 uppercase tracking-[0.12em] text-[13px]"
-          >
-            <Download className="w-4 h-4" />
-            {downloading ? 'Génération...' : 'Télécharger la facture (PDF)'}
-          </button>
+        <div className="flex flex-col gap-3">
           <Link
-            to="/order"
-            className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3.5 bg-[#FDFAF7] text-[#392D31] font-medium rounded-full border border-[#E5D9D0] hover:border-[#8B3A43] transition-all uppercase tracking-[0.12em] text-[13px]"
+            to="/"
+            className="inline-flex items-center justify-center gap-2 px-4 py-3.5 bg-mf-rose text-mf-blanc-casse font-medium rounded-full hover:opacity-90 transition-all uppercase tracking-[0.12em] text-[13px]"
           >
-            <ArrowLeft className="w-4 h-4" />
-            Nouvelle commande
+            <Home className="w-4 h-4" />
+            Retour à l'accueil
           </Link>
+          <div className="flex gap-3">
+            <button
+              onClick={handleDownloadPDF}
+              disabled={downloading}
+              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3.5 bg-mf-white text-mf-marron-glace font-medium rounded-full border border-mf-border hover:border-mf-rose transition-all disabled:opacity-50 uppercase tracking-[0.12em] text-[13px]"
+            >
+              <Download className="w-4 h-4" />
+              {downloading ? 'Génération...' : 'Facture PDF'}
+            </button>
+            <Link
+              to="/order"
+              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3.5 bg-mf-white text-mf-marron-glace font-medium rounded-full border border-mf-border hover:border-mf-rose transition-all uppercase tracking-[0.12em] text-[13px]"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Nouvelle commande
+            </Link>
+          </div>
         </div>
       </div>
 
