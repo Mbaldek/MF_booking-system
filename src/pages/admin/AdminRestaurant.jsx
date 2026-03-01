@@ -265,6 +265,7 @@ function TabTables({ eventId }) {
   const [filterFloorId, setFilterFloorId] = useState('');
   const [editId, setEditId] = useState(null); const [editData, setEditData] = useState({});
   const [newFloorId, setNewFloorId] = useState(''); const [newNumber, setNewNumber] = useState(''); const [newSeats, setNewSeats] = useState('');
+  const [tableError, setTableError] = useState('');
 
   const sorted = [...allTables]
     .filter((t) => !filterFloorId || t.floor_id === filterFloorId)
@@ -311,7 +312,13 @@ function TabTables({ eventId }) {
                 <div className="flex items-center justify-end gap-1">
                   {editId === t.id ? (
                     <>
-                      <button onClick={() => { const found = allTables.find((x) => x.id === editId); updateTable.mutate({ id: editId, floorId: found.floor_id, number: parseInt(editData.number, 10), seats: parseInt(editData.seats, 10) }, { onSuccess: () => setEditId(null) }); }} className="p-1.5 text-green-600"><Check className="w-4 h-4" /></button>
+                      <button onClick={() => {
+                        const found = allTables.find((x) => x.id === editId);
+                        const num = parseInt(editData.number, 10);
+                        const dup = allTables.find((x) => x.floor_id === found.floor_id && x.number === num && x.id !== editId);
+                        if (dup) { alert(`Le code ${tableCode(found.floor_name, num)} existe déjà dans cette salle.`); return; }
+                        updateTable.mutate({ id: editId, floorId: found.floor_id, number: num, seats: parseInt(editData.seats, 10) }, { onSuccess: () => setEditId(null) });
+                      }} className="p-1.5 text-green-600"><Check className="w-4 h-4" /></button>
                       <button onClick={() => setEditId(null)} className="p-1.5 text-mf-muted"><X className="w-4 h-4" /></button>
                     </>
                   ) : (
@@ -350,11 +357,21 @@ function TabTables({ eventId }) {
             <input type="number" min={1} value={newSeats} onChange={(e) => setNewSeats(e.target.value)} placeholder="4"
               className="w-20 px-3 py-1.5 border border-mf-border rounded-card text-sm focus:outline-none focus:border-mf-rose" />
           </div>
-          <button onClick={() => { if (!newFloorId || !newNumber || !newSeats) return; createTable.mutate({ floor_id: newFloorId, number: parseInt(newNumber, 10), seats: parseInt(newSeats, 10) }, { onSuccess: () => { setNewNumber(''); setNewSeats(''); } }); }}
-            disabled={!newFloorId || !newNumber || !newSeats || createTable.isPending}
-            className="flex items-center gap-1 px-4 py-1.5 bg-mf-rose text-white text-sm rounded-card disabled:opacity-50 hover:bg-mf-vieux-rose transition-colors">
-            <Plus className="w-4 h-4" /> Ajouter table
-          </button>
+          <div className="flex flex-col gap-1">
+            <button onClick={() => {
+              if (!newFloorId || !newNumber || !newSeats) return;
+              const num = parseInt(newNumber, 10);
+              const dup = allTables.find((t) => t.floor_id === newFloorId && t.number === num);
+              if (dup) { setTableError(`Le code ${tableCode(floors.find((f) => f.id === newFloorId)?.name, num)} existe déjà dans cette salle.`); return; }
+              setTableError('');
+              createTable.mutate({ floor_id: newFloorId, number: num, seats: parseInt(newSeats, 10) }, { onSuccess: () => { setNewNumber(''); setNewSeats(''); } });
+            }}
+              disabled={!newFloorId || !newNumber || !newSeats || createTable.isPending}
+              className="flex items-center gap-1 px-4 py-1.5 bg-mf-rose text-white text-sm rounded-card disabled:opacity-50 hover:bg-mf-vieux-rose transition-colors">
+              <Plus className="w-4 h-4" /> Ajouter table
+            </button>
+            {tableError && <p className="text-xs text-red-500">{tableError}</p>}
+          </div>
         </div>
       )}
     </div>
@@ -710,7 +727,7 @@ function TabGestionSalle({ eventId }) {
   const filteredReservations = useMemo(() => {
     if (!selectedDate || !selectedShift) return [];
     return reservations.filter((r) => {
-      if (r.service_date && r.service_date !== selectedDate) return false;
+      if (r.service_date !== selectedDate) return false;
       const shiftId = r.meal_tours?.shift_id;
       return shiftId === selectedShift.id;
     });
