@@ -33,6 +33,10 @@ function formatDay(dateStr) {
     weekday: 'short', day: 'numeric', month: 'short',
   });
 }
+function tableCode(floorName, number) {
+  const prefix = (floorName ?? 'T').charAt(0).toUpperCase();
+  return `${prefix}${number}`;
+}
 
 // --- Image upload component ---
 function ImageUpload({ currentUrl, onUpload, onRemove, uploading, inputRef }) {
@@ -296,7 +300,7 @@ function TabTables({ eventId }) {
               <td className="px-4 py-2">
                 {editId === t.id
                   ? <input type="number" min={1} value={editData.number} onChange={(e) => setEditData((p) => ({ ...p, number: e.target.value }))} className="w-16 px-2 py-1 border border-mf-border rounded text-sm focus:outline-none focus:border-mf-rose" />
-                  : <span className="font-medium text-mf-marron-glace">T{t.number}</span>}
+                  : <span className="font-medium text-mf-marron-glace">{tableCode(t.floor_name, t.number)}</span>}
               </td>
               <td className="px-4 py-2">
                 {editId === t.id
@@ -527,9 +531,11 @@ function TabReservations({ eventId }) {
       await fetch('/api/send-reservation-email', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          type: 'confirmation',
           email: res.guest_email, guestName: res.guest_name,
           serviceName: shift?.name, tourStart: tour?.start_time?.slice(0, 5),
-          tableNumber: table?.number, floorName: table?.restaurant_floors?.name,
+          tableCode: tableCode(table?.restaurant_floors?.name, table?.number),
+          floorName: table?.restaurant_floors?.name,
           seats: res.seats,
           date: res.service_date
             ? new Date(res.service_date + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
@@ -600,7 +606,7 @@ function TabReservations({ eventId }) {
                         return (a.floor_name ?? '').localeCompare(b.floor_name ?? '') || a.number - b.number;
                       }).map((t) => (
                         <option key={t.id} value={t.id}>
-                          T{t.number} — {t.floor_name} ({t.seats} pl.){proposedTable?.id === t.id ? ' ✓ suggérée' : ''}
+                          {tableCode(t.floor_name, t.number)} — {t.floor_name} ({t.seats} pl.){proposedTable?.id === t.id ? ' ✓ suggérée' : ''}
                         </option>
                       ))}
                     </select>
@@ -635,7 +641,7 @@ function TabReservations({ eventId }) {
                     <div className="flex flex-wrap gap-2 mt-1">
                       {res.service_date && <span className="text-xs text-mf-muted">{formatDay(res.service_date)}</span>}
                       {shift && <span className="text-xs text-mf-muted flex items-center gap-1"><Clock className="w-3 h-3" />{shift.name} {tour?.start_time?.slice(0, 5)}</span>}
-                      {table && <span className="text-xs font-medium text-mf-rose">T{table.number} — {table.restaurant_floors?.name}</span>}
+                      {table && <span className="text-xs font-medium text-mf-rose">{tableCode(table.restaurant_floors?.name, table.number)} — {table.restaurant_floors?.name}</span>}
                       <span className="text-xs text-mf-muted">{res.seats} couvert{res.seats > 1 ? 's' : ''}</span>
                     </div>
                   </div>
@@ -704,7 +710,7 @@ function TabGestionSalle({ eventId }) {
   const filteredReservations = useMemo(() => {
     if (!selectedDate || !selectedShift) return [];
     return reservations.filter((r) => {
-      if (r.service_date !== selectedDate) return false;
+      if (r.service_date && r.service_date !== selectedDate) return false;
       const shiftId = r.meal_tours?.shift_id;
       return shiftId === selectedShift.id;
     });
@@ -832,7 +838,7 @@ function TabGestionSalle({ eventId }) {
                 {/* Status dot */}
                 <div className={`absolute top-2 right-2 w-2.5 h-2.5 rounded-full ${isReserved ? 'bg-mf-rose' : 'bg-green-500'}`} />
 
-                <div className="font-bold text-lg text-mf-marron-glace mb-0.5">T{table.number}</div>
+                <div className="font-bold text-lg text-mf-marron-glace mb-0.5">{tableCode(table.floor_name, table.number)}</div>
                 <div className="flex items-center justify-center gap-1 text-xs text-mf-muted mb-2">
                   <Users className="w-3 h-3" />{table.seats}
                 </div>
@@ -865,7 +871,7 @@ function TabGestionSalle({ eventId }) {
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-mf-muted">Table</span>
-                <span className="font-medium text-mf-marron-glace">T{detailRes.restaurant_tables?.number} — {detailRes.restaurant_tables?.restaurant_floors?.name}</span>
+                <span className="font-medium text-mf-marron-glace">{tableCode(detailRes.restaurant_tables?.restaurant_floors?.name, detailRes.restaurant_tables?.number)} — {detailRes.restaurant_tables?.restaurant_floors?.name}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-mf-muted">Nom</span>
@@ -918,7 +924,7 @@ function TabGestionSalle({ eventId }) {
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-mf-marron-glace text-lg">
-                Assigner T{walkinTable.number} <span className="text-mf-muted font-normal text-base">({walkinTable.seats} pl.)</span>
+                Assigner {tableCode(walkinTable.floor_name, walkinTable.number)} <span className="text-mf-muted font-normal text-base">({walkinTable.seats} pl.)</span>
               </h3>
               <button onClick={() => setWalkinTable(null)} className="p-1 text-mf-muted hover:text-mf-marron-glace"><X className="w-5 h-5" /></button>
             </div>
