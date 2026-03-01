@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEventById } from '@/hooks/useEvents';
 import {
@@ -8,15 +8,33 @@ import {
   useCreateReservation,
 } from '@/hooks/useReservation';
 
+function getEventDays(startDate, endDate) {
+  const days = [];
+  const cur = new Date(startDate + 'T00:00:00');
+  const end = new Date(endDate + 'T00:00:00');
+  while (cur <= end) {
+    days.push(cur.toISOString().split('T')[0]);
+    cur.setDate(cur.getDate() + 1);
+  }
+  return days;
+}
+
+function formatDay(dateStr) {
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('fr-FR', {
+    weekday: 'short', day: 'numeric', month: 'short',
+  });
+}
+
 export default function ReservationPage() {
   const { eventId } = useParams();
   const navigate = useNavigate();
 
-  // step: 0=shift/tour, 1=salle préférence, 2=info, 3=confirm
+  // step: 0=date+shift+tour, 1=salle préférence, 2=info, 3=confirm
   const [step, setStep] = useState(0);
+  const [chosenDate, setChosenDate] = useState(null);
   const [chosenShift, setChosenShift] = useState(null);
   const [chosenTour, setChosenTour] = useState(null);
-  const [chosenFloor, setChosenFloor] = useState(null); // optional preference
+  const [chosenFloor, setChosenFloor] = useState(null);
   const [guest, setGuest] = useState({ name: '', email: '', seats: 1 });
 
   const { data: event } = useEventById(eventId);
@@ -24,6 +42,11 @@ export default function ReservationPage() {
   const { data: tours = [] } = useTours(chosenShift?.id);
   const { data: floors = [] } = useFloors(eventId);
   const createReservation = useCreateReservation();
+
+  const eventDays = useMemo(() => {
+    if (!event?.start_date || !event?.end_date) return [];
+    return getEventDays(event.start_date, event.end_date);
+  }, [event?.start_date, event?.end_date]);
 
   const handleSubmit = () => {
     if (!chosenTour || !guest.name || !guest.email) {
@@ -34,6 +57,7 @@ export default function ReservationPage() {
       {
         tour_id: chosenTour.id,
         preferred_floor_id: chosenFloor?.id ?? null,
+        service_date: chosenDate,
         guest_name: guest.name,
         guest_email: guest.email,
         seats: guest.seats,
@@ -51,7 +75,9 @@ export default function ReservationPage() {
                 tourStart: chosenTour?.start_time.slice(0, 5),
                 floorName: chosenFloor?.name,
                 seats: guest.seats,
-                date: new Date().toLocaleDateString('fr-FR'),
+                date: chosenDate
+                  ? new Date(chosenDate + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+                  : new Date().toLocaleDateString('fr-FR'),
               }),
             });
           } catch (err) {
@@ -98,29 +124,55 @@ export default function ReservationPage() {
         ))}
       </div>
 
-      {/* Step 0: Choose Shift & Tour */}
+      {/* Step 0: Date + Shift + Tour */}
       {step === 0 && (
         <div className="space-y-6">
-          <div>
-            <h2 className="text-lg font-medium text-mf-marron-glace mb-3">Choisissez un service</h2>
-            <div className="space-y-2">
-              {shifts.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => { setChosenShift(s); setChosenTour(null); }}
-                  className={`w-full text-left px-4 py-3 border-2 rounded-card transition-colors ${
-                    chosenShift?.id === s.id
-                      ? 'border-mf-rose bg-mf-rose/5'
-                      : 'border-mf-border hover:border-mf-rose/50'
-                  }`}
-                >
-                  <div className="font-medium text-mf-marron-glace">{s.name}</div>
-                  <div className="text-sm text-mf-muted">{s.start_time.slice(0,5)} — {s.end_time.slice(0,5)}</div>
-                </button>
-              ))}
+          {/* Date selector */}
+          {eventDays.length > 1 && (
+            <div>
+              <h2 className="text-lg font-medium text-mf-marron-glace mb-3">Choisissez un jour</h2>
+              <div className="flex gap-2 flex-wrap">
+                {eventDays.map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => { setChosenDate(d); setChosenShift(null); setChosenTour(null); }}
+                    className={`px-4 py-2 border-2 rounded-card text-sm transition-colors ${
+                      chosenDate === d
+                        ? 'border-mf-rose bg-mf-rose/5 text-mf-rose font-medium'
+                        : 'border-mf-border text-mf-marron-glace hover:border-mf-rose/50'
+                    }`}
+                  >
+                    {formatDay(d)}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
+          {/* Shift selector — show once date chosen (or always if single-day event) */}
+          {(chosenDate || eventDays.length <= 1) && (
+            <div>
+              <h2 className="text-lg font-medium text-mf-marron-glace mb-3">Choisissez un service</h2>
+              <div className="space-y-2">
+                {shifts.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => { setChosenShift(s); setChosenTour(null); }}
+                    className={`w-full text-left px-4 py-3 border-2 rounded-card transition-colors ${
+                      chosenShift?.id === s.id
+                        ? 'border-mf-rose bg-mf-rose/5'
+                        : 'border-mf-border hover:border-mf-rose/50'
+                    }`}
+                  >
+                    <div className="font-medium text-mf-marron-glace">{s.name}</div>
+                    <div className="text-sm text-mf-muted">{s.start_time.slice(0,5)} — {s.end_time.slice(0,5)}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Tour selector */}
           {chosenShift && tours.length > 0 && (
             <div>
               <h2 className="text-lg font-medium text-mf-marron-glace mb-3">Choisissez un créneau horaire</h2>
@@ -143,7 +195,7 @@ export default function ReservationPage() {
             </div>
           )}
 
-          {chosenTour && (
+          {chosenTour && (eventDays.length <= 1 || chosenDate) && (
             <button
               onClick={() => setStep(1)}
               className="w-full px-4 py-3 bg-mf-rose text-white font-medium rounded-card hover:bg-mf-vieux-rose transition-colors"
@@ -281,6 +333,12 @@ export default function ReservationPage() {
 
           {/* Summary */}
           <div className="bg-mf-poudre/20 border-2 border-mf-border rounded-card p-4 space-y-2">
+            {chosenDate && (
+              <div className="text-sm">
+                <span className="text-mf-muted">Jour :</span>{' '}
+                <span className="font-medium text-mf-marron-glace">{formatDay(chosenDate)}</span>
+              </div>
+            )}
             <div className="text-sm">
               <span className="text-mf-muted">Service :</span>{' '}
               <span className="font-medium text-mf-marron-glace">{chosenShift?.name} à {chosenTour?.start_time.slice(0,5)}</span>
@@ -330,9 +388,10 @@ export default function ReservationPage() {
               Merci <strong>{guest.name}</strong>. Votre demande de réservation a bien été reçue.
             </p>
             <p className="text-sm text-mf-muted mb-2">
+              {chosenDate && <>{formatDay(chosenDate)} · </>}
               {chosenShift?.name} à {chosenTour?.start_time.slice(0,5)}
               {chosenFloor && ` — salle préférée : ${chosenFloor.name}`}
-              {' '}• {guest.seats} couvert{guest.seats > 1 ? 's' : ''}
+              {' '}· {guest.seats} couvert{guest.seats > 1 ? 's' : ''}
             </p>
             <p className="text-sm text-mf-muted mb-6">
               Notre équipe vous attribuera une table et vous confirmera votre réservation par e-mail à <strong>{guest.email}</strong>.

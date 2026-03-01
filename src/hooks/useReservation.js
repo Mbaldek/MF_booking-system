@@ -205,7 +205,7 @@ export function useAllReservationsForEvent(eventId) {
         .from('reservations')
         .select(`
           *,
-          meal_tours(start_time, duration_minutes, meal_shifts(name)),
+          meal_tours(id, start_time, duration_minutes, shift_id, meal_shifts(id, name)),
           restaurant_tables(number, seats, restaurant_floors(name)),
           preferred_floor:restaurant_floors!preferred_floor_id(id, name)
         `)
