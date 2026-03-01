@@ -42,15 +42,37 @@ export default function ReservationPage() {
       alert('Veuillez remplir tous les champs');
       return;
     }
-    createReservation.mutate({
-      tour_id: chosenTour.id,
-      table_id: chosenTable?.id,
-      guest_name: guest.name,
-      guest_email: guest.email,
-      seats: guest.seats,
-    });
-    // TODO: send email via Resend (server function)
-    setStep(3);
+    createReservation.mutate(
+      {
+        tour_id: chosenTour.id,
+        table_id: chosenTable?.id,
+        guest_name: guest.name,
+        guest_email: guest.email,
+        seats: guest.seats,
+      },
+      {
+        onSuccess: async () => {
+          try {
+            await fetch('/api/send-reservation-email', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: guest.email,
+                guestName: guest.name,
+                serviceName: chosenShift?.name,
+                tourStart: chosenTour?.start_time.slice(0, 5),
+                tableNumber: chosenTable?.number,
+                seats: guest.seats,
+                date: new Date().toLocaleDateString('fr-FR'),
+              }),
+            });
+          } catch (err) {
+            console.error('Email error:', err);
+          }
+          setStep(3);
+        },
+      }
+    );
   };
 
   return (
