@@ -2,7 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import {
   TrendingUp, Calendar, UtensilsCrossed, ShoppingBag,
-  ClipboardList, BarChart3, Mail, Users, Home, LogOut, ChefHat,
+  ClipboardList, BarChart3, Mail, Users, Home, LogOut, ChefHat, BookOpen,
 } from 'lucide-react';
 
 const navItems = [
@@ -11,6 +11,7 @@ const navItems = [
   { path: '/admin/menu', label: 'La Carte', icon: UtensilsCrossed },
   { path: '/admin/orders', label: 'Commandes', icon: ShoppingBag },
   { path: '/admin/operations', label: 'Prépa & Livraison', icon: ClipboardList },
+  { path: '/admin/restaurant', label: 'Réservations', icon: BookOpen },
   { path: '/admin/stats', label: 'Statistiques', icon: BarChart3 },
   { path: '/admin/reminders', label: 'Rappels email', icon: Mail },
   { path: '/admin/users', label: 'Accès & droits', icon: Users },

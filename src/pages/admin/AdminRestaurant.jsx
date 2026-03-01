@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, Table as TableIcon, Clock } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Plus, Trash2, Table as TableIcon, ExternalLink } from 'lucide-react';
 import {
   useActiveEvent,
 } from '@/hooks/useEvents';
@@ -73,9 +74,22 @@ export default function AdminRestaurant() {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-4 flex items-center gap-2">
-        <TableIcon className="w-6 h-6" /> Plan de salle & réservations
-      </h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <TableIcon className="w-6 h-6" /> Plan de salle & réservations
+        </h1>
+        {eventId && (
+          <Link
+            to={`/reservation/${eventId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-mf-rose text-white text-sm font-medium rounded-card hover:bg-mf-vieux-rose transition-colors"
+          >
+            <ExternalLink className="w-4 h-4" />
+            Page réservation
+          </Link>
+        )}
+      </div>
 
       <section className="mb-8">
         <h2 className="text-xl font-medium">Plans de salle</h2>
