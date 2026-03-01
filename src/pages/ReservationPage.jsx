@@ -1,11 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEventById } from '@/hooks/useEvents';
 import {
   useShifts,
   useTours,
   useFloors,
-  useTables,
   useCreateReservation,
 } from '@/hooks/useReservation';
 
@@ -13,38 +12,28 @@ export default function ReservationPage() {
   const { eventId } = useParams();
   const navigate = useNavigate();
 
-  // step state: 0 choose shift/tour, 1 choose table, 2 info, 3 confirm
+  // step: 0=shift/tour, 1=salle préférence, 2=info, 3=confirm
   const [step, setStep] = useState(0);
   const [chosenShift, setChosenShift] = useState(null);
   const [chosenTour, setChosenTour] = useState(null);
-  const [chosenTable, setChosenTable] = useState(null);
-  const [selectedFloor, setSelectedFloor] = useState(null);
+  const [chosenFloor, setChosenFloor] = useState(null); // optional preference
   const [guest, setGuest] = useState({ name: '', email: '', seats: 1 });
 
-  // queries
   const { data: event } = useEventById(eventId);
   const { data: shifts = [] } = useShifts(eventId);
   const { data: tours = [] } = useTours(chosenShift?.id);
   const { data: floors = [] } = useFloors(eventId);
-  const { data: tables = [] } = useTables(selectedFloor?.id);
   const createReservation = useCreateReservation();
-
-  // pick first floor when they load
-  useEffect(() => {
-    if (floors.length && !selectedFloor) {
-      setSelectedFloor(floors[0]);
-    }
-  }, [floors, selectedFloor]);
 
   const handleSubmit = () => {
     if (!chosenTour || !guest.name || !guest.email) {
-      alert('Veuillez remplir tous les champs');
+      alert('Veuillez remplir tous les champs obligatoires');
       return;
     }
     createReservation.mutate(
       {
         tour_id: chosenTour.id,
-        table_id: chosenTable?.id,
+        preferred_floor_id: chosenFloor?.id ?? null,
         guest_name: guest.name,
         guest_email: guest.email,
         seats: guest.seats,
@@ -60,7 +49,7 @@ export default function ReservationPage() {
                 guestName: guest.name,
                 serviceName: chosenShift?.name,
                 tourStart: chosenTour?.start_time.slice(0, 5),
-                tableNumber: chosenTable?.number,
+                floorName: chosenFloor?.name,
                 seats: guest.seats,
                 date: new Date().toLocaleDateString('fr-FR'),
               }),
@@ -118,7 +107,7 @@ export default function ReservationPage() {
               {shifts.map((s) => (
                 <button
                   key={s.id}
-                  onClick={() => setChosenShift(s)}
+                  onClick={() => { setChosenShift(s); setChosenTour(null); }}
                   className={`w-full text-left px-4 py-3 border-2 rounded-card transition-colors ${
                     chosenShift?.id === s.id
                       ? 'border-mf-rose bg-mf-rose/5'
@@ -139,7 +128,7 @@ export default function ReservationPage() {
                 {tours.map((t) => (
                   <button
                     key={t.id}
-                    onClick={() => { setChosenTour(t); setStep(1); }}
+                    onClick={() => setChosenTour(t)}
                     className={`px-4 py-3 border-2 rounded-card transition-colors text-center ${
                       chosenTour?.id === t.id
                         ? 'border-mf-rose bg-mf-rose/5'
@@ -165,58 +154,54 @@ export default function ReservationPage() {
         </div>
       )}
 
-      {/* Step 1: Choose Table */}
+      {/* Step 1: Salle preference (optional) */}
       {step === 1 && (
         <div className="space-y-6">
-          <h2 className="text-lg font-medium text-mf-marron-glace">Plan de salle</h2>
+          <div>
+            <h2 className="text-lg font-medium text-mf-marron-glace mb-1">Préférence de salle</h2>
+            <p className="text-sm text-mf-muted mb-4">
+              Indiquez une salle si vous avez une préférence. Cette demande n'est pas garantie — notre équipe fera au mieux lors de l'attribution des tables.
+            </p>
 
-          {/* Floor selector if multiple floors */}
-          {floors.length > 1 && (
-            <div className="flex gap-2 flex-wrap">
+            {floors.length === 0 && (
+              <p className="text-sm text-mf-muted italic">Aucune salle configurée pour cet événement.</p>
+            )}
+
+            <div className="space-y-2">
               {floors.map((f) => (
                 <button
                   key={f.id}
-                  onClick={() => setSelectedFloor(f)}
-                  className={`px-3 py-1.5 border-2 rounded-card text-sm transition-colors ${
-                    selectedFloor?.id === f.id
-                      ? 'border-mf-rose bg-mf-rose/5 text-mf-rose'
-                      : 'border-mf-border text-mf-muted hover:border-mf-rose/50'
+                  onClick={() => setChosenFloor(chosenFloor?.id === f.id ? null : f)}
+                  className={`w-full text-left px-4 py-3 border-2 rounded-card transition-colors ${
+                    chosenFloor?.id === f.id
+                      ? 'border-mf-rose bg-mf-rose/5'
+                      : 'border-mf-border hover:border-mf-rose/50'
                   }`}
                 >
-                  {f.name}
+                  <div className="flex items-center gap-3">
+                    {f.image_url && (
+                      <img src={f.image_url} alt={f.name} className="w-10 h-10 object-cover rounded-lg shrink-0" />
+                    )}
+                    <div>
+                      <div className="font-medium text-mf-marron-glace">{f.name}</div>
+                      {f.description && <div className="text-sm text-mf-muted">{f.description}</div>}
+                    </div>
+                    {chosenFloor?.id === f.id && (
+                      <div className="ml-auto w-2 h-2 rounded-full bg-mf-rose" />
+                    )}
+                  </div>
                 </button>
               ))}
             </div>
-          )}
 
-          {/* Floor info (description + image) */}
-          {selectedFloor && (selectedFloor.image_url || selectedFloor.description) && (
-            <div className="rounded-card overflow-hidden border border-mf-border">
-              {selectedFloor.image_url && (
-                <img src={selectedFloor.image_url} alt={selectedFloor.name} className="w-full h-32 object-cover" />
-              )}
-              {selectedFloor.description && (
-                <p className="px-4 py-3 text-sm text-mf-marron-glace leading-relaxed">{selectedFloor.description}</p>
-              )}
-            </div>
-          )}
-
-          {/* Table grid */}
-          <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
-            {tables.map((t) => (
+            {chosenFloor && (
               <button
-                key={t.id}
-                onClick={() => setChosenTable(t)}
-                className={`px-3 py-4 border-2 rounded-card transition-colors text-center ${
-                  chosenTable?.id === t.id
-                    ? 'border-mf-rose bg-mf-rose/5'
-                    : 'border-mf-border hover:border-mf-rose/50'
-                }`}
+                onClick={() => setChosenFloor(null)}
+                className="mt-2 text-sm text-mf-muted underline underline-offset-2 hover:text-mf-vieux-rose transition-colors"
               >
-                <div className="font-medium text-mf-marron-glace">T{t.number}</div>
-                <div className="text-xs text-mf-muted">{t.seats} pers.</div>
+                Annuler ma préférence
               </button>
-            ))}
+            )}
           </div>
 
           <div className="flex gap-3">
@@ -228,10 +213,9 @@ export default function ReservationPage() {
             </button>
             <button
               onClick={() => setStep(2)}
-              disabled={!chosenTable}
-              className="flex-1 px-4 py-2 bg-mf-rose text-white font-medium rounded-card hover:bg-mf-vieux-rose disabled:opacity-50 transition-colors"
+              className="flex-1 px-4 py-2 bg-mf-rose text-white font-medium rounded-card hover:bg-mf-vieux-rose transition-colors"
             >
-              Continuer →
+              {chosenFloor ? 'Continuer →' : 'Passer →'}
             </button>
           </div>
         </div>
@@ -298,13 +282,18 @@ export default function ReservationPage() {
           {/* Summary */}
           <div className="bg-mf-poudre/20 border-2 border-mf-border rounded-card p-4 space-y-2">
             <div className="text-sm">
-              <span className="text-mf-muted">Service :</span> <span className="font-medium text-mf-marron-glace">{chosenShift?.name} {chosenTour?.start_time.slice(0,5)}</span>
+              <span className="text-mf-muted">Service :</span>{' '}
+              <span className="font-medium text-mf-marron-glace">{chosenShift?.name} à {chosenTour?.start_time.slice(0,5)}</span>
             </div>
             <div className="text-sm">
-              <span className="text-mf-muted">Table :</span> <span className="font-medium text-mf-marron-glace">T{chosenTable?.number}</span>
+              <span className="text-mf-muted">Salle souhaitée :</span>{' '}
+              <span className="font-medium text-mf-marron-glace">
+                {chosenFloor ? chosenFloor.name : <span className="italic text-mf-muted">Aucune préférence</span>}
+              </span>
             </div>
             <div className="text-sm">
-              <span className="text-mf-muted">Couverts :</span> <span className="font-medium text-mf-marron-glace">{guest.seats}</span>
+              <span className="text-mf-muted">Couverts :</span>{' '}
+              <span className="font-medium text-mf-marron-glace">{guest.seats}</span>
             </div>
           </div>
 
@@ -318,9 +307,10 @@ export default function ReservationPage() {
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-3 bg-mf-rose text-white font-medium rounded-card hover:bg-mf-vieux-rose transition-colors"
+              disabled={createReservation.isPending}
+              className="flex-1 px-4 py-3 bg-mf-rose text-white font-medium rounded-card hover:bg-mf-vieux-rose disabled:opacity-50 transition-colors"
             >
-              Confirmer réservation
+              {createReservation.isPending ? 'Envoi…' : 'Confirmer la réservation'}
             </button>
           </div>
         </form>
@@ -335,12 +325,17 @@ export default function ReservationPage() {
             </svg>
           </div>
           <div>
-            <h2 className="text-xl font-serif italic text-mf-marron-glace mb-2">Réservation confirmée !</h2>
-            <p className="text-mf-muted mb-4">
-              Un e-mail de confirmation a été envoyé à <strong>{guest.email}</strong>.
+            <h2 className="text-xl font-serif italic text-mf-marron-glace mb-2">Demande enregistrée !</h2>
+            <p className="text-mf-muted mb-2">
+              Merci <strong>{guest.name}</strong>. Votre demande de réservation a bien été reçue.
+            </p>
+            <p className="text-sm text-mf-muted mb-2">
+              {chosenShift?.name} à {chosenTour?.start_time.slice(0,5)}
+              {chosenFloor && ` — salle préférée : ${chosenFloor.name}`}
+              {' '}• {guest.seats} couvert{guest.seats > 1 ? 's' : ''}
             </p>
             <p className="text-sm text-mf-muted mb-6">
-              Table {chosenTable?.number} • {chosenShift?.name} à {chosenTour?.start_time.slice(0,5)} • {guest.seats} couverts
+              Notre équipe vous attribuera une table et vous confirmera votre réservation par e-mail à <strong>{guest.email}</strong>.
             </p>
           </div>
           <button

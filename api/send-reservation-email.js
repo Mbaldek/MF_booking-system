@@ -15,8 +15,9 @@ export default async function handler(req, res) {
 
   try {
     const response = await resend.emails.send({
-      // Remplacer par votre domaine vérifié dans Resend (resend.com/domains)
-      from: 'Maison Félicien <reservations@maisonfélicien.com>',
+      // Domaine de test Resend — fonctionne sans vérification, emails reçus uniquement sur l'adresse du compte Resend
+      // Remplacer par votre domaine vérifié quand disponible : 'Maison Félicien <reservations@votre-domaine.com>'
+      from: 'Maison Félicien <onboarding@resend.dev>',
       to: email,
       subject: 'Confirmation de réservation — Maison Félicien',
       html: `

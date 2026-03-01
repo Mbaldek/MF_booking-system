@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Plus, Trash2, Table as TableIcon, ExternalLink, Pencil, Check, X, Image, Clock,
+  Plus, Trash2, Table as TableIcon, ExternalLink, Pencil, Check, X, Image, Clock, Mail,
 } from 'lucide-react';
 import { supabase } from '@/api/supabase';
 import EventSelector from '@/components/admin/EventSelector';
@@ -12,11 +12,12 @@ import {
   useAllTablesForEvent,
   useShifts, useCreateShift, useUpdateShift, useDeleteShift,
   useTours, useCreateTour, useUpdateTour, useDeleteTour,
+  useAllReservationsForEvent, useUpdateReservation,
 } from '@/hooks/useReservation';
 
-const TABS = ['Config', 'Salles', 'Tables', 'Shifts'];
+const TABS = ['Config', 'Salles', 'Tables', 'Shifts', 'Réservations'];
 
-// --- Image upload component (pattern identique AdminEvent) ---
+// --- Image upload component ---
 function ImageUpload({ currentUrl, onUpload, onRemove, uploading, inputRef }) {
   return (
     <div className="flex items-center gap-3">
@@ -121,12 +122,13 @@ export default function AdminRestaurant() {
       {eventId && tab === 1 && <TabSalles eventId={eventId} />}
       {eventId && tab === 2 && <TabTables eventId={eventId} />}
       {eventId && tab === 3 && <TabShifts eventId={eventId} />}
+      {eventId && tab === 4 && <TabReservations eventId={eventId} />}
     </div>
   );
 }
 
 // ============================================================
-// TAB 0 — Config réservation (message + image de l'événement)
+// TAB 0 — Config réservation
 // ============================================================
 function TabConfig({ eventId }) {
   const updateEvent = useUpdateEvent();
@@ -136,7 +138,6 @@ function TabConfig({ eventId }) {
   const [imgUrl, setImgUrl] = useState('');
   const [loaded, setLoaded] = useState(false);
 
-  // Load current values from DB
   useState(() => {
     supabase.from('events').select('reservation_message,reservation_image_url').eq('id', eventId).single()
       .then(({ data }) => {
@@ -371,7 +372,7 @@ function TabSalles({ eventId }) {
 }
 
 // ============================================================
-// TAB 2 — Vue globale tables
+// TAB 2 — Vue globale tables (avec filtre par salle)
 // ============================================================
 function TabTables({ eventId }) {
   const { data: floors = [] } = useFloors(eventId);
@@ -380,6 +381,7 @@ function TabTables({ eventId }) {
   const updateTable = useUpdateTable();
   const deleteTable = useDeleteTable();
 
+  const [filterFloorId, setFilterFloorId] = useState('');
   const [editId, setEditId] = useState(null);
   const [editData, setEditData] = useState({});
   const [newFloorId, setNewFloorId] = useState('');
@@ -404,13 +406,42 @@ function TabTables({ eventId }) {
     );
   };
 
-  // Sort: by floor name, then table number
-  const sorted = [...allTables].sort((a, b) =>
-    (a.floor_name ?? '').localeCompare(b.floor_name ?? '') || a.number - b.number
-  );
+  const sorted = [...allTables]
+    .filter((t) => !filterFloorId || t.floor_id === filterFloorId)
+    .sort((a, b) => (a.floor_name ?? '').localeCompare(b.floor_name ?? '') || a.number - b.number);
 
   return (
     <div className="space-y-4">
+      {/* Salle filter */}
+      {floors.length > 1 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm text-mf-muted">Filtrer par salle :</span>
+          <button
+            onClick={() => setFilterFloorId('')}
+            className={`px-3 py-1 rounded-full text-sm border transition-colors ${
+              !filterFloorId
+                ? 'bg-mf-rose text-white border-mf-rose'
+                : 'border-mf-border text-mf-muted hover:border-mf-rose/50'
+            }`}
+          >
+            Toutes
+          </button>
+          {floors.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setFilterFloorId(f.id)}
+              className={`px-3 py-1 rounded-full text-sm border transition-colors ${
+                filterFloorId === f.id
+                  ? 'bg-mf-rose text-white border-mf-rose'
+                  : 'border-mf-border text-mf-muted hover:border-mf-rose/50'
+              }`}
+            >
+              {f.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       <table className="w-full text-sm border border-mf-border rounded-card overflow-hidden">
         <thead className="bg-mf-poudre/20">
           <tr>
@@ -464,7 +495,9 @@ function TabTables({ eventId }) {
             </tr>
           ))}
           {sorted.length === 0 && (
-            <tr><td colSpan={4} className="px-4 py-6 text-center text-mf-muted text-sm">Aucune table — créez d'abord une salle</td></tr>
+            <tr><td colSpan={4} className="px-4 py-6 text-center text-mf-muted text-sm">
+              {allTables.length === 0 ? 'Aucune table — créez d\'abord une salle' : 'Aucune table pour cette salle'}
+            </td></tr>
           )}
         </tbody>
       </table>
@@ -529,12 +562,10 @@ function TabShifts({ eventId }) {
   const updateTour = useUpdateTour();
   const deleteTour = useDeleteTour();
 
-  // Shift form
   const [editShiftId, setEditShiftId] = useState(null);
   const [editShift, setEditShift] = useState({});
   const [newShift, setNewShift] = useState({ name: '', start_time: '', end_time: '' });
 
-  // Tour form
   const [editTourId, setEditTourId] = useState(null);
   const [editTour, setEditTour] = useState({});
   const [newTour, setNewTour] = useState({ start_time: '', duration_minutes: '60' });
@@ -609,7 +640,6 @@ function TabShifts({ eventId }) {
           ))}
         </div>
 
-        {/* Ajouter shift */}
         <div className="mt-3 border border-dashed border-mf-border rounded-card p-3 space-y-2">
           <p className="text-xs text-mf-muted font-medium">Nouveau service</p>
           <input value={newShift.name} onChange={(e) => setNewShift((p) => ({ ...p, name: e.target.value }))}
@@ -667,7 +697,6 @@ function TabShifts({ eventId }) {
               {tours.length === 0 && <p className="text-sm text-mf-muted">Aucun créneau</p>}
             </div>
 
-            {/* Ajouter tour */}
             <div className="mt-3 border border-dashed border-mf-border rounded-card p-3 space-y-2">
               <p className="text-xs text-mf-muted font-medium">Nouveau créneau</p>
               <div className="flex gap-2">
@@ -689,3 +718,259 @@ function TabShifts({ eventId }) {
   );
 }
 
+// ============================================================
+// TAB 4 — Réservations : liste + allocation + email
+// ============================================================
+
+/**
+ * Propose a table for a reservation using a greedy algorithm.
+ * @param {object} reservation - The reservation object (with tour_id, seats, preferred_floor_id)
+ * @param {Array} allTables - All tables for the event (with id, seats, floor_id, number, floor_name)
+ * @param {object} assignments - Map of reservationId → tableId (current admin assignments in this session)
+ * @param {Array} confirmedReservations - Already-confirmed reservations with table_id set
+ * @returns {object|null} Proposed table or null
+ */
+function proposeTable(reservation, allTables, assignments, confirmedReservations) {
+  // Tables already used for this tour (DB-confirmed + admin assigned in this session)
+  const usedTableIds = new Set(
+    confirmedReservations
+      .filter((r) => r.tour_id === reservation.tour_id && r.id !== reservation.id && r.table_id)
+      .map((r) => r.table_id)
+  );
+  // Also exclude tables already assigned in the current session for same tour
+  Object.entries(assignments).forEach(([resId, tableId]) => {
+    if (tableId) usedTableIds.add(tableId);
+  });
+
+  // Filter: enough seats, not used
+  let candidates = allTables.filter(
+    (t) => t.seats >= reservation.seats && !usedTableIds.has(t.id)
+  );
+
+  if (candidates.length === 0) return null;
+
+  // Sort: preferred floor first, then by minimum waste
+  candidates = candidates.sort((a, b) => {
+    const aPref = reservation.preferred_floor_id && a.floor_id === reservation.preferred_floor_id ? 0 : 1;
+    const bPref = reservation.preferred_floor_id && b.floor_id === reservation.preferred_floor_id ? 0 : 1;
+    if (aPref !== bPref) return aPref - bPref;
+    return (a.seats - reservation.seats) - (b.seats - reservation.seats);
+  });
+
+  return candidates[0];
+}
+
+function TabReservations({ eventId }) {
+  const { data: reservations = [], isLoading } = useAllReservationsForEvent(eventId);
+  const { data: allTables = [] } = useAllTablesForEvent(eventId);
+  const updateReservation = useUpdateReservation();
+
+  // Admin overrides: resId → tableId string ('' means no choice yet, uses proposal)
+  const [overrides, setOverrides] = useState({});
+  const [sendingEmail, setSendingEmail] = useState({});
+
+  const pending = reservations.filter((r) => !r.table_id);
+  const confirmed = reservations.filter((r) => !!r.table_id);
+
+  const getAssignedTableId = (res) => {
+    if (overrides[res.id] !== undefined) return overrides[res.id] || null;
+    const proposed = proposeTable(res, allTables, {}, confirmed);
+    return proposed?.id ?? null;
+  };
+
+  const handleValidate = (res) => {
+    const tableId = getAssignedTableId(res);
+    if (!tableId) return;
+    updateReservation.mutate({ id: res.id, table_id: tableId });
+  };
+
+  const sendEmail = async (res) => {
+    setSendingEmail((p) => ({ ...p, [res.id]: true }));
+    try {
+      const table = res.restaurant_tables;
+      const tour = res.meal_tours;
+      const shift = tour?.meal_shifts;
+      await fetch('/api/send-reservation-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: res.guest_email,
+          guestName: res.guest_name,
+          serviceName: shift?.name,
+          tourStart: tour?.start_time?.slice(0, 5),
+          tableNumber: table?.number,
+          floorName: table?.restaurant_floors?.name,
+          seats: res.seats,
+          date: new Date(res.created_at).toLocaleDateString('fr-FR'),
+        }),
+      });
+      alert(`Email envoyé à ${res.guest_email}`);
+    } catch (err) {
+      console.error(err);
+      alert('Erreur lors de l\'envoi de l\'email');
+    } finally {
+      setSendingEmail((p) => ({ ...p, [res.id]: false }));
+    }
+  };
+
+  if (isLoading) {
+    return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-mf-rose" /></div>;
+  }
+
+  if (reservations.length === 0) {
+    return <p className="text-mf-muted text-sm py-4">Aucune réservation pour cet événement.</p>;
+  }
+
+  return (
+    <div className="space-y-8">
+      {/* Section En attente */}
+      <div>
+        <h2 className="text-base font-semibold text-mf-marron-glace mb-3 flex items-center gap-2">
+          <span className="inline-flex items-center justify-center w-5 h-5 bg-amber-100 text-amber-700 rounded-full text-xs font-bold">{pending.length}</span>
+          En attente d'attribution
+        </h2>
+
+        {pending.length === 0 && (
+          <p className="text-sm text-mf-muted">Toutes les réservations ont été attribuées.</p>
+        )}
+
+        <div className="space-y-3">
+          {pending.map((res) => {
+            const tour = res.meal_tours;
+            const shift = tour?.meal_shifts;
+            const proposedTable = proposeTable(res, allTables, {}, confirmed);
+            const selectedTableId = overrides[res.id] !== undefined ? overrides[res.id] : proposedTable?.id ?? '';
+            const selectedTable = allTables.find((t) => t.id === selectedTableId);
+
+            return (
+              <div key={res.id} className="border border-mf-border rounded-card p-4 space-y-3">
+                {/* Guest info */}
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-medium text-mf-marron-glace">{res.guest_name}</p>
+                    <p className="text-sm text-mf-muted">{res.guest_email}</p>
+                    <div className="flex flex-wrap gap-2 mt-1.5">
+                      {shift && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-mf-poudre/30 text-mf-marron-glace text-xs rounded-full">
+                          <Clock className="w-3 h-3" />
+                          {shift.name} {tour?.start_time?.slice(0, 5)}
+                        </span>
+                      )}
+                      <span className="px-2 py-0.5 bg-mf-poudre/30 text-mf-marron-glace text-xs rounded-full">
+                        {res.seats} couvert{res.seats > 1 ? 's' : ''}
+                      </span>
+                      {res.preferred_floor && (
+                        <span className="px-2 py-0.5 bg-mf-vert-olive/10 text-mf-vert-olive text-xs rounded-full border border-mf-vert-olive/30">
+                          Préf. {res.preferred_floor.name}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <span className="text-xs text-mf-muted shrink-0">
+                    {new Date(res.created_at).toLocaleDateString('fr-FR')}
+                  </span>
+                </div>
+
+                {/* Algorithm proposal + override */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex-1 min-w-0">
+                    <label className="block text-xs text-mf-muted mb-1">Table proposée</label>
+                    <select
+                      value={selectedTableId}
+                      onChange={(e) => setOverrides((p) => ({ ...p, [res.id]: e.target.value }))}
+                      className="w-full px-3 py-1.5 border border-mf-border rounded-card text-sm focus:outline-none focus:border-mf-rose"
+                    >
+                      <option value="">— Aucune disponible —</option>
+                      {allTables
+                        .sort((a, b) => {
+                          // preferred floor first
+                          const aPref = res.preferred_floor_id && a.floor_id === res.preferred_floor_id ? 0 : 1;
+                          const bPref = res.preferred_floor_id && b.floor_id === res.preferred_floor_id ? 0 : 1;
+                          if (aPref !== bPref) return aPref - bPref;
+                          return (a.floor_name ?? '').localeCompare(b.floor_name ?? '') || a.number - b.number;
+                        })
+                        .map((t) => (
+                          <option key={t.id} value={t.id}>
+                            T{t.number} — {t.floor_name} ({t.seats} pl.)
+                            {proposedTable?.id === t.id ? ' ✓ suggérée' : ''}
+                          </option>
+                        ))
+                      }
+                    </select>
+                    {selectedTable && (
+                      <p className="text-xs text-mf-muted mt-1">
+                        → T{selectedTable.number} — {selectedTable.floor_name} ({selectedTable.seats} places)
+                        {selectedTable.seats < res.seats && <span className="text-red-500 ml-1">Capacité insuffisante</span>}
+                      </p>
+                    )}
+                    {!proposedTable && !overrides[res.id] && (
+                      <p className="text-xs text-amber-600 mt-1">Aucune table disponible avec les contraintes actuelles</p>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => handleValidate(res)}
+                    disabled={!selectedTableId || updateReservation.isPending}
+                    className="px-4 py-2 bg-mf-rose text-white text-sm font-medium rounded-card disabled:opacity-50 hover:bg-mf-vieux-rose transition-colors shrink-0"
+                  >
+                    Valider
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Section Confirmées */}
+      {confirmed.length > 0 && (
+        <div>
+          <h2 className="text-base font-semibold text-mf-marron-glace mb-3 flex items-center gap-2">
+            <span className="inline-flex items-center justify-center w-5 h-5 bg-green-100 text-green-700 rounded-full text-xs font-bold">{confirmed.length}</span>
+            Confirmées
+          </h2>
+
+          <div className="space-y-2">
+            {confirmed.map((res) => {
+              const tour = res.meal_tours;
+              const shift = tour?.meal_shifts;
+              const table = res.restaurant_tables;
+
+              return (
+                <div key={res.id} className="border border-mf-border rounded-card p-4 flex items-center gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-mf-marron-glace">{res.guest_name}</p>
+                    <p className="text-sm text-mf-muted">{res.guest_email}</p>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {shift && (
+                        <span className="text-xs text-mf-muted flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {shift.name} {tour?.start_time?.slice(0, 5)}
+                        </span>
+                      )}
+                      {table && (
+                        <span className="text-xs font-medium text-mf-rose">
+                          T{table.number} — {table.restaurant_floors?.name}
+                        </span>
+                      )}
+                      <span className="text-xs text-mf-muted">{res.seats} couvert{res.seats > 1 ? 's' : ''}</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => sendEmail(res)}
+                    disabled={sendingEmail[res.id]}
+                    className="flex items-center gap-1.5 px-3 py-1.5 border border-mf-rose text-mf-rose text-sm rounded-card hover:bg-mf-rose/5 disabled:opacity-50 transition-colors shrink-0"
+                    title="Envoyer email de confirmation"
+                  >
+                    <Mail className="w-4 h-4" />
+                    {sendingEmail[res.id] ? 'Envoi…' : 'Email'}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
