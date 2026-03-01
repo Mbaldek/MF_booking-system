@@ -79,7 +79,7 @@ export function useShifts(eventId) {
         .from('meal_shifts')
         .select('*')
         .eq('event_id', eventId)
-        .order('start_time');
+        .order('name');
       if (error) throw error;
       return data;
     },

@@ -440,14 +440,14 @@ function TabShifts({ eventId }) {
   const { data: tours = [] } = useTours(selectedShift?.id);
   const createTour = useCreateTour(); const updateTour = useUpdateTour(); const deleteTour = useDeleteTour();
   const [editShiftId, setEditShiftId] = useState(null); const [editShift, setEditShift] = useState({});
-  const [newShift, setNewShift] = useState({ name: '', start_time: '', end_time: '' });
+  const [newShift, setNewShift] = useState({ name: '' });
   const [editTourId, setEditTourId] = useState(null); const [editTour, setEditTour] = useState({});
   const [newTour, setNewTour] = useState({ start_time: '', duration_minutes: '60' });
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div>
-        <h2 className="text-base font-medium text-mf-marron-glace mb-3">Services (shifts)</h2>
+        <h2 className="text-base font-medium text-mf-marron-glace mb-3">Services</h2>
         <div className="space-y-2">
           {shifts.map((s) => (
             <div key={s.id} onClick={() => setSelectedShift(s)}
@@ -456,22 +456,15 @@ function TabShifts({ eventId }) {
                 <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
                   <input value={editShift.name} onChange={(e) => setEditShift((p) => ({ ...p, name: e.target.value }))} className="w-full px-2 py-1 border border-mf-border rounded text-sm" placeholder="Nom" />
                   <div className="flex gap-2">
-                    <input type="time" value={editShift.start_time} onChange={(e) => setEditShift((p) => ({ ...p, start_time: e.target.value }))} className="flex-1 px-2 py-1 border border-mf-border rounded text-sm" />
-                    <input type="time" value={editShift.end_time} onChange={(e) => setEditShift((p) => ({ ...p, end_time: e.target.value }))} className="flex-1 px-2 py-1 border border-mf-border rounded text-sm" />
-                  </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => updateShift.mutate({ id: editShiftId, eventId, ...editShift }, { onSuccess: () => setEditShiftId(null) })} className="px-3 py-1 bg-mf-rose text-white text-xs rounded-card"><Check className="w-3 h-3 inline" /> OK</button>
+                    <button onClick={() => updateShift.mutate({ id: editShiftId, eventId, name: editShift.name }, { onSuccess: () => setEditShiftId(null) })} className="px-3 py-1 bg-mf-rose text-white text-xs rounded-card"><Check className="w-3 h-3 inline" /> OK</button>
                     <button onClick={() => setEditShiftId(null)} className="px-3 py-1 border border-mf-border text-xs rounded-card">Annuler</button>
                   </div>
                 </div>
               ) : (
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-sm text-mf-marron-glace">{s.name}</p>
-                    <p className="text-xs text-mf-muted flex items-center gap-1"><Clock className="w-3 h-3" />{s.start_time.slice(0, 5)} — {s.end_time.slice(0, 5)}</p>
-                  </div>
+                  <p className="font-medium text-sm text-mf-marron-glace">{s.name}</p>
                   <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                    <button onClick={() => { setEditShiftId(s.id); setEditShift({ name: s.name, start_time: s.start_time.slice(0, 5), end_time: s.end_time.slice(0, 5) }); }} className="p-1 text-mf-muted hover:text-mf-marron-glace"><Pencil className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => { setEditShiftId(s.id); setEditShift({ name: s.name }); }} className="p-1 text-mf-muted hover:text-mf-marron-glace"><Pencil className="w-3.5 h-3.5" /></button>
                     <DeleteButton onConfirm={() => deleteShift.mutate({ id: s.id, eventId })} />
                   </div>
                 </div>
@@ -481,13 +474,9 @@ function TabShifts({ eventId }) {
         </div>
         <div className="mt-3 border border-dashed border-mf-border rounded-card p-3 space-y-2">
           <p className="text-xs text-mf-muted font-medium">Nouveau service</p>
-          <input value={newShift.name} onChange={(e) => setNewShift((p) => ({ ...p, name: e.target.value }))} placeholder="Nom (ex. Midi)" className="w-full px-2 py-1 border border-mf-border rounded text-sm" />
-          <div className="flex gap-2">
-            <input type="time" value={newShift.start_time} onChange={(e) => setNewShift((p) => ({ ...p, start_time: e.target.value }))} className="flex-1 px-2 py-1 border border-mf-border rounded text-sm" />
-            <input type="time" value={newShift.end_time} onChange={(e) => setNewShift((p) => ({ ...p, end_time: e.target.value }))} className="flex-1 px-2 py-1 border border-mf-border rounded text-sm" />
-          </div>
-          <button onClick={() => { if (!newShift.name || !newShift.start_time || !newShift.end_time) return; createShift.mutate({ event_id: eventId, ...newShift, slot_interval_minutes: 30 }, { onSuccess: () => setNewShift({ name: '', start_time: '', end_time: '' }) }); }}
-            disabled={!newShift.name || !newShift.start_time} className="flex items-center gap-1 px-3 py-1 bg-mf-rose text-white text-xs rounded-card disabled:opacity-50">
+          <input value={newShift.name} onChange={(e) => setNewShift((p) => ({ ...p, name: e.target.value }))} placeholder="Nom (ex. Midi, Brunch…)" className="w-full px-2 py-1 border border-mf-border rounded text-sm" />
+          <button onClick={() => { if (!newShift.name.trim()) return; createShift.mutate({ event_id: eventId, name: newShift.name.trim() }, { onSuccess: () => setNewShift({ name: '' }) }); }}
+            disabled={!newShift.name.trim() || createShift.isPending} className="flex items-center gap-1 px-3 py-1 bg-mf-rose text-white text-xs rounded-card disabled:opacity-50">
             <Plus className="w-3.5 h-3.5" /> Ajouter
           </button>
         </div>

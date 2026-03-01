@@ -182,7 +182,6 @@ export default function ReservationPage() {
                         chosenShift?.id === s.id ? 'border-mf-rose bg-mf-rose/5' : 'border-mf-border hover:border-mf-rose/50'
                       }`}>
                       <div className="font-medium text-mf-marron-glace">{s.name}</div>
-                      <div className="text-sm text-mf-muted">{s.start_time.slice(0,5)} — {s.end_time.slice(0,5)}</div>
                     </button>
                   ))}
                 </div>
