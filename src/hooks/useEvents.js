@@ -88,6 +88,22 @@ export function useUpdateEvent() {
   });
 }
 
+export function useEventById(id) {
+  return useQuery({
+    queryKey: ['event', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .eq('id', id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+  });
+}
+
 export function useDeleteEvent() {
   const qc = useQueryClient();
   return useMutation({

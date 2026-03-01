@@ -171,3 +171,151 @@ export function useCreateReservation() {
     },
   });
 }
+
+// --- update / delete hooks ---
+
+export function useUpdateFloor() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, eventId, ...updates }) => {
+      const { data, error } = await supabase
+        .from('restaurant_floors')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ['floors', vars.eventId] });
+    },
+  });
+}
+
+export function useDeleteFloor() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id }) => {
+      const { error } = await supabase.from('restaurant_floors').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ['floors', vars.eventId] });
+    },
+  });
+}
+
+export function useUpdateTable() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, floorId, ...updates }) => {
+      const { data, error } = await supabase
+        .from('restaurant_tables')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ['tables', vars.floorId] });
+      qc.invalidateQueries({ queryKey: ['all_tables'] });
+    },
+  });
+}
+
+export function useDeleteTable() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id }) => {
+      const { error } = await supabase.from('restaurant_tables').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ['tables', vars.floorId] });
+      qc.invalidateQueries({ queryKey: ['all_tables'] });
+    },
+  });
+}
+
+export function useUpdateShift() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, eventId, ...updates }) => {
+      const { data, error } = await supabase
+        .from('meal_shifts')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ['shifts', vars.eventId] });
+    },
+  });
+}
+
+export function useDeleteShift() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id }) => {
+      const { error } = await supabase.from('meal_shifts').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ['shifts', vars.eventId] });
+    },
+  });
+}
+
+export function useUpdateTour() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, shiftId, ...updates }) => {
+      const { data, error } = await supabase
+        .from('meal_tours')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ['tours', vars.shiftId] });
+    },
+  });
+}
+
+export function useDeleteTour() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id }) => {
+      const { error } = await supabase.from('meal_tours').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ['tours', vars.shiftId] });
+    },
+  });
+}
+
+export function useAllTablesForEvent(eventId) {
+  return useQuery({
+    queryKey: ['all_tables', eventId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('restaurant_tables')
+        .select('*, restaurant_floors!inner(id, name, event_id)')
+        .eq('restaurant_floors.event_id', eventId)
+        .order('number');
+      if (error) throw error;
+      return (data ?? []).map((t) => ({ ...t, floor_name: t.restaurant_floors?.name }));
+    },
+    enabled: !!eventId,
+  });
+}

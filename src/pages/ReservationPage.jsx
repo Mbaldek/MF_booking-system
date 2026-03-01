@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-  useActiveEvent,
-} from '@/hooks/useEvents';
+import { useEventById } from '@/hooks/useEvents';
 import {
   useShifts,
   useTours,
@@ -24,6 +22,7 @@ export default function ReservationPage() {
   const [guest, setGuest] = useState({ name: '', email: '', seats: 1 });
 
   // queries
+  const { data: event } = useEventById(eventId);
   const { data: shifts = [] } = useShifts(eventId);
   const { data: tours = [] } = useTours(chosenShift?.id);
   const { data: floors = [] } = useFloors(eventId);
@@ -85,8 +84,23 @@ export default function ReservationPage() {
             <div className="font-serif text-[28px] italic text-mf-rose leading-none">Félicien</div>
           </div>
         </div>
+        {event?.name && (
+          <p className="font-body text-[11px] uppercase tracking-[0.2em] text-mf-vieux-rose mb-1">{event.name}</p>
+        )}
         <h1 className="text-xl md:text-2xl font-serif italic text-mf-marron-glace">Réservation</h1>
       </div>
+
+      {/* Event editorial content */}
+      {(event?.reservation_image_url || event?.reservation_message) && (
+        <div className="mb-8 rounded-card overflow-hidden border border-mf-border">
+          {event.reservation_image_url && (
+            <img src={event.reservation_image_url} alt={event.name} className="w-full h-48 object-cover" />
+          )}
+          {event.reservation_message && (
+            <p className="px-5 py-4 text-sm text-mf-marron-glace leading-relaxed">{event.reservation_message}</p>
+          )}
+        </div>
+      )}
 
       {/* Step indicators */}
       <div className="flex gap-2 mb-8 justify-center">
@@ -172,6 +186,18 @@ export default function ReservationPage() {
                   {f.name}
                 </button>
               ))}
+            </div>
+          )}
+
+          {/* Floor info (description + image) */}
+          {selectedFloor && (selectedFloor.image_url || selectedFloor.description) && (
+            <div className="rounded-card overflow-hidden border border-mf-border">
+              {selectedFloor.image_url && (
+                <img src={selectedFloor.image_url} alt={selectedFloor.name} className="w-full h-32 object-cover" />
+              )}
+              {selectedFloor.description && (
+                <p className="px-4 py-3 text-sm text-mf-marron-glace leading-relaxed">{selectedFloor.description}</p>
+              )}
             </div>
           )}
 
