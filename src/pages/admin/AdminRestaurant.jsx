@@ -813,6 +813,67 @@ function TabReservations({ eventId }) {
 // ============================================================
 // TAB 5 — Gestion salle (vue opérationnelle par jour/shift/salle)
 // ============================================================
+function OperationalGrid({ tables, tableResMap, onTableClick }) {
+  const cellMap = {};
+  tables.forEach((t) => {
+    const cell = xyToCell(t.x, t.y);
+    if (cell) cellMap[`${cell.col},${cell.row}`] = t;
+  });
+
+  return (
+    <div className="border-2 border-mf-border rounded-2xl overflow-hidden bg-stone-50">
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`,
+        gridTemplateRows: `repeat(${GRID_ROWS}, 1fr)`,
+        aspectRatio: `${GRID_COLS} / ${GRID_ROWS}`,
+        backgroundImage: 'linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px)',
+        backgroundSize: `${100 / GRID_COLS}% ${100 / GRID_ROWS}%`,
+      }}>
+        {Array.from({ length: GRID_COLS * GRID_ROWS }, (_, i) => {
+          const col = i % GRID_COLS;
+          const row = Math.floor(i / GRID_COLS);
+          const table = cellMap[`${col},${row}`];
+          if (!table) return <div key={`${col},${row}`} />;
+          const res = tableResMap[table.id];
+          const isReserved = !!res;
+          return (
+            <div key={`${col},${row}`}
+              onClick={() => onTableClick(table, res ?? null)}
+              className="flex items-center justify-center p-0.5 cursor-pointer"
+            >
+              <div
+                className={`w-full h-full flex flex-col items-center justify-center text-center border-2 transition-all hover:scale-[1.04] active:scale-95 overflow-hidden
+                  ${isReserved ? 'border-mf-rose bg-mf-rose/10 hover:bg-mf-rose/15' : 'border-green-400 bg-green-50 hover:bg-green-100'}`}
+                style={{ borderRadius: table.shape === 'round' ? '50%' : '6px' }}
+              >
+                <span className="text-[9px] font-bold text-mf-marron-glace leading-none">
+                  {tableCode(table.floor_name, table.number)}
+                </span>
+                <span className="text-[8px] text-mf-muted flex items-center gap-0.5">
+                  <Users className="w-2 h-2" />{table.seats}
+                </span>
+                {isReserved ? (
+                  <>
+                    <span className="text-[8px] font-medium text-mf-rose leading-tight truncate max-w-[90%]">
+                      {res.guest_name?.split(' ')[0]}
+                    </span>
+                    {res.meal_tours?.start_time && (
+                      <span className="text-[7px] text-mf-muted">{res.meal_tours.start_time.slice(0, 5)}</span>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-[8px] text-green-700 font-medium">Libre</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function TabGestionSalle({ eventId }) {
   const { data: event } = useEventById(eventId);
   const { data: shifts = [] } = useShifts(eventId);
@@ -972,69 +1033,19 @@ function TabGestionSalle({ eventId }) {
         const placedTables = floorTables.filter((t) => t.x != null && t.y != null);
         const unplacedTables = floorTables.filter((t) => t.x == null || t.y == null);
 
-        const getTableDims = (shape, seats) => {
-          const h = seats <= 2 ? 56 : seats <= 4 ? 70 : 86;
-          const w = shape === 'rectangle' ? Math.round(h * 1.75) : h;
-          const r = shape === 'round' ? '50%' : '10px';
-          return { width: w, height: h, borderRadius: r };
-        };
-
-        const TableCard = ({ table, forPlan = false }) => {
-          const res = tableResMap[table.id];
-          const isReserved = !!res;
-          const dims = forPlan ? getTableDims(table.shape ?? 'square', table.seats) : null;
-          return (
-            <button
-              onClick={() => {
-                if (isReserved) { setDetailRes(res); }
-                else { setWalkinTable(table); setWalkinForm({ name: '', email: '', seats: table.seats > 1 ? 2 : 1, tourId: toursForShift[0]?.id ?? '' }); }
-              }}
-              style={forPlan ? {
-                position: 'absolute',
-                left: `${table.x}%`,
-                top: `${table.y}%`,
-                transform: 'translate(-50%, -50%)',
-                ...dims,
-              } : undefined}
-              className={`flex flex-col items-center justify-center border-2 transition-all hover:scale-105 active:scale-95 overflow-hidden
-                ${forPlan ? '' : 'w-24 h-20 rounded-xl'}
-                ${isReserved
-                  ? 'border-mf-rose bg-mf-rose/10 hover:bg-mf-rose/15'
-                  : 'border-green-400 bg-green-50 hover:bg-green-100'}`}
-            >
-              <span className="font-bold text-sm text-mf-marron-glace leading-none">{tableCode(table.floor_name, table.number)}</span>
-              <span className="text-[10px] text-mf-muted flex items-center gap-0.5 mt-0.5"><Users className="w-2.5 h-2.5" />{table.seats}</span>
-              {isReserved ? (
-                <>
-                  <span className="text-[10px] font-medium text-mf-rose leading-tight truncate max-w-[90%] mt-0.5">{res.guest_name}</span>
-                  {res.meal_tours?.start_time && <span className="text-[9px] text-mf-muted">{res.meal_tours.start_time.slice(0, 5)}</span>}
-                </>
-              ) : (
-                <span className="text-[10px] text-green-700 font-medium mt-0.5">Libre</span>
-              )}
-            </button>
-          );
+        const handleTableClick = (table, res) => {
+          if (res) setDetailRes(res);
+          else {
+            setWalkinTable(table);
+            setWalkinForm({ name: '', email: '', seats: table.seats > 1 ? 2 : 1, tourId: toursForShift[0]?.id ?? '' });
+          }
         };
 
         return (
           <div className="space-y-4">
-            {/* Canvas plan (tables with x/y) */}
             {placedTables.length > 0 && (
-              <div className="relative w-full bg-stone-50 border-2 border-mf-border rounded-2xl overflow-hidden" style={{ paddingBottom: '58%' }}>
-                {/* Room grid lines (subtle) */}
-                <div className="absolute inset-0" style={{
-                  backgroundImage: 'linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px)',
-                  backgroundSize: '10% 10%',
-                }} />
-                <div className="absolute inset-0">
-                  {placedTables.map((table) => (
-                    <TableCard key={table.id} table={table} forPlan />
-                  ))}
-                </div>
-              </div>
+              <OperationalGrid tables={placedTables} tableResMap={tableResMap} onTableClick={handleTableClick} />
             )}
-
-            {/* Unplaced tables (no x/y) */}
             {unplacedTables.length > 0 && (
               <div>
                 {placedTables.length > 0 && (
@@ -1043,7 +1054,22 @@ function TabGestionSalle({ eventId }) {
                   </p>
                 )}
                 <div className="flex flex-wrap gap-3">
-                  {unplacedTables.map((table) => <TableCard key={table.id} table={table} />)}
+                  {unplacedTables.map((table) => {
+                    const res = tableResMap[table.id];
+                    const isReserved = !!res;
+                    return (
+                      <button key={table.id} onClick={() => handleTableClick(table, res ?? null)}
+                        className={`flex flex-col items-center justify-center w-24 h-20 rounded-xl border-2 transition-all hover:scale-105 active:scale-95
+                          ${isReserved ? 'border-mf-rose bg-mf-rose/10 hover:bg-mf-rose/15' : 'border-green-400 bg-green-50 hover:bg-green-100'}`}
+                      >
+                        <span className="font-bold text-sm text-mf-marron-glace leading-none">{tableCode(table.floor_name, table.number)}</span>
+                        <span className="text-[10px] text-mf-muted flex items-center gap-0.5 mt-0.5"><Users className="w-2.5 h-2.5" />{table.seats}</span>
+                        {isReserved
+                          ? <span className="text-[10px] font-medium text-mf-rose truncate max-w-[90%] mt-0.5">{res.guest_name}</span>
+                          : <span className="text-[10px] text-green-700 font-medium mt-0.5">Libre</span>}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
