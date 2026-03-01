@@ -1,7 +1,7 @@
 import { useState, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Plus, Trash2, Table as TableIcon, ExternalLink, Pencil, Check, X, Image, Clock, Mail, Users, LayoutTemplate,
+  Plus, Trash2, Table as TableIcon, ExternalLink, Pencil, Check, X, Image, Clock, Mail, Users, Move,
 } from 'lucide-react';
 import { supabase } from '@/api/supabase';
 import EventSelector from '@/components/admin/EventSelector';
@@ -254,8 +254,78 @@ function TabSalles({ eventId }) {
 }
 
 // ============================================================
-// TAB 2 — Tables (avec filtre salle + auto-refresh fixé)
+// TAB 2 — Tables + grille inline de positionnement
 // ============================================================
+const GRID_COLS = 8;
+const GRID_ROWS = 6;
+
+function xyToCell(x, y) {
+  if (x == null || y == null) return null;
+  return { col: Math.floor((x / 100) * GRID_COLS), row: Math.floor((y / 100) * GRID_ROWS) };
+}
+function cellToXY(col, row) {
+  return {
+    x: Math.round(((col + 0.5) / GRID_COLS) * 100),
+    y: Math.round(((row + 0.5) / GRID_ROWS) * 100),
+  };
+}
+
+function FloorGrid({ tables, placingId, onSelectTable, onPlaceTable }) {
+  const cellMap = {};
+  tables.forEach((t) => {
+    const cell = xyToCell(t.x, t.y);
+    if (cell) cellMap[`${cell.col},${cell.row}`] = t;
+  });
+
+  return (
+    <div className="border-2 border-mf-border rounded-2xl overflow-hidden bg-stone-50">
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`,
+          gridTemplateRows: `repeat(${GRID_ROWS}, 1fr)`,
+          aspectRatio: `${GRID_COLS} / ${GRID_ROWS}`,
+          backgroundImage: 'linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px)',
+          backgroundSize: `${100 / GRID_COLS}% ${100 / GRID_ROWS}%`,
+        }}
+      >
+        {Array.from({ length: GRID_COLS * GRID_ROWS }, (_, i) => {
+          const col = i % GRID_COLS;
+          const row = Math.floor(i / GRID_COLS);
+          const key = `${col},${row}`;
+          const table = cellMap[key];
+          const isTarget = !!placingId && !table;
+          return (
+            <div
+              key={key}
+              onClick={() => {
+                if (table) onSelectTable(table.id === placingId ? null : table.id);
+                else if (placingId) onPlaceTable(placingId, col, row);
+              }}
+              className={`flex items-center justify-center transition-colors
+                ${isTarget ? 'hover:bg-mf-rose/10 cursor-cell' : ''}
+                ${table ? 'cursor-pointer' : ''}`}
+            >
+              {table && (
+                <div
+                  className={`w-full h-full flex flex-col items-center justify-center text-center border-2 transition-all m-px
+                    ${table.id === placingId ? 'border-mf-rose bg-mf-poudre/50' : 'border-mf-rose/40 bg-white hover:border-mf-rose hover:bg-mf-poudre/15'}`}
+                  style={{ borderRadius: table.shape === 'round' ? '50%' : '4px' }}
+                >
+                  <span className="text-[9px] font-bold text-mf-marron-glace leading-none">
+                    {tableCode(table.floor_name, table.number)}
+                  </span>
+                  <span className="text-[8px] text-mf-muted">{table.seats}p</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function TabTables({ eventId }) {
   const { data: floors = [] } = useFloors(eventId);
   const { data: allTables = [] } = useAllTablesForEvent(eventId);
@@ -265,166 +335,189 @@ function TabTables({ eventId }) {
   const [filterFloorId, setFilterFloorId] = useState('');
   const [editId, setEditId] = useState(null); const [editData, setEditData] = useState({});
   const [newFloorId, setNewFloorId] = useState(''); const [newNumber, setNewNumber] = useState(''); const [newSeats, setNewSeats] = useState('');
-  const [newShape, setNewShape] = useState('square'); const [newX, setNewX] = useState(''); const [newY, setNewY] = useState('');
+  const [newShape, setNewShape] = useState('square');
   const [tableError, setTableError] = useState('');
+  const [placingId, setPlacingId] = useState(null);
+
+  const activeFloorId = filterFloorId || (floors.length === 1 ? floors[0].id : '');
+  const floorTables = allTables.filter((t) => t.floor_id === activeFloorId);
 
   const sorted = [...allTables]
     .filter((t) => !filterFloorId || t.floor_id === filterFloorId)
     .sort((a, b) => (a.floor_name ?? '').localeCompare(b.floor_name ?? '') || a.number - b.number);
 
   return (
-    <div className="space-y-4">
-      {floors.length > 1 && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm text-mf-muted">Filtrer :</span>
-          {[{ id: '', name: 'Toutes' }, ...floors].map((f) => (
-            <button key={f.id} onClick={() => setFilterFloorId(f.id)}
-              className={`px-3 py-1 rounded-full text-sm border transition-colors ${filterFloorId === f.id ? 'bg-mf-rose text-white border-mf-rose' : 'border-mf-border text-mf-muted hover:border-mf-rose/50'}`}>
-              {f.name}
-            </button>
-          ))}
-        </div>
-      )}
-      {(filterFloorId || floors[0]?.id) && (
-        <Link
-          to={`/admin/restaurant/plan/${filterFloorId || floors[0].id}`}
-          className="inline-flex items-center gap-2 px-4 py-2 border border-mf-rose text-mf-rose text-sm font-medium rounded-full hover:bg-mf-rose/5 transition-colors"
-        >
-          <LayoutTemplate className="w-4 h-4" /> Éditeur visuel du plan
-        </Link>
-      )}
+    <div className={activeFloorId ? 'flex gap-6 items-start' : 'space-y-4'}>
+      {/* Left: list CRUD */}
+      <div className="flex-1 min-w-0 space-y-4">
+        {floors.length > 1 && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm text-mf-muted">Filtrer :</span>
+            {[{ id: '', name: 'Toutes' }, ...floors].map((f) => (
+              <button key={f.id} onClick={() => { setFilterFloorId(f.id); setPlacingId(null); }}
+                className={`px-3 py-1 rounded-full text-sm border transition-colors ${filterFloorId === f.id ? 'bg-mf-rose text-white border-mf-rose' : 'border-mf-border text-mf-muted hover:border-mf-rose/50'}`}>
+                {f.name}
+              </button>
+            ))}
+          </div>
+        )}
 
-      <table className="w-full text-sm border border-mf-border rounded-card overflow-hidden">
-        <thead className="bg-mf-poudre/20">
-          <tr>
-            <th className="text-left px-4 py-2 text-mf-marron-glace font-medium">Salle</th>
-            <th className="text-left px-4 py-2 text-mf-marron-glace font-medium">Code</th>
-            <th className="text-left px-4 py-2 text-mf-marron-glace font-medium">Sièges</th>
-            <th className="text-left px-4 py-2 text-mf-marron-glace font-medium">Forme</th>
-            <th className="text-left px-4 py-2 text-mf-marron-glace font-medium">Pos. X/Y</th>
-            <th className="px-4 py-2" />
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.map((t) => (
-            <tr key={t.id} className="border-t border-mf-border">
-              <td className="px-4 py-2 text-mf-muted">{t.floor_name}</td>
-              <td className="px-4 py-2">
-                {editId === t.id
-                  ? <input type="number" min={1} value={editData.number} onChange={(e) => setEditData((p) => ({ ...p, number: e.target.value }))} className="w-16 px-2 py-1 border border-mf-border rounded text-sm focus:outline-none focus:border-mf-rose" />
-                  : <span className="font-medium text-mf-marron-glace">{tableCode(t.floor_name, t.number)}</span>}
-              </td>
-              <td className="px-4 py-2">
-                {editId === t.id
-                  ? <input type="number" min={1} value={editData.seats} onChange={(e) => setEditData((p) => ({ ...p, seats: e.target.value }))} className="w-16 px-2 py-1 border border-mf-border rounded text-sm focus:outline-none focus:border-mf-rose" />
-                  : <span>{t.seats} pers.</span>}
-              </td>
-              <td className="px-4 py-2">
-                {editId === t.id
-                  ? <select value={editData.shape} onChange={(e) => setEditData((p) => ({ ...p, shape: e.target.value }))} className="px-2 py-1 border border-mf-border rounded text-sm focus:outline-none focus:border-mf-rose">
-                      <option value="square">Carré</option>
-                      <option value="round">Rond</option>
-                      <option value="rectangle">Rectangle</option>
-                    </select>
-                  : <span className="text-xs text-mf-muted capitalize">{t.shape === 'square' ? 'Carré' : t.shape === 'round' ? 'Rond' : 'Rectangle'}</span>}
-              </td>
-              <td className="px-4 py-2">
-                {editId === t.id
-                  ? <div className="flex gap-1 items-center">
-                      <input type="number" min={0} max={100} value={editData.x} onChange={(e) => setEditData((p) => ({ ...p, x: e.target.value }))} placeholder="X%" className="w-14 px-1.5 py-1 border border-mf-border rounded text-xs focus:outline-none focus:border-mf-rose" />
-                      <span className="text-mf-muted text-xs">/</span>
-                      <input type="number" min={0} max={100} value={editData.y} onChange={(e) => setEditData((p) => ({ ...p, y: e.target.value }))} placeholder="Y%" className="w-14 px-1.5 py-1 border border-mf-border rounded text-xs focus:outline-none focus:border-mf-rose" />
-                    </div>
-                  : <span className="text-xs text-mf-muted">{t.x != null ? `${t.x}% / ${t.y}%` : '—'}</span>}
-              </td>
-              <td className="px-4 py-2">
-                <div className="flex items-center justify-end gap-1">
-                  {editId === t.id ? (
-                    <>
-                      <button onClick={() => {
-                        const found = allTables.find((x) => x.id === editId);
-                        const num = parseInt(editData.number, 10);
-                        const dup = allTables.find((x) => x.floor_id === found.floor_id && x.number === num && x.id !== editId);
-                        if (dup) { alert(`Le code ${tableCode(found.floor_name, num)} existe déjà dans cette salle.`); return; }
-                        const xVal = editData.x !== '' ? parseFloat(editData.x) : null;
-                        const yVal = editData.y !== '' ? parseFloat(editData.y) : null;
-                        updateTable.mutate({ id: editId, floorId: found.floor_id, number: num, seats: parseInt(editData.seats, 10), shape: editData.shape, x: xVal, y: yVal }, { onSuccess: () => setEditId(null) });
-                      }} className="p-1.5 text-green-600"><Check className="w-4 h-4" /></button>
-                      <button onClick={() => setEditId(null)} className="p-1.5 text-mf-muted"><X className="w-4 h-4" /></button>
-                    </>
-                  ) : (
-                    <button onClick={() => { setEditId(t.id); setEditData({ number: t.number, seats: t.seats, shape: t.shape ?? 'square', x: t.x ?? '', y: t.y ?? '' }); }} className="p-1.5 text-mf-muted hover:text-mf-marron-glace"><Pencil className="w-4 h-4" /></button>
-                  )}
-                  <DeleteButton onConfirm={() => deleteTable.mutate({ id: t.id, floorId: t.floor_id })} />
-                </div>
-              </td>
+        <table className="w-full text-sm border border-mf-border rounded-card overflow-hidden">
+          <thead className="bg-mf-poudre/20">
+            <tr>
+              <th className="text-left px-4 py-2 text-mf-marron-glace font-medium">Salle</th>
+              <th className="text-left px-4 py-2 text-mf-marron-glace font-medium">Code</th>
+              <th className="text-left px-4 py-2 text-mf-marron-glace font-medium">Sièges</th>
+              <th className="text-left px-4 py-2 text-mf-marron-glace font-medium">Forme</th>
+              <th className="px-4 py-2" />
             </tr>
-          ))}
-          {sorted.length === 0 && (
-            <tr><td colSpan={6} className="px-4 py-6 text-center text-mf-muted text-sm">
-              {allTables.length === 0 ? "Aucune table — créez d'abord une salle" : 'Aucune table pour cette salle'}
-            </td></tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {sorted.map((t) => (
+              <tr key={t.id} className={`border-t border-mf-border ${placingId === t.id ? 'bg-mf-poudre/20' : ''}`}>
+                <td className="px-4 py-2 text-mf-muted">{t.floor_name}</td>
+                <td className="px-4 py-2">
+                  {editId === t.id
+                    ? <input type="number" min={1} value={editData.number} onChange={(e) => setEditData((p) => ({ ...p, number: e.target.value }))} className="w-16 px-2 py-1 border border-mf-border rounded text-sm focus:outline-none focus:border-mf-rose" />
+                    : <span className="font-medium text-mf-marron-glace">{tableCode(t.floor_name, t.number)}</span>}
+                </td>
+                <td className="px-4 py-2">
+                  {editId === t.id
+                    ? <input type="number" min={1} value={editData.seats} onChange={(e) => setEditData((p) => ({ ...p, seats: e.target.value }))} className="w-16 px-2 py-1 border border-mf-border rounded text-sm focus:outline-none focus:border-mf-rose" />
+                    : <span>{t.seats} pers.</span>}
+                </td>
+                <td className="px-4 py-2">
+                  {editId === t.id
+                    ? <select value={editData.shape} onChange={(e) => setEditData((p) => ({ ...p, shape: e.target.value }))} className="px-2 py-1 border border-mf-border rounded text-sm focus:outline-none focus:border-mf-rose">
+                        <option value="square">Carré</option>
+                        <option value="round">Rond</option>
+                        <option value="rectangle">Rectangle</option>
+                      </select>
+                    : <span className="text-xs text-mf-muted">{t.shape === 'square' ? 'Carré' : t.shape === 'round' ? 'Rond' : 'Rectangle'}</span>}
+                </td>
+                <td className="px-4 py-2">
+                  <div className="flex items-center justify-end gap-1">
+                    {editId === t.id ? (
+                      <>
+                        <button onClick={() => {
+                          const found = allTables.find((x) => x.id === editId);
+                          const num = parseInt(editData.number, 10);
+                          const dup = allTables.find((x) => x.floor_id === found.floor_id && x.number === num && x.id !== editId);
+                          if (dup) { alert(`Le code ${tableCode(found.floor_name, num)} existe déjà dans cette salle.`); return; }
+                          updateTable.mutate({ id: editId, floorId: found.floor_id, number: num, seats: parseInt(editData.seats, 10), shape: editData.shape }, { onSuccess: () => setEditId(null) });
+                        }} className="p-1.5 text-green-600"><Check className="w-4 h-4" /></button>
+                        <button onClick={() => setEditId(null)} className="p-1.5 text-mf-muted"><X className="w-4 h-4" /></button>
+                      </>
+                    ) : (
+                      <>
+                        {activeFloorId && t.floor_id === activeFloorId && (
+                          <button
+                            onClick={() => setPlacingId(placingId === t.id ? null : t.id)}
+                            title="Placer sur la grille"
+                            className={`p-1.5 transition-colors ${placingId === t.id ? 'text-mf-rose' : 'text-mf-muted hover:text-mf-marron-glace'}`}>
+                            <Move className="w-4 h-4" />
+                          </button>
+                        )}
+                        <button onClick={() => { setEditId(t.id); setEditData({ number: t.number, seats: t.seats, shape: t.shape ?? 'square' }); }} className="p-1.5 text-mf-muted hover:text-mf-marron-glace"><Pencil className="w-4 h-4" /></button>
+                      </>
+                    )}
+                    <DeleteButton onConfirm={() => deleteTable.mutate({ id: t.id, floorId: t.floor_id })} />
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {sorted.length === 0 && (
+              <tr><td colSpan={5} className="px-4 py-6 text-center text-mf-muted text-sm">
+                {allTables.length === 0 ? "Aucune table — créez d'abord une salle" : 'Aucune table pour cette salle'}
+              </td></tr>
+            )}
+          </tbody>
+        </table>
 
-      {floors.length > 0 && (
-        <div className="flex items-end gap-3 flex-wrap border border-mf-border rounded-card p-4">
-          <div>
-            <label className="block text-xs text-mf-muted mb-1">Salle</label>
-            <select value={newFloorId} onChange={(e) => setNewFloorId(e.target.value)}
-              className="px-3 py-1.5 border border-mf-border rounded-card text-sm focus:outline-none focus:border-mf-rose">
-              <option value="">Choisir…</option>
-              {floors.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-            </select>
+        {floors.length > 0 && (
+          <div className="flex items-end gap-3 flex-wrap border border-mf-border rounded-card p-4">
+            <div>
+              <label className="block text-xs text-mf-muted mb-1">Salle</label>
+              <select value={newFloorId} onChange={(e) => setNewFloorId(e.target.value)}
+                className="px-3 py-1.5 border border-mf-border rounded-card text-sm focus:outline-none focus:border-mf-rose">
+                <option value="">Choisir…</option>
+                {floors.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-mf-muted mb-1">N° Table</label>
+              <input type="number" min={1} value={newNumber} onChange={(e) => setNewNumber(e.target.value)} placeholder="1"
+                className="w-20 px-3 py-1.5 border border-mf-border rounded-card text-sm focus:outline-none focus:border-mf-rose" />
+            </div>
+            <div>
+              <label className="block text-xs text-mf-muted mb-1">Sièges</label>
+              <input type="number" min={1} value={newSeats} onChange={(e) => setNewSeats(e.target.value)} placeholder="4"
+                className="w-20 px-3 py-1.5 border border-mf-border rounded-card text-sm focus:outline-none focus:border-mf-rose" />
+            </div>
+            <div>
+              <label className="block text-xs text-mf-muted mb-1">Forme</label>
+              <select value={newShape} onChange={(e) => setNewShape(e.target.value)}
+                className="px-3 py-1.5 border border-mf-border rounded-card text-sm focus:outline-none focus:border-mf-rose">
+                <option value="square">Carré</option>
+                <option value="round">Rond</option>
+                <option value="rectangle">Rectangle</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <button onClick={() => {
+                if (!newFloorId || !newNumber || !newSeats) return;
+                const num = parseInt(newNumber, 10);
+                const dup = allTables.find((t) => t.floor_id === newFloorId && t.number === num);
+                if (dup) { setTableError(`Le code ${tableCode(floors.find((f) => f.id === newFloorId)?.name, num)} existe déjà dans cette salle.`); return; }
+                setTableError('');
+                createTable.mutate({ floor_id: newFloorId, number: num, seats: parseInt(newSeats, 10), shape: newShape }, { onSuccess: () => { setNewNumber(''); setNewSeats(''); setNewShape('square'); } });
+              }}
+                disabled={!newFloorId || !newNumber || !newSeats || createTable.isPending}
+                className="flex items-center gap-1 px-4 py-1.5 bg-mf-rose text-white text-sm rounded-card disabled:opacity-50 hover:bg-mf-vieux-rose transition-colors">
+                <Plus className="w-4 h-4" /> Ajouter table
+              </button>
+              {tableError && <p className="text-xs text-red-500">{tableError}</p>}
+            </div>
           </div>
-          <div>
-            <label className="block text-xs text-mf-muted mb-1">N° Table</label>
-            <input type="number" min={1} value={newNumber} onChange={(e) => setNewNumber(e.target.value)} placeholder="1"
-              className="w-20 px-3 py-1.5 border border-mf-border rounded-card text-sm focus:outline-none focus:border-mf-rose" />
+        )}
+      </div>
+
+      {/* Right: floor grid (only when a floor is selected) */}
+      {activeFloorId && (
+        <div className="w-72 shrink-0 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-mf-marron-glace">
+              {floors.find((f) => f.id === activeFloorId)?.name ?? 'Plan'}
+            </p>
+            {placingId && (
+              <button onClick={() => setPlacingId(null)} className="text-xs text-mf-muted hover:text-mf-marron-glace">Annuler</button>
+            )}
           </div>
-          <div>
-            <label className="block text-xs text-mf-muted mb-1">Sièges</label>
-            <input type="number" min={1} value={newSeats} onChange={(e) => setNewSeats(e.target.value)} placeholder="4"
-              className="w-20 px-3 py-1.5 border border-mf-border rounded-card text-sm focus:outline-none focus:border-mf-rose" />
-          </div>
-          <div>
-            <label className="block text-xs text-mf-muted mb-1">Forme</label>
-            <select value={newShape} onChange={(e) => setNewShape(e.target.value)}
-              className="px-3 py-1.5 border border-mf-border rounded-card text-sm focus:outline-none focus:border-mf-rose">
-              <option value="square">Carré</option>
-              <option value="round">Rond</option>
-              <option value="rectangle">Rectangle</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-mf-muted mb-1">Pos. X%</label>
-            <input type="number" min={0} max={100} value={newX} onChange={(e) => setNewX(e.target.value)} placeholder="50"
-              className="w-16 px-3 py-1.5 border border-mf-border rounded-card text-sm focus:outline-none focus:border-mf-rose" />
-          </div>
-          <div>
-            <label className="block text-xs text-mf-muted mb-1">Pos. Y%</label>
-            <input type="number" min={0} max={100} value={newY} onChange={(e) => setNewY(e.target.value)} placeholder="50"
-              className="w-16 px-3 py-1.5 border border-mf-border rounded-card text-sm focus:outline-none focus:border-mf-rose" />
-          </div>
-          <div className="flex flex-col gap-1">
-            <button onClick={() => {
-              if (!newFloorId || !newNumber || !newSeats) return;
-              const num = parseInt(newNumber, 10);
-              const dup = allTables.find((t) => t.floor_id === newFloorId && t.number === num);
-              if (dup) { setTableError(`Le code ${tableCode(floors.find((f) => f.id === newFloorId)?.name, num)} existe déjà dans cette salle.`); return; }
-              setTableError('');
-              const xVal = newX !== '' ? parseFloat(newX) : null;
-              const yVal = newY !== '' ? parseFloat(newY) : null;
-              createTable.mutate({ floor_id: newFloorId, number: num, seats: parseInt(newSeats, 10), shape: newShape, x: xVal, y: yVal }, { onSuccess: () => { setNewNumber(''); setNewSeats(''); setNewX(''); setNewY(''); setNewShape('square'); } });
+          <p className="text-xs text-mf-muted">
+            {placingId
+              ? 'Cliquez sur une cellule pour placer la table'
+              : 'Cliquez sur ↔ dans la liste pour déplacer une table'}
+          </p>
+          <FloorGrid
+            tables={floorTables}
+            placingId={placingId}
+            onSelectTable={(id) => setPlacingId(id)}
+            onPlaceTable={(id, col, row) => {
+              const t = allTables.find((x) => x.id === id);
+              const { x, y } = cellToXY(col, row);
+              updateTable.mutate({ id, floorId: t.floor_id, x, y }, { onSuccess: () => setPlacingId(null) });
             }}
-              disabled={!newFloorId || !newNumber || !newSeats || createTable.isPending}
-              className="flex items-center gap-1 px-4 py-1.5 bg-mf-rose text-white text-sm rounded-card disabled:opacity-50 hover:bg-mf-vieux-rose transition-colors">
-              <Plus className="w-4 h-4" /> Ajouter table
-            </button>
-            {tableError && <p className="text-xs text-red-500">{tableError}</p>}
-          </div>
+          />
+          {floorTables.filter((t) => t.x == null).length > 0 && (
+            <p className="text-xs text-orange-500">
+              {floorTables.filter((t) => t.x == null).length} table(s) non placée(s)
+            </p>
+          )}
         </div>
+      )}
+
+      {!activeFloorId && floors.length > 1 && (
+        <p className="text-xs text-mf-muted">Sélectionnez une salle pour voir et modifier le plan.</p>
       )}
     </div>
   );
@@ -861,18 +954,6 @@ function TabGestionSalle({ eventId }) {
         )}
       </div>
 
-      {/* Lien éditeur plan */}
-      {selectedFloorId && (
-        <div className="flex justify-end">
-          <Link
-            to={`/admin/restaurant/plan/${selectedFloorId}`}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-mf-rose text-white text-sm font-medium rounded-full hover:bg-mf-vieux-rose transition-colors"
-          >
-            <LayoutTemplate className="w-4 h-4" /> Modifier le plan
-          </Link>
-        </div>
-      )}
-
       {/* Stats bar */}
       {selectedDate && selectedShift && (
         <div className="flex gap-4 p-3 bg-mf-poudre/20 rounded-card text-sm">
@@ -958,11 +1039,7 @@ function TabGestionSalle({ eventId }) {
               <div>
                 {placedTables.length > 0 && (
                   <p className="text-xs text-mf-muted mb-2">
-                    Tables non placées sur le plan —{' '}
-                    <Link to={`/admin/restaurant/plan/${selectedFloorId}`} className="text-mf-rose hover:underline">
-                      utilisez l'éditeur visuel
-                    </Link>{' '}
-                    pour les positionner.
+                    Tables non positionnées — utilisez l'onglet Tables pour les placer sur la grille.
                   </p>
                 )}
                 <div className="flex flex-wrap gap-3">

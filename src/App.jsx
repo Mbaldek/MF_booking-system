@@ -28,7 +28,6 @@ import AdminUsers from '@/pages/admin/AdminUsers';
 import AdminEmailReminders from '@/pages/admin/AdminEmailReminders';
 import AdminOperations from '@/pages/admin/AdminOperations';
 import AdminRestaurant from '@/pages/admin/AdminRestaurant';
-import PlanEditor from '@/pages/admin/PlanEditor';
 import ReservationPage from '@/pages/ReservationPage';
 
 // Staff pages
@@ -98,7 +97,6 @@ export default function App() {
               <Route path="reminders" element={<AdminEmailReminders />} />
               <Route path="users" element={<AdminUsers />} />
               <Route path="restaurant" element={<AdminRestaurant />} />
-              <Route path="restaurant/plan/:floorId" element={<PlanEditor />} />
             </Route>
 
             {/* public reservation funnel */}
