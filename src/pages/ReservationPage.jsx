@@ -42,7 +42,7 @@ export default function ReservationPage() {
   const [chosenShift, setChosenShift] = useState(null);
   const [chosenTour, setChosenTour] = useState(null);
   const [chosenFloor, setChosenFloor] = useState(null);
-  const [guest, setGuest] = useState({ name: '', email: '', seats: 1 });
+  const [guest, setGuest] = useState({ name: '', email: '', seats: 1, phone: '', notes: '' });
 
   const { data: event } = useEventById(eventId);
   const { data: shifts = [] } = useShifts(eventId);
@@ -80,6 +80,8 @@ export default function ReservationPage() {
         service_date: chosenDate,
         guest_name: guest.name,
         guest_email: guest.email,
+        guest_phone: guest.phone.trim() || null,
+        guest_notes: guest.notes.trim() || null,
         seats: guest.seats,
       },
       {
@@ -286,6 +288,24 @@ export default function ReservationPage() {
               <input type="email" required value={guest.email} onChange={(e) => setGuest({ ...guest, email: e.target.value })}
                 placeholder="contact@example.com"
                 className="w-full px-5 py-3 border-2 border-mf-border rounded-full focus:outline-none focus:border-mf-rose bg-white text-mf-marron-glace" />
+            </div>
+
+            <div>
+              <label className="block text-[11px] uppercase tracking-wide text-mf-vieux-rose mb-2">Téléphone</label>
+              <input type="tel" value={guest.phone} onChange={(e) => setGuest({ ...guest, phone: e.target.value })}
+                placeholder="+33 6 00 00 00 00 (optionnel)"
+                className="w-full px-5 py-3 border-2 border-mf-border rounded-full focus:outline-none focus:border-mf-rose bg-white text-mf-marron-glace" />
+            </div>
+
+            <div>
+              <label className="block text-[11px] uppercase tracking-wide text-mf-vieux-rose mb-2">Notes & demandes particulières</label>
+              <textarea value={guest.notes} rows={3}
+                onChange={(e) => setGuest({ ...guest, notes: e.target.value })}
+                placeholder="Allergies, accès PMR, poussette, animal de compagnie…"
+                className="w-full px-5 py-3 border-2 border-mf-border rounded-2xl focus:outline-none focus:border-mf-rose bg-white text-mf-marron-glace resize-none text-sm" />
+              <p className="text-xs text-mf-muted mt-1.5 px-1 leading-snug">
+                Nous ferons notre possible pour vous accommoder. Nous nous excusons par avance si cela n'est pas toujours possible.
+              </p>
             </div>
 
             <div>

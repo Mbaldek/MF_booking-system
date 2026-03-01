@@ -265,6 +265,7 @@ function TabTables({ eventId }) {
   const [filterFloorId, setFilterFloorId] = useState('');
   const [editId, setEditId] = useState(null); const [editData, setEditData] = useState({});
   const [newFloorId, setNewFloorId] = useState(''); const [newNumber, setNewNumber] = useState(''); const [newSeats, setNewSeats] = useState('');
+  const [newShape, setNewShape] = useState('square'); const [newX, setNewX] = useState(''); const [newY, setNewY] = useState('');
   const [tableError, setTableError] = useState('');
 
   const sorted = [...allTables]
@@ -289,8 +290,10 @@ function TabTables({ eventId }) {
         <thead className="bg-mf-poudre/20">
           <tr>
             <th className="text-left px-4 py-2 text-mf-marron-glace font-medium">Salle</th>
-            <th className="text-left px-4 py-2 text-mf-marron-glace font-medium">N° Table</th>
+            <th className="text-left px-4 py-2 text-mf-marron-glace font-medium">Code</th>
             <th className="text-left px-4 py-2 text-mf-marron-glace font-medium">Sièges</th>
+            <th className="text-left px-4 py-2 text-mf-marron-glace font-medium">Forme</th>
+            <th className="text-left px-4 py-2 text-mf-marron-glace font-medium">Pos. X/Y</th>
             <th className="px-4 py-2" />
           </tr>
         </thead>
@@ -309,6 +312,24 @@ function TabTables({ eventId }) {
                   : <span>{t.seats} pers.</span>}
               </td>
               <td className="px-4 py-2">
+                {editId === t.id
+                  ? <select value={editData.shape} onChange={(e) => setEditData((p) => ({ ...p, shape: e.target.value }))} className="px-2 py-1 border border-mf-border rounded text-sm focus:outline-none focus:border-mf-rose">
+                      <option value="square">Carré</option>
+                      <option value="round">Rond</option>
+                      <option value="rectangle">Rectangle</option>
+                    </select>
+                  : <span className="text-xs text-mf-muted capitalize">{t.shape === 'square' ? 'Carré' : t.shape === 'round' ? 'Rond' : 'Rectangle'}</span>}
+              </td>
+              <td className="px-4 py-2">
+                {editId === t.id
+                  ? <div className="flex gap-1 items-center">
+                      <input type="number" min={0} max={100} value={editData.x} onChange={(e) => setEditData((p) => ({ ...p, x: e.target.value }))} placeholder="X%" className="w-14 px-1.5 py-1 border border-mf-border rounded text-xs focus:outline-none focus:border-mf-rose" />
+                      <span className="text-mf-muted text-xs">/</span>
+                      <input type="number" min={0} max={100} value={editData.y} onChange={(e) => setEditData((p) => ({ ...p, y: e.target.value }))} placeholder="Y%" className="w-14 px-1.5 py-1 border border-mf-border rounded text-xs focus:outline-none focus:border-mf-rose" />
+                    </div>
+                  : <span className="text-xs text-mf-muted">{t.x != null ? `${t.x}% / ${t.y}%` : '—'}</span>}
+              </td>
+              <td className="px-4 py-2">
                 <div className="flex items-center justify-end gap-1">
                   {editId === t.id ? (
                     <>
@@ -317,12 +338,14 @@ function TabTables({ eventId }) {
                         const num = parseInt(editData.number, 10);
                         const dup = allTables.find((x) => x.floor_id === found.floor_id && x.number === num && x.id !== editId);
                         if (dup) { alert(`Le code ${tableCode(found.floor_name, num)} existe déjà dans cette salle.`); return; }
-                        updateTable.mutate({ id: editId, floorId: found.floor_id, number: num, seats: parseInt(editData.seats, 10) }, { onSuccess: () => setEditId(null) });
+                        const xVal = editData.x !== '' ? parseFloat(editData.x) : null;
+                        const yVal = editData.y !== '' ? parseFloat(editData.y) : null;
+                        updateTable.mutate({ id: editId, floorId: found.floor_id, number: num, seats: parseInt(editData.seats, 10), shape: editData.shape, x: xVal, y: yVal }, { onSuccess: () => setEditId(null) });
                       }} className="p-1.5 text-green-600"><Check className="w-4 h-4" /></button>
                       <button onClick={() => setEditId(null)} className="p-1.5 text-mf-muted"><X className="w-4 h-4" /></button>
                     </>
                   ) : (
-                    <button onClick={() => { setEditId(t.id); setEditData({ number: t.number, seats: t.seats }); }} className="p-1.5 text-mf-muted hover:text-mf-marron-glace"><Pencil className="w-4 h-4" /></button>
+                    <button onClick={() => { setEditId(t.id); setEditData({ number: t.number, seats: t.seats, shape: t.shape ?? 'square', x: t.x ?? '', y: t.y ?? '' }); }} className="p-1.5 text-mf-muted hover:text-mf-marron-glace"><Pencil className="w-4 h-4" /></button>
                   )}
                   <DeleteButton onConfirm={() => deleteTable.mutate({ id: t.id, floorId: t.floor_id })} />
                 </div>
@@ -330,7 +353,7 @@ function TabTables({ eventId }) {
             </tr>
           ))}
           {sorted.length === 0 && (
-            <tr><td colSpan={4} className="px-4 py-6 text-center text-mf-muted text-sm">
+            <tr><td colSpan={6} className="px-4 py-6 text-center text-mf-muted text-sm">
               {allTables.length === 0 ? "Aucune table — créez d'abord une salle" : 'Aucune table pour cette salle'}
             </td></tr>
           )}
@@ -357,6 +380,25 @@ function TabTables({ eventId }) {
             <input type="number" min={1} value={newSeats} onChange={(e) => setNewSeats(e.target.value)} placeholder="4"
               className="w-20 px-3 py-1.5 border border-mf-border rounded-card text-sm focus:outline-none focus:border-mf-rose" />
           </div>
+          <div>
+            <label className="block text-xs text-mf-muted mb-1">Forme</label>
+            <select value={newShape} onChange={(e) => setNewShape(e.target.value)}
+              className="px-3 py-1.5 border border-mf-border rounded-card text-sm focus:outline-none focus:border-mf-rose">
+              <option value="square">Carré</option>
+              <option value="round">Rond</option>
+              <option value="rectangle">Rectangle</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-mf-muted mb-1">Pos. X%</label>
+            <input type="number" min={0} max={100} value={newX} onChange={(e) => setNewX(e.target.value)} placeholder="50"
+              className="w-16 px-3 py-1.5 border border-mf-border rounded-card text-sm focus:outline-none focus:border-mf-rose" />
+          </div>
+          <div>
+            <label className="block text-xs text-mf-muted mb-1">Pos. Y%</label>
+            <input type="number" min={0} max={100} value={newY} onChange={(e) => setNewY(e.target.value)} placeholder="50"
+              className="w-16 px-3 py-1.5 border border-mf-border rounded-card text-sm focus:outline-none focus:border-mf-rose" />
+          </div>
           <div className="flex flex-col gap-1">
             <button onClick={() => {
               if (!newFloorId || !newNumber || !newSeats) return;
@@ -364,7 +406,9 @@ function TabTables({ eventId }) {
               const dup = allTables.find((t) => t.floor_id === newFloorId && t.number === num);
               if (dup) { setTableError(`Le code ${tableCode(floors.find((f) => f.id === newFloorId)?.name, num)} existe déjà dans cette salle.`); return; }
               setTableError('');
-              createTable.mutate({ floor_id: newFloorId, number: num, seats: parseInt(newSeats, 10) }, { onSuccess: () => { setNewNumber(''); setNewSeats(''); } });
+              const xVal = newX !== '' ? parseFloat(newX) : null;
+              const yVal = newY !== '' ? parseFloat(newY) : null;
+              createTable.mutate({ floor_id: newFloorId, number: num, seats: parseInt(newSeats, 10), shape: newShape, x: xVal, y: yVal }, { onSuccess: () => { setNewNumber(''); setNewSeats(''); setNewX(''); setNewY(''); setNewShape('square'); } });
             }}
               disabled={!newFloorId || !newNumber || !newSeats || createTable.isPending}
               className="flex items-center gap-1 px-4 py-1.5 bg-mf-rose text-white text-sm rounded-card disabled:opacity-50 hover:bg-mf-vieux-rose transition-colors">
@@ -831,51 +875,91 @@ function TabGestionSalle({ eventId }) {
         </div>
       )}
 
-      {/* Table grid */}
+      {/* Floor plan */}
       {floorTables.length === 0 ? (
         <p className="text-sm text-mf-muted">Aucune table dans cette salle. Créez-en dans l'onglet Tables.</p>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-          {floorTables.map((table) => {
-            const res = tableResMap[table.id];
-            const isReserved = !!res;
-            return (
-              <button
-                key={table.id}
-                onClick={() => {
-                  if (isReserved) { setDetailRes(res); }
-                  else { setWalkinTable(table); setWalkinForm({ name: '', email: '', seats: table.seats > 1 ? 2 : 1, tourId: toursForShift[0]?.id ?? '' }); }
-                }}
-                className={`relative p-4 rounded-card border-2 text-center transition-all hover:scale-[1.02] active:scale-[0.98] ${
-                  isReserved
-                    ? 'border-mf-rose bg-mf-rose/8 hover:bg-mf-rose/12'
-                    : 'border-green-400 bg-green-50 hover:bg-green-100'
-                }`}
-              >
-                {/* Status dot */}
-                <div className={`absolute top-2 right-2 w-2.5 h-2.5 rounded-full ${isReserved ? 'bg-mf-rose' : 'bg-green-500'}`} />
+      ) : (() => {
+        const placedTables = floorTables.filter((t) => t.x != null && t.y != null);
+        const unplacedTables = floorTables.filter((t) => t.x == null || t.y == null);
 
-                <div className="font-bold text-lg text-mf-marron-glace mb-0.5">{tableCode(table.floor_name, table.number)}</div>
-                <div className="flex items-center justify-center gap-1 text-xs text-mf-muted mb-2">
-                  <Users className="w-3 h-3" />{table.seats}
+        const getTableDims = (shape, seats) => {
+          const h = seats <= 2 ? 56 : seats <= 4 ? 70 : 86;
+          const w = shape === 'rectangle' ? Math.round(h * 1.75) : h;
+          const r = shape === 'round' ? '50%' : '10px';
+          return { width: w, height: h, borderRadius: r };
+        };
+
+        const TableCard = ({ table, forPlan = false }) => {
+          const res = tableResMap[table.id];
+          const isReserved = !!res;
+          const dims = forPlan ? getTableDims(table.shape ?? 'square', table.seats) : null;
+          return (
+            <button
+              onClick={() => {
+                if (isReserved) { setDetailRes(res); }
+                else { setWalkinTable(table); setWalkinForm({ name: '', email: '', seats: table.seats > 1 ? 2 : 1, tourId: toursForShift[0]?.id ?? '' }); }
+              }}
+              style={forPlan ? {
+                position: 'absolute',
+                left: `${table.x}%`,
+                top: `${table.y}%`,
+                transform: 'translate(-50%, -50%)',
+                ...dims,
+              } : undefined}
+              className={`flex flex-col items-center justify-center border-2 transition-all hover:scale-105 active:scale-95 overflow-hidden
+                ${forPlan ? '' : 'w-24 h-20 rounded-xl'}
+                ${isReserved
+                  ? 'border-mf-rose bg-mf-rose/10 hover:bg-mf-rose/15'
+                  : 'border-green-400 bg-green-50 hover:bg-green-100'}`}
+            >
+              <span className="font-bold text-sm text-mf-marron-glace leading-none">{tableCode(table.floor_name, table.number)}</span>
+              <span className="text-[10px] text-mf-muted flex items-center gap-0.5 mt-0.5"><Users className="w-2.5 h-2.5" />{table.seats}</span>
+              {isReserved ? (
+                <>
+                  <span className="text-[10px] font-medium text-mf-rose leading-tight truncate max-w-[90%] mt-0.5">{res.guest_name}</span>
+                  {res.meal_tours?.start_time && <span className="text-[9px] text-mf-muted">{res.meal_tours.start_time.slice(0, 5)}</span>}
+                </>
+              ) : (
+                <span className="text-[10px] text-green-700 font-medium mt-0.5">Libre</span>
+              )}
+            </button>
+          );
+        };
+
+        return (
+          <div className="space-y-4">
+            {/* Canvas plan (tables with x/y) */}
+            {placedTables.length > 0 && (
+              <div className="relative w-full bg-stone-50 border-2 border-mf-border rounded-2xl overflow-hidden" style={{ paddingBottom: '58%' }}>
+                {/* Room grid lines (subtle) */}
+                <div className="absolute inset-0" style={{
+                  backgroundImage: 'linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px)',
+                  backgroundSize: '10% 10%',
+                }} />
+                <div className="absolute inset-0">
+                  {placedTables.map((table) => (
+                    <TableCard key={table.id} table={table} forPlan />
+                  ))}
                 </div>
+              </div>
+            )}
 
-                {isReserved ? (
-                  <div className="space-y-0.5">
-                    <div className="text-xs font-medium text-mf-rose leading-tight truncate">{res.guest_name}</div>
-                    <div className="text-xs text-mf-muted">{res.seats} couv.</div>
-                    {res.meal_tours?.start_time && (
-                      <div className="text-xs text-mf-muted">{res.meal_tours.start_time.slice(0,5)}</div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-xs text-green-700 font-medium">Libre</div>
+            {/* Unplaced tables (no x/y) */}
+            {unplacedTables.length > 0 && (
+              <div>
+                {placedTables.length > 0 && (
+                  <p className="text-xs text-mf-muted mb-2">
+                    Tables non placées — définissez X% et Y% dans l'onglet Tables pour les positionner sur le plan :
+                  </p>
                 )}
-              </button>
-            );
-          })}
-        </div>
-      )}
+                <div className="flex flex-wrap gap-3">
+                  {unplacedTables.map((table) => <TableCard key={table.id} table={table} />)}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Modal — detail réservation */}
       {detailRes && (
@@ -900,10 +984,22 @@ function TabGestionSalle({ eventId }) {
                   <span className="text-mf-marron-glace">{detailRes.guest_email}</span>
                 </div>
               )}
+              {detailRes.guest_phone && (
+                <div className="flex justify-between">
+                  <span className="text-mf-muted">Téléphone</span>
+                  <span className="text-mf-marron-glace">{detailRes.guest_phone}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-mf-muted">Couverts</span>
                 <span className="font-medium text-mf-marron-glace">{detailRes.seats}</span>
               </div>
+              {detailRes.guest_notes && (
+                <div className="flex flex-col gap-1 pt-1 border-t border-mf-border/40">
+                  <span className="text-[10px] text-mf-muted uppercase tracking-wide">Notes</span>
+                  <span className="text-mf-marron-glace text-xs italic leading-snug bg-mf-poudre/20 rounded-lg p-2">{detailRes.guest_notes}</span>
+                </div>
+              )}
               {detailRes.service_date && (
                 <div className="flex justify-between">
                   <span className="text-mf-muted">Jour</span>
