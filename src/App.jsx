@@ -27,6 +27,8 @@ import AdminStats from '@/pages/admin/AdminStats';
 import AdminUsers from '@/pages/admin/AdminUsers';
 import AdminEmailReminders from '@/pages/admin/AdminEmailReminders';
 import AdminOperations from '@/pages/admin/AdminOperations';
+import AdminRestaurant from '@/pages/admin/AdminRestaurant';
+import ReservationPage from '@/pages/ReservationPage';
 
 // Staff pages
 import StaffKitchen from '@/pages/staff/StaffKitchen';
@@ -94,7 +96,11 @@ export default function App() {
               <Route path="stats" element={<AdminStats />} />
               <Route path="reminders" element={<AdminEmailReminders />} />
               <Route path="users" element={<AdminUsers />} />
+              <Route path="restaurant" element={<AdminRestaurant />} />
             </Route>
+
+            {/* public reservation funnel */}
+            <Route path="/reservation/:eventId" element={<ReservationPage />} />
 
             {/* Staff */}
             <Route

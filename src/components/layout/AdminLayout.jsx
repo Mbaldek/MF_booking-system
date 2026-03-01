@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/AuthContext';
 import AdminSidebar from './AdminSidebar';
 import {
   TrendingUp, Calendar, UtensilsCrossed, ShoppingBag,
-  ClipboardList, BarChart3, Mail, Users, Home, Menu, X, LogOut, ChefHat,
+  ClipboardList, BarChart3, Mail, Users, Home, Menu, X, LogOut, ChefHat, Table,
 } from 'lucide-react';
 
 const navItems = [
@@ -16,6 +16,7 @@ const navItems = [
   { path: '/admin/stats', label: 'Statistiques', icon: BarChart3 },
   { path: '/admin/reminders', label: 'Rappels email', icon: Mail },
   { path: '/admin/users', label: 'Accès & droits', icon: Users },
+  { path: '/admin/restaurant', label: 'Plan de salle', icon: Table },
 ];
 
 export default function AdminLayout() {
