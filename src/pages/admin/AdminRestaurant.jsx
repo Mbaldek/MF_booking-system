@@ -1,7 +1,7 @@
 import { useState, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Plus, Trash2, Table as TableIcon, ExternalLink, Pencil, Check, X, Image, Clock, Mail, Users,
+  Plus, Trash2, Table as TableIcon, ExternalLink, Pencil, Check, X, Image, Clock, Mail, Users, LayoutTemplate,
 } from 'lucide-react';
 import { supabase } from '@/api/supabase';
 import EventSelector from '@/components/admin/EventSelector';
@@ -286,12 +286,12 @@ function TabTables({ eventId }) {
         </div>
       )}
       {(filterFloorId || floors[0]?.id) && (
-        <div className="mt-2">
-          <Link to={`/admin/restaurant/plan/${filterFloorId || floors[0].id}`}
-            className="text-sm text-mf-rose hover:underline">
-            Éditeur visuel du plan
-          </Link>
-        </div>
+        <Link
+          to={`/admin/restaurant/plan/${filterFloorId || floors[0].id}`}
+          className="inline-flex items-center gap-2 px-4 py-2 border border-mf-rose text-mf-rose text-sm font-medium rounded-full hover:bg-mf-rose/5 transition-colors"
+        >
+          <LayoutTemplate className="w-4 h-4" /> Éditeur visuel du plan
+        </Link>
       )}
 
       <table className="w-full text-sm border border-mf-border rounded-card overflow-hidden">
@@ -872,6 +872,18 @@ function TabGestionSalle({ eventId }) {
         )}
       </div>
 
+      {/* Lien éditeur plan */}
+      {selectedFloorId && (
+        <div className="flex justify-end">
+          <Link
+            to={`/admin/restaurant/plan/${selectedFloorId}`}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-mf-rose text-white text-sm font-medium rounded-full hover:bg-mf-vieux-rose transition-colors"
+          >
+            <LayoutTemplate className="w-4 h-4" /> Modifier le plan
+          </Link>
+        </div>
+      )}
+
       {/* Stats bar */}
       {selectedDate && selectedShift && (
         <div className="flex gap-4 p-3 bg-mf-poudre/20 rounded-card text-sm">
@@ -957,7 +969,11 @@ function TabGestionSalle({ eventId }) {
               <div>
                 {placedTables.length > 0 && (
                   <p className="text-xs text-mf-muted mb-2">
-                    Tables non placées — définissez X% et Y% dans l'onglet Tables pour les positionner sur le plan :
+                    Tables non placées sur le plan —{' '}
+                    <Link to={`/admin/restaurant/plan/${selectedFloorId}`} className="text-mf-rose hover:underline">
+                      utilisez l'éditeur visuel
+                    </Link>{' '}
+                    pour les positionner.
                   </p>
                 )}
                 <div className="flex flex-wrap gap-3">
