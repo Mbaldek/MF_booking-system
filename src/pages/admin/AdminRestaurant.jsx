@@ -285,6 +285,14 @@ function TabTables({ eventId }) {
           ))}
         </div>
       )}
+      {(filterFloorId || floors[0]?.id) && (
+        <div className="mt-2">
+          <Link to={`/admin/restaurant/plan/${filterFloorId || floors[0].id}`}
+            className="text-sm text-mf-rose hover:underline">
+            Éditeur visuel du plan
+          </Link>
+        </div>
+      )}
 
       <table className="w-full text-sm border border-mf-border rounded-card overflow-hidden">
         <thead className="bg-mf-poudre/20">
