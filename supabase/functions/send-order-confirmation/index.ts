@@ -1,5 +1,4 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,6 +7,16 @@ const corsHeaders = {
 
 const SLOT_LABELS: Record<string, string> = { midi: 'Midi', soir: 'Soir' }
 const TYPE_LABELS: Record<string, string> = { entree: 'Entrée', plat: 'Plat', dessert: 'Dessert', boisson: 'Boisson' }
+
+async function supabaseGet(path: string) {
+  const res = await fetch(`${Deno.env.get('SUPABASE_URL')}/rest/v1/${path}`, {
+    headers: {
+      'apikey': Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!}`,
+    },
+  })
+  return res.json()
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -18,29 +27,20 @@ serve(async (req) => {
     const resendApiKey = Deno.env.get('RESEND_API_KEY')
     if (!resendApiKey) throw new Error('RESEND_API_KEY not configured')
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    )
-
     const { orderId } = await req.json()
     if (!orderId) throw new Error('orderId is required')
 
-    // Fetch order + event
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .select('*, event:events(name, start_date, end_date)')
-      .eq('id', orderId)
-      .single()
+    // Fetch order with event join
+    const orders = await supabaseGet(
+      `orders?id=eq.${orderId}&select=*,event:events(name,start_date,end_date)`
+    )
+    const order = Array.isArray(orders) ? orders[0] : null
+    if (!order) throw new Error('Order not found')
 
-    if (orderError || !order) throw new Error('Order not found')
-
-    // Fetch order lines
-    const { data: lines } = await supabase
-      .from('order_lines')
-      .select('*, meal_slot:meal_slots(slot_date, slot_type), menu_item:menu_items(name, type)')
-      .eq('order_id', orderId)
-      .order('created_at', { ascending: true })
+    // Fetch order lines with joins
+    const lines = await supabaseGet(
+      `order_lines?order_id=eq.${orderId}&select=*,meal_slot:meal_slots(slot_date,slot_type),menu_item:menu_items(name,type)&order=created_at.asc`
+    )
 
     // Group lines by slot + guest
     const groups: Record<string, { date: string; type: string; guest: string; items: string[] }> = {}

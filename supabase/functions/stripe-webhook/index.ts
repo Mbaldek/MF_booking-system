@@ -99,8 +99,9 @@ serve(async (req) => {
             }
           )
 
-          // Trigger order confirmation email
+          // Trigger order confirmation email + admin notification
           await invokeEdgeFunction('send-order-confirmation', { orderId })
+          await invokeEdgeFunction('send-admin-notification', { orderId })
         }
         break
       }
