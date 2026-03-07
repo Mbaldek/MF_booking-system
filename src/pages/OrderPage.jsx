@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -119,6 +119,23 @@ export default function OrderPage() {
   const [activeConvive, setActiveConvive] = useState(0);
   const [autoFillDone, setAutoFillDone] = useState(false);
   const [showAutoFill, setShowAutoFill] = useState(false);
+
+  // ─── Browser history for steps (fix back button) ───
+  const goToStep = useCallback((n) => {
+    setStep(n);
+    window.history.pushState({ step: n }, '', '/order');
+  }, []);
+
+  useEffect(() => {
+    window.history.replaceState({ step: 0 }, '', '/order');
+    const handler = (e) => {
+      if (e.state?.step !== undefined) {
+        setStep(e.state.step);
+      }
+    };
+    window.addEventListener('popstate', handler);
+    return () => window.removeEventListener('popstate', handler);
+  }, []);
 
   // Data hooks
   const { data: activeEvents = [], isLoading: eventsLoading } = useActiveEvents();
@@ -407,7 +424,7 @@ export default function OrderPage() {
       } catch (stripeErr) {
         console.warn('Stripe checkout unavailable:', stripeErr);
       }
-      navigate(`/order/success/${result.order.id}`);
+      navigate(`/order/success/${result.order.id}`, { replace: true });
     } catch (error) {
       console.error('Erreur:', error);
       alert('Erreur lors de la commande. Veuillez réessayer.');
@@ -469,7 +486,7 @@ export default function OrderPage() {
               <MfInput label="Email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="contact@entreprise.com" />
             </div>
 
-            <MfButton fullWidth disabled={!isStep0Valid} onClick={() => setStep(1)} className="mt-6">
+            <MfButton fullWidth disabled={!isStep0Valid} onClick={() => goToStep(1)} className="mt-6">
               Continuer →
             </MfButton>
           </MfCard>
@@ -675,12 +692,12 @@ export default function OrderPage() {
 
             {/* ─── Navigation ─── */}
             <div className="flex gap-3">
-              <MfButton variant="outline" onClick={() => setStep(0)} className="flex-1">
+              <MfButton variant="outline" onClick={() => goToStep(0)} className="flex-1">
                 ← Infos
               </MfButton>
               <MfButton
                 disabled={v4TotalMeals === 0}
-                onClick={() => { setStep(2); setMenuSlotIdx(0); }}
+                onClick={() => { goToStep(2); setMenuSlotIdx(0); }}
                 className="flex-[2]"
               >
                 {v4TotalMeals > 0
@@ -786,15 +803,20 @@ export default function OrderPage() {
 
               {/* C3. Same-for-all toggle */}
               {currentConv.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => handleMenuToggle(!sameForAll)}
-                  className={`w-full flex items-center gap-2.5 p-2.5 px-3 rounded-[14px] border-[1.5px] cursor-pointer text-left mb-2.5 transition-colors ${
+                <label
+                  className={`w-full flex items-center gap-2.5 p-2.5 px-3 rounded-[14px] border-[1.5px] cursor-pointer text-left mb-2.5 transition-colors select-none ${
                     sameForAll
                       ? 'bg-mf-vert-olive/8 border-mf-vert-olive'
                       : 'bg-white border-mf-border'
                   }`}
+                  style={{ WebkitTapHighlightColor: 'transparent' }}
                 >
+                  <input
+                    type="checkbox"
+                    checked={sameForAll}
+                    onChange={(e) => handleMenuToggle(e.target.checked)}
+                    className="sr-only"
+                  />
                   {/* Toggle switch */}
                   <div className={`w-[38px] h-5 rounded-[10px] p-0.5 shrink-0 flex items-center transition-colors ${
                     sameForAll ? 'bg-mf-vert-olive' : 'bg-mf-border'
@@ -811,7 +833,7 @@ export default function OrderPage() {
                       </div>
                     )}
                   </div>
-                </button>
+                </label>
               )}
 
               {/* C4. Convive tabs (when sameForAll=false) */}
@@ -867,7 +889,7 @@ export default function OrderPage() {
                   fullWidth
                   variant={allSlotsDone ? 'green' : 'primary'}
                   disabled={!allSlotsDone}
-                  onClick={() => setStep(3)}
+                  onClick={() => goToStep(3)}
                   className="mt-1.5"
                 >
                   {allSlotsDone ? 'Voir le récapitulatif →' : `${doneSlots}/${activeSlots.length} créneaux`}
@@ -888,7 +910,7 @@ export default function OrderPage() {
             <MfButton
               variant="outline"
               fullWidth
-              onClick={() => menuSlotIdx > 0 ? setMenuSlotIdx((i) => i - 1) : setStep(1)}
+              onClick={() => menuSlotIdx > 0 ? setMenuSlotIdx((i) => i - 1) : goToStep(1)}
               className="mt-2.5"
             >
               {menuSlotIdx > 0 ? '← Créneau précédent' : '‹ Créneaux & convives'}
@@ -931,11 +953,20 @@ export default function OrderPage() {
                 {menuTotal.toFixed(2)} €
               </div>
             </div>
-            {allSlotsDone && (
-              <MfButton onClick={() => setStep(3)}>
-                Récapitulatif →
+            <div className="flex gap-2">
+              <MfButton
+                variant="outline"
+                size="sm"
+                onClick={() => menuSlotIdx > 0 ? setMenuSlotIdx((i) => i - 1) : goToStep(1)}
+              >
+                ←
               </MfButton>
-            )}
+              {allSlotsDone && (
+                <MfButton onClick={() => goToStep(3)}>
+                  Récapitulatif →
+                </MfButton>
+              )}
+            </div>
           </div>
         )}
 
@@ -1059,7 +1090,7 @@ export default function OrderPage() {
 
             {/* 7. Action buttons */}
             <div className="flex gap-3">
-              <MfButton variant="outline" onClick={() => setStep(2)} className="flex-1">
+              <MfButton variant="outline" onClick={() => goToStep(2)} className="flex-1">
                 ← Menus
               </MfButton>
               <MfButton
