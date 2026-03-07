@@ -391,7 +391,7 @@ export default function OrderPage() {
               meal_slot_id: slot.id,
               menu_item_id: itemId,
               quantity: 1,
-              unit_price: menuPrice,
+              unit_price: 0,
               guest_name: conviveName,
               menu_unit_price: menuPrice,
             });
