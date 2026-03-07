@@ -1,12 +1,29 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+// Supabase REST helper
+async function supabaseQuery(path: string, method = 'GET', body?: unknown) {
+  const url = `${Deno.env.get('SUPABASE_URL')}/rest/v1/${path}`
+  const headers: Record<string, string> = {
+    'apikey': Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!}`,
+    'Content-Type': 'application/json',
+    'Prefer': method === 'PATCH' ? 'return=minimal' : 'return=representation',
+  }
+  const res = await fetch(url, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  })
+  if (method === 'PATCH') return null
+  return res.json()
+}
 
 // Stripe webhook signature verification using Web Crypto API
 async function verifyStripeSignature(
   payload: string,
   sigHeader: string,
   secret: string,
-  tolerance = 300 // 5 minutes
+  tolerance = 300
 ): Promise<Record<string, unknown>> {
   const parts: Record<string, string> = {}
   for (const item of sigHeader.split(',')) {
@@ -18,13 +35,11 @@ async function verifyStripeSignature(
   const signature = parts['v1']
   if (!timestamp || !signature) throw new Error('Invalid signature header')
 
-  // Check timestamp tolerance
   const now = Math.floor(Date.now() / 1000)
   if (Math.abs(now - Number(timestamp)) > tolerance) {
     throw new Error('Webhook timestamp too old')
   }
 
-  // Compute expected signature: HMAC-SHA256 of "timestamp.payload"
   const encoder = new TextEncoder()
   const key = await crypto.subtle.importKey(
     'raw',
@@ -43,6 +58,19 @@ async function verifyStripeSignature(
   return JSON.parse(payload)
 }
 
+// Invoke another Edge Function
+async function invokeEdgeFunction(name: string, body: unknown) {
+  const url = `${Deno.env.get('SUPABASE_URL')}/functions/v1/${name}`
+  await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+}
+
 serve(async (req) => {
   try {
     const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET')
@@ -54,11 +82,6 @@ serve(async (req) => {
 
     const event = await verifyStripeSignature(body, sig, webhookSecret)
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    )
-
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data as { object: Record<string, unknown> }
@@ -66,19 +89,18 @@ serve(async (req) => {
         const orderId = (obj.metadata as Record<string, string>)?.order_id
 
         if (orderId) {
-          await supabase
-            .from('orders')
-            .update({
+          await supabaseQuery(
+            `orders?id=eq.${orderId}`,
+            'PATCH',
+            {
               payment_status: 'paid',
               stripe_payment_intent_id: obj.payment_intent as string,
               paid_at: new Date().toISOString(),
-            })
-            .eq('id', orderId)
+            }
+          )
 
           // Trigger order confirmation email
-          await supabase.functions.invoke('send-order-confirmation', {
-            body: { orderId },
-          })
+          await invokeEdgeFunction('send-order-confirmation', { orderId })
         }
         break
       }
@@ -88,10 +110,11 @@ serve(async (req) => {
         const paymentIntent = charge.object.payment_intent as string
 
         if (paymentIntent) {
-          await supabase
-            .from('orders')
-            .update({ payment_status: 'refunded' })
-            .eq('stripe_payment_intent_id', paymentIntent)
+          await supabaseQuery(
+            `orders?stripe_payment_intent_id=eq.${paymentIntent}`,
+            'PATCH',
+            { payment_status: 'refunded' }
+          )
         }
         break
       }

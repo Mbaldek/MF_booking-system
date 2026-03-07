@@ -108,6 +108,7 @@ export default function OrderPage() {
     company_name: '', billing_address: '', billing_postal_code: '', billing_city: '',
   });
   const [rgpdConsent, setRgpdConsent] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
 
   // V4 states — matrix + menu funnel
   const [convives, setConvives] = useState([]);
@@ -350,7 +351,8 @@ export default function OrderPage() {
   }, [menuSelections, activeSlots]);
 
   // Validation
-  const isStep0Valid = formData.last_name && formData.stand && formData.phone && formData.email;
+  const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const isStep0Valid = formData.last_name && formData.stand && formData.phone && isValidEmail(formData.email);
   const isStep3Valid = formData.billing_address && formData.billing_postal_code && formData.billing_city && rgpdConsent;
 
   // V4 total (all slots, not just "done" ones — for the recap/payment)
@@ -364,6 +366,10 @@ export default function OrderPage() {
 
   // Submit — builds order + order_lines from V4 matrix + menuSelections
   const handleSubmit = async () => {
+    if (!isValidEmail(formData.email)) {
+      alert('Veuillez entrer une adresse email valide');
+      return;
+    }
     let totalAmount = 0;
     const orderLines = [];
 
@@ -483,7 +489,7 @@ export default function OrderPage() {
               <MfInput label="Nom" value={formData.last_name} onChange={(e) => setFormData({ ...formData, last_name: e.target.value })} placeholder="Dupont" />
               <MfInput label="Stand" value={formData.stand} onChange={(e) => setFormData({ ...formData, stand: e.target.value })} placeholder="A-42" />
               <MfInput label="Téléphone" type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="06 12 34 56 78" />
-              <MfInput label="Email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="contact@entreprise.com" />
+              <MfInput label="Email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} onBlur={() => setEmailTouched(true)} placeholder="contact@entreprise.com" error={emailTouched && formData.email && !isValidEmail(formData.email) ? 'Adresse email invalide' : undefined} />
             </div>
 
             <MfButton fullWidth disabled={!isStep0Valid} onClick={() => goToStep(1)} className="mt-6">
