@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Plus, Pencil, Trash2, X, Check, Calendar, Image, UtensilsCrossed, ChevronDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Check, Calendar, Image, UtensilsCrossed, ChevronDown, Copy } from 'lucide-react';
 import { useEvents, useCreateEvent, useUpdateEvent, useDeleteEvent } from '@/hooks/useEvents';
 import { useMenuCatalog, useAllEventMenuItems, useLinkMenuToEvent, useUnlinkMenuFromEvent, useUpdateEventMenuItem } from '@/hooks/useMenuItems';
 import { useMealSlots, useUpdateSlotCapacity } from '@/hooks/useMealSlots';
@@ -9,10 +9,19 @@ import { supabase } from '@/api/supabase';
 import ConfirmDeleteModal from '@/components/admin/ConfirmDeleteModal';
 
 const TYPE_LABELS = { entree: 'Entrées', plat: 'Plats', dessert: 'Desserts', boisson: 'Boissons' };
+
+function slugify(text) {
+  return text.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s-]/g, '').trim()
+    .replace(/\s+/g, '-').replace(/-+/g, '-');
+}
 const TYPE_ORDER = ['entree', 'plat', 'dessert', 'boisson'];
 
 function EventForm({ initialData, onSubmit, onCancel, isPending }) {
   const [name, setName] = useState(initialData?.name || '');
+  const [slug, setSlug] = useState(initialData?.slug || '');
+  const [slugDirty, setSlugDirty] = useState(!!initialData?.slug);
   const [startDate, setStartDate] = useState(initialData?.start_date || '');
   const [endDate, setEndDate] = useState(initialData?.end_date || '');
   const [description, setDescription] = useState(initialData?.description || '');
@@ -36,6 +45,7 @@ function EventForm({ initialData, onSubmit, onCancel, isPending }) {
     e.preventDefault();
     onSubmit({
       name,
+      slug: slug.trim() || null,
       start_date: startDate,
       end_date: endDate,
       description: description.trim() || null,
@@ -53,9 +63,26 @@ function EventForm({ initialData, onSubmit, onCancel, isPending }) {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-1">
         <label htmlFor="event-name" className="block text-sm font-medium text-gray-700">Nom *</label>
-        <input id="event-name" type="text" required value={name} onChange={(e) => setName(e.target.value)}
+        <input id="event-name" type="text" required value={name}
+          onChange={(e) => {
+            setName(e.target.value);
+            if (!slugDirty) setSlug(slugify(e.target.value));
+          }}
           placeholder="Ex : Salon de la Gastronomie 2026"
           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+      </div>
+
+      <div className="space-y-1">
+        <label htmlFor="event-slug" className="block text-sm font-medium text-gray-700">
+          Slug URL <span className="font-normal text-gray-400">(lien partageable)</span>
+        </label>
+        <div className="flex items-center gap-0">
+          <span className="px-3 py-2 bg-gray-50 border border-r-0 border-gray-300 rounded-l-lg text-xs text-gray-400 whitespace-nowrap">/reservation/</span>
+          <input id="event-slug" type="text" value={slug}
+            onChange={(e) => { setSlug(e.target.value); setSlugDirty(true); }}
+            placeholder="salon-gastronomie-2026"
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-r-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -358,6 +385,13 @@ export default function AdminEvent() {
   const [editingId, setEditingId] = useState(null);
   const [expandedMenuId, setExpandedMenuId] = useState(null);
   const [deleteModal, setDeleteModal] = useState(null); // event to delete
+  const [copiedId, setCopiedId] = useState(null);
+
+  const handleCopy = (id, url) => {
+    navigator.clipboard.writeText(url);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   const handleCreate = async (formData) => {
     try {
@@ -492,6 +526,21 @@ export default function AdminEvent() {
                               {Number(event.menu_price_soir) > 0 && <span>Soir : {Number(event.menu_price_soir).toFixed(2)}€</span>}
                             </p>
                           )}
+                          <div className="flex items-center gap-1.5 mt-1.5">
+                            <span className="text-xs text-gray-400 font-mono truncate max-w-[260px]">
+                              /reservation/{event.slug || event.id}
+                            </span>
+                            <button
+                              type="button"
+                              title="Copier le lien de réservation"
+                              onClick={() => handleCopy(event.id, `${window.location.origin}/reservation/${event.slug || event.id}`)}
+                              className="shrink-0 text-gray-400 hover:text-[#8B3A43] transition-colors"
+                            >
+                              {copiedId === event.id
+                                ? <Check className="w-3.5 h-3.5 text-green-500" />
+                                : <Copy className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
                         </div>
                       </div>
 

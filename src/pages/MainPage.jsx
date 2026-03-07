@@ -85,7 +85,7 @@ const scopedStyles = `
    ═══════════════════════════════════════════════════════ */
 
 export default function MainPage() {
-  const [hoveredCat, setHoveredCat] = useState(null);
+  const [openCat, setOpenCat] = useState(null);
 
   /* ─── Data ─── */
   const { data: activeEvents = [] } = useActiveEvents();
@@ -282,54 +282,56 @@ export default function MainPage() {
             </h2>
           </div>
 
-          <div className="flex flex-col">
-            {menuByCategory.map(([type, items], ci) => (
-              <div
-                key={type}
-                onMouseEnter={() => setHoveredCat(ci)}
-                onMouseLeave={() => setHoveredCat(null)}
-                className={`px-[22px] py-5 cursor-pointer transition-all duration-300 ${
-                  hoveredCat === ci
-                    ? 'bg-white rounded-2xl border border-mf-border'
-                    : 'border border-transparent'
-                }`}
-              >
-                <div className={`flex justify-between items-center ${hoveredCat === ci ? 'mb-2.5' : ''}`}>
-                  <h3 className="font-body text-[11px] tracking-[0.16em] uppercase text-mf-rose">
-                    {TYPE_LABELS[type] || type}
-                  </h3>
-                  <span
-                    className={`font-body text-[11px] text-mf-muted inline-block transition-transform duration-300 ${
-                      hoveredCat === ci ? 'rotate-90' : ''
-                    }`}
-                  >
-                    →
-                  </span>
-                </div>
+          <div className="flex flex-col gap-1">
+            {menuByCategory.map(([type, items], ci) => {
+              const isOpen = openCat === ci;
+              return (
                 <div
-                  className="overflow-hidden transition-all duration-400"
-                  style={{
-                    maxHeight: hoveredCat === ci ? items.length * 40 : 0,
-                    opacity: hoveredCat === ci ? 1 : 0,
-                  }}
+                  key={type}
+                  onClick={() => setOpenCat(isOpen ? null : ci)}
+                  className={`px-[22px] py-5 cursor-pointer transition-all duration-300 ${
+                    isOpen
+                      ? 'bg-white rounded-2xl border border-mf-border'
+                      : 'border border-transparent'
+                  }`}
                 >
-                  {items.map((item) => (
-                    <div
-                      key={item.id}
-                      className="font-body text-[14px] text-mf-marron-glace py-1.5 border-b border-mf-blanc-casse"
+                  <div className={`flex justify-between items-center ${isOpen ? 'mb-2.5' : ''}`}>
+                    <h3 className="font-body text-[11px] tracking-[0.16em] uppercase text-mf-rose">
+                      {TYPE_LABELS[type] || type}
+                    </h3>
+                    <span
+                      className={`font-body text-[11px] text-mf-muted inline-block transition-transform duration-300 ${
+                        isOpen ? 'rotate-90' : ''
+                      }`}
                     >
-                      {item.name}
-                      {item.description && (
-                        <span className="text-[12px] text-mf-muted ml-2">— {item.description}</span>
-                      )}
-                    </div>
-                  ))}
+                      →
+                    </span>
+                  </div>
+                  <div
+                    className="overflow-hidden transition-all duration-400"
+                    style={{
+                      maxHeight: isOpen ? items.length * 40 : 0,
+                      opacity: isOpen ? 1 : 0,
+                    }}
+                  >
+                    {items.map((item) => (
+                      <div
+                        key={item.id}
+                        className="font-body text-[14px] text-mf-marron-glace py-1.5 border-b border-mf-blanc-casse"
+                      >
+                        {item.name}
+                        {item.description && (
+                          <span className="text-[12px] text-mf-muted ml-2">— {item.description}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {ci < menuByCategory.length - 1 && !isOpen && (
+                    <div className="mt-5 border-b border-mf-border" />
+                  )}
                 </div>
-                {ci < menuByCategory.length - 1 && hoveredCat !== ci && (
-                  <div className="mt-5 border-b border-mf-border" />
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       )}

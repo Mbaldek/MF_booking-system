@@ -104,6 +104,22 @@ export function useEventById(id) {
   });
 }
 
+export function useEventBySlugOrId(param) {
+  return useQuery({
+    queryKey: ['event', param],
+    queryFn: async () => {
+      const { data: bySlug } = await supabase
+        .from('events').select('*').eq('slug', param).maybeSingle();
+      if (bySlug) return bySlug;
+      const { data, error } = await supabase
+        .from('events').select('*').eq('id', param).single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!param,
+  });
+}
+
 export function useDeleteEvent() {
   const qc = useQueryClient();
   return useMutation({

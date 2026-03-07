@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { useEventById } from '@/hooks/useEvents';
+import { useEventBySlugOrId } from '@/hooks/useEvents';
 import {
   useShifts,
   useTours,
@@ -44,7 +44,7 @@ export default function ReservationPage() {
   const [chosenFloor, setChosenFloor] = useState(null);
   const [guest, setGuest] = useState({ name: '', email: '', seats: 1, phone: '', notes: '' });
 
-  const { data: event } = useEventById(eventId);
+  const { data: event } = useEventBySlugOrId(eventId);
   const { data: shifts = [] } = useShifts(eventId);
   const { data: tours = [] } = useTours(chosenShift?.id);
   const { data: floors = [] } = useFloors(eventId);
