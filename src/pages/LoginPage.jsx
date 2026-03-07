@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import { supabase } from '@/api/supabase';
+import MfButton from '@/components/ui/MfButton';
+import MfInput from '@/components/ui/MfInput';
+import MfCard from '@/components/ui/MfCard';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -31,7 +34,7 @@ export default function LoginPage() {
 
   async function handleResetPassword() {
     if (!email) {
-      setError('Veuillez saisir votre email pour réinitialiser le mot de passe');
+      setError('Veuillez saisir votre email pour reinitialiser le mot de passe');
       return;
     }
     setResetLoading(true);
@@ -50,84 +53,76 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#faf6f5] to-[#f0e6e4] px-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-mf-blanc-casse px-4">
+      <div className="w-full max-w-sm">
+        {/* Header */}
         <div className="text-center mb-8">
-          <div className="w-14 h-14 bg-[#8B3A43] rounded-xl flex items-center justify-center mx-auto mb-4 p-2.5">
-            <img src="/monogram-white.svg" alt="MF" className="w-full h-full" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 font-brand">Maison Félicien</h1>
-          <p className="text-gray-500 text-sm mt-1">Connexion à votre espace</p>
+          <Link to="/">
+            <img src="/brand/Logo_Rose.svg" alt="Maison Felicien" className="h-12 mx-auto mb-5" />
+          </Link>
+          <p className="font-body text-[10px] uppercase tracking-[0.2em] text-mf-muted">
+            Espace equipe
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm p-6 space-y-4">
-          {error && (
-            <div className="bg-red-50 text-red-700 text-sm p-3 rounded-lg">
-              {error}
-            </div>
-          )}
+        <MfCard>
+          <h1 className="font-serif text-[24px] italic text-mf-rose text-center mb-6">
+            Connexion
+          </h1>
 
-          {resetSent && (
-            <div className="bg-green-50 text-green-700 text-sm p-3 rounded-lg">
-              Un email de réinitialisation a été envoyé à {email}
-            </div>
-          )}
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            {error && (
+              <div className="bg-status-red/10 text-status-red font-body text-[13px] p-3 rounded-xl">
+                {error}
+              </div>
+            )}
 
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
-            <input
-              id="email"
+            {resetSent && (
+              <div className="bg-mf-vert-olive/10 text-mf-vert-olive font-body text-[13px] p-3 rounded-xl">
+                Un email de reinitialisation a ete envoye a {email}
+              </div>
+            )}
+
+            <MfInput
+              label="Email"
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent"
               placeholder="votre@email.com"
             />
-          </div>
 
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-              Mot de passe
-            </label>
-            <input
-              id="password"
+            <MfInput
+              label="Mot de passe"
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent"
               placeholder="••••••••"
             />
-          </div>
 
-          <div className="text-right">
-            <button
-              type="button"
-              onClick={handleResetPassword}
-              disabled={resetLoading}
-              className="text-xs text-[#8B3A43] hover:underline disabled:opacity-50"
-            >
-              {resetLoading ? 'Envoi...' : 'Mot de passe oublié ?'}
-            </button>
-          </div>
+            <div className="text-right">
+              <button
+                type="button"
+                onClick={handleResetPassword}
+                disabled={resetLoading}
+                className="font-body text-[12px] text-mf-vieux-rose hover:text-mf-rose transition-colors bg-transparent border-none cursor-pointer disabled:opacity-50"
+              >
+                {resetLoading ? 'Envoi...' : 'Mot de passe oublie ?'}
+              </button>
+            </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-2.5 bg-[#8B3A43] text-white text-sm font-medium rounded-lg hover:bg-[#7a3039] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {loading ? 'Connexion...' : 'Se connecter'}
-          </button>
+            <MfButton type="submit" fullWidth disabled={loading}>
+              {loading ? 'Connexion...' : 'Se connecter'}
+            </MfButton>
+          </form>
+        </MfCard>
 
-          <div className="text-center">
-            <Link to="/" className="text-sm text-gray-500 hover:text-gray-700">
-              &larr; Retour à l'accueil
-            </Link>
-          </div>
-        </form>
+        <div className="text-center mt-6">
+          <Link to="/" className="font-body text-[12px] text-mf-muted hover:text-mf-rose transition-colors">
+            Retour a l'accueil
+          </Link>
+        </div>
       </div>
     </div>
   );

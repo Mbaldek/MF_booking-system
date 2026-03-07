@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
-import { User, ChevronDown, LogOut, Shield, ChefHat } from 'lucide-react';
+import { User, ChevronDown, LogOut, Shield, ChefHat, Menu, X } from 'lucide-react';
 
 export default function ClientHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -22,6 +22,7 @@ export default function ClientHeader() {
   }, [userDropdown]);
 
   const menuLinks = [
+    { to: '/', label: 'Accueil' },
     { to: '/order', label: 'Commander' },
     { to: '/my-orders', label: 'Mes Commandes' },
   ];
@@ -33,9 +34,10 @@ export default function ClientHeader() {
         {/* Left — Menu toggle */}
         <button
           onClick={() => setMenuOpen(!menuOpen)}
-          className="font-body text-[11px] uppercase tracking-[0.14em] text-mf-rose cursor-pointer py-1 bg-transparent border-none w-20"
+          className="text-mf-rose cursor-pointer p-1.5 bg-transparent border-none w-10"
+          aria-label="Menu"
         >
-          {menuOpen ? 'Fermer' : 'Menu'}
+          {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
 
         {/* Center — SVG Logo */}
@@ -116,12 +118,13 @@ export default function ClientHeader() {
           />
 
           {/* Panel */}
-          <div className="relative w-80 bg-white p-12 flex flex-col gap-7 z-10 animate-fade-up">
+          <div className="relative w-72 bg-white p-8 pt-14 flex flex-col gap-5 z-10 animate-fade-up">
             <button
               onClick={() => setMenuOpen(false)}
-              className="absolute top-5 right-5 font-body text-[11px] uppercase tracking-[0.14em] text-mf-rose cursor-pointer bg-transparent border-none"
+              className="absolute top-4 right-4 text-mf-rose cursor-pointer bg-transparent border-none p-1"
+              aria-label="Fermer"
             >
-              Fermer
+              <X className="w-5 h-5" />
             </button>
 
             {/* Nav links */}
@@ -130,7 +133,7 @@ export default function ClientHeader() {
                 key={item.to}
                 to={item.to}
                 onClick={() => setMenuOpen(false)}
-                className="font-serif text-[28px] italic text-mf-rose leading-snug hover:text-mf-vieux-rose transition-colors duration-300"
+                className="font-serif text-[20px] italic text-mf-rose leading-snug hover:text-mf-vieux-rose transition-colors duration-300"
               >
                 {item.label}
               </Link>
@@ -142,7 +145,7 @@ export default function ClientHeader() {
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => setMenuOpen(false)}
-              className="font-serif text-[28px] italic text-mf-rose leading-snug hover:text-mf-vieux-rose transition-colors duration-300"
+              className="font-serif text-[20px] italic text-mf-rose leading-snug hover:text-mf-vieux-rose transition-colors duration-300"
             >
               Boutique
             </a>
