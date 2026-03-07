@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Search, ShoppingBag, Calendar, MapPin, ArrowRight } from 'lucide-react';
 import { supabase } from '@/api/supabase';
+import ClientHeader from '@/components/layout/ClientHeader';
 
 const PAYMENT_LABELS = {
   pending: 'En attente',
@@ -47,8 +48,9 @@ export default function OrderHistory() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F0F0E6] px-3 py-4 sm:px-4 sm:py-8">
-      <div className="max-w-2xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[#F0F0E6]">
+      <ClientHeader />
+      <div className="max-w-2xl mx-auto space-y-6 px-3 py-4 sm:px-4 sm:py-8">
         <div className="text-center space-y-2">
           <h1 className="text-2xl text-[#8B3A43]" style={{ fontFamily: "'Georgia', serif", fontStyle: 'italic' }}>Mes commandes</h1>
           <p className="text-sm text-[#9A8A7C]">Retrouvez vos commandes en saisissant votre email</p>

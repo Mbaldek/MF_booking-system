@@ -13,6 +13,7 @@ import MfInput from '@/components/ui/MfInput';
 import MfCard from '@/components/ui/MfCard';
 import MfStepIndicator from '@/components/ui/MfStepIndicator';
 import MfBlurModal from '@/components/ui/MfBlurModal';
+import ClientHeader from '@/components/layout/ClientHeader';
 
 /* ─── CollapsibleCategory ─── */
 function CollapsibleCategory({ catKey, catLabel, catEmoji, items, selectedId, onSelect }) {
@@ -441,15 +442,12 @@ export default function OrderPage() {
   return (
     <div className={`min-h-screen bg-mf-blanc-casse ${step === 2 ? 'pb-[120px]' : 'pb-10'}`}>
 
-      {/* ─── HEADER ─── */}
-      <header className="text-center bg-white border-b border-mf-border pt-9 pb-5 px-6">
-        <div className="text-[24px] leading-none text-mf-poudre opacity-50 mb-2">❋</div>
-        <p className="font-body text-[11px] uppercase tracking-[0.3em] text-mf-vieux-rose mb-0.5">Maison</p>
-        <h1 className="font-serif text-[34px] font-normal italic text-mf-rose leading-tight">
-          Félicien
-        </h1>
-        <p className="font-body text-[13px] text-mf-muted mt-2">{ev.name} · {eventDates}</p>
-      </header>
+      <ClientHeader />
+
+      {/* ─── Event banner ─── */}
+      <div className="text-center bg-white border-b border-mf-border py-4 px-6">
+        <p className="font-body text-[13px] text-mf-muted">{ev.name} · {eventDates}</p>
+      </div>
 
       {/* ─── STEP INDICATOR ─── */}
       <div className="max-w-[520px] mx-auto px-5 pt-6 pb-4">
@@ -484,10 +482,10 @@ export default function OrderPage() {
             {/* ─── Section A: Votre équipe ─── */}
             <MfCard>
               <h2 className="font-serif text-[22px] font-normal italic text-mf-rose mb-1">
-                Qui mange ?
+                Votre équipe
               </h2>
               <p className="font-body text-[12px] text-mf-muted leading-normal mb-4">
-                Ajoutez les prénoms de chaque convive, une seule fois.
+                Ajoutez les prénoms de chaque personne, une seule fois.
               </p>
 
               {/* Convive chips */}

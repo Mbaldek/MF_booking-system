@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { ShoppingBag, ArrowLeft, FileText, Search } from 'lucide-react';
+import { ShoppingBag, FileText, Search } from 'lucide-react';
 import { useMyOrders, useLookupOrders } from '@/hooks/useOrders';
 import { useAuth } from '@/lib/AuthContext';
+import ClientHeader from '@/components/layout/ClientHeader';
 
 const statusLabels = {
   pending: 'En attente',
@@ -181,15 +182,7 @@ export default function CustomerOrders() {
 
   return (
     <div className="min-h-screen bg-mf-blanc-casse">
-      <header className="bg-white border-b border-mf-border">
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="font-serif text-[22px] italic text-mf-rose">Mes commandes</h1>
-          <Link to="/" className="font-body text-[11px] text-mf-muted hover:text-mf-rose flex items-center gap-1 uppercase tracking-widest transition-colors">
-            <ArrowLeft className="w-4 h-4" />
-            Accueil
-          </Link>
-        </div>
-      </header>
+      <ClientHeader />
 
       <main className="max-w-2xl mx-auto px-4 py-8">
         {isAuthenticated ? (

@@ -5,6 +5,7 @@ import { fr } from 'date-fns/locale';
 import { Download, ArrowLeft, Home, CheckCircle2, User, MapPin, Mail, Phone, CalendarDays, UtensilsCrossed } from 'lucide-react';
 import { useOrderById } from '@/hooks/useOrders';
 import { useOrderLinesByOrder } from '@/hooks/useOrderLines';
+import ClientHeader from '@/components/layout/ClientHeader';
 
 const TYPE_LABELS = { entree: 'Entrée', plat: 'Plat', dessert: 'Dessert', boisson: 'Boisson' };
 const SLOT_LABELS = { midi: 'Midi', soir: 'Soir' };
@@ -114,8 +115,9 @@ export default function OrderSuccess() {
     : '';
 
   return (
-    <div className="min-h-screen bg-[#F0F0E6] py-8 px-4">
-      <div className="max-w-2xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[#F0F0E6]">
+      <ClientHeader />
+      <div className="max-w-2xl mx-auto space-y-6 py-8 px-4">
 
         {/* Success header */}
         <div className="bg-[#FDFAF7] rounded-2xl border border-[#E5D9D0] p-8 text-center space-y-4">
