@@ -435,6 +435,7 @@ export default function OrderPage() {
       } catch (stripeErr) {
         console.warn('Stripe checkout unavailable:', stripeErr);
       }
+      // Fallback: go to success page only if Stripe redirect didn't happen
       navigate(`/order/success/${result.order.id}`, { replace: true });
     } catch (error) {
       console.error('Erreur:', error);

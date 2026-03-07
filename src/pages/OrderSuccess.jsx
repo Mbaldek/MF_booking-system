@@ -1,10 +1,11 @@
 import { useRef, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Download, ArrowLeft, Home, CheckCircle2, User, MapPin, Mail, Phone, CalendarDays, UtensilsCrossed } from 'lucide-react';
+import { Download, ArrowLeft, Home, CheckCircle2, AlertCircle, CreditCard, User, MapPin, Mail, Phone, CalendarDays, UtensilsCrossed } from 'lucide-react';
 import { useOrderById } from '@/hooks/useOrders';
 import { useOrderLinesByOrder } from '@/hooks/useOrderLines';
+import { supabase } from '@/api/supabase';
 import ClientHeader from '@/components/layout/ClientHeader';
 
 const TYPE_LABELS = { entree: 'Entrée', plat: 'Plat', dessert: 'Dessert', boisson: 'Boisson' };
@@ -40,12 +41,35 @@ function groupLinesBySlotAndGuest(lines) {
 
 export default function OrderSuccess() {
   const { orderId } = useParams();
-  const { data: order, isLoading: orderLoading } = useOrderById(orderId);
+  const [searchParams] = useSearchParams();
+  const paymentParam = searchParams.get('payment');
+  const { data: order, isLoading: orderLoading, refetch: refetchOrder } = useOrderById(orderId);
   const { data: lines = [], isLoading: linesLoading } = useOrderLinesByOrder(orderId);
   const invoiceRef = useRef(null);
   const [downloading, setDownloading] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
   const isLoading = orderLoading || linesLoading;
+  const isCancelled = paymentParam === 'cancelled';
+  const isPending = order?.payment_status === 'pending';
+  const isPaid = order?.payment_status === 'paid';
+
+  const handleRetryPayment = async () => {
+    setRetrying(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-checkout-session', {
+        body: { orderId },
+      });
+      if (error) throw error;
+      if (data?.url) { window.location.href = data.url; return; }
+      alert('Impossible de relancer le paiement.');
+    } catch (err) {
+      console.error('Retry payment error:', err);
+      alert('Erreur lors de la relance du paiement.');
+    } finally {
+      setRetrying(false);
+    }
+  };
 
   const handleDownloadPDF = async () => {
     if (!invoiceRef.current) return;
@@ -119,19 +143,54 @@ export default function OrderSuccess() {
       <ClientHeader />
       <div className="max-w-2xl mx-auto space-y-6 py-8 px-4">
 
-        {/* Success header */}
-        <div className="bg-[#FDFAF7] rounded-2xl border border-[#E5D9D0] p-8 text-center space-y-4">
-          <div className="w-16 h-16 bg-[#E5B7B3]/30 rounded-full flex items-center justify-center mx-auto">
-            <CheckCircle2 className="w-10 h-10 text-[#8B3A43]" />
+        {/* Header — adapts to payment state */}
+        {(isCancelled || isPending) && !isPaid ? (
+          <div className="bg-[#FDFAF7] rounded-2xl border border-[#E5D9D0] p-8 text-center space-y-4">
+            <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto">
+              <AlertCircle className="w-10 h-10 text-amber-600" />
+            </div>
+            <h1 className="text-2xl font-bold text-[#8B3A43]" style={{ fontFamily: "'Georgia', serif", fontStyle: 'italic' }}>
+              {isCancelled ? 'Paiement annulé' : 'En attente de paiement'}
+            </h1>
+            <p className="text-[#9A8A7C]">
+              Votre commande <span className="font-mono font-semibold text-[#392D31]">{order.order_number}</span> a été enregistrée
+              {isCancelled ? ' mais le paiement a été annulé.' : ' et est en attente de paiement.'}
+            </p>
+            {eventName && (
+              <p className="text-sm text-[#9A8A7C]">{eventName} — {eventDates}</p>
+            )}
+            <div className="flex flex-col gap-3 pt-2">
+              <button
+                onClick={handleRetryPayment}
+                disabled={retrying}
+                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-mf-rose text-mf-blanc-casse font-medium rounded-full hover:opacity-90 transition-all disabled:opacity-50 uppercase tracking-[0.12em] text-[13px]"
+              >
+                <CreditCard className="w-4 h-4" />
+                {retrying ? 'Redirection...' : 'Réessayer le paiement'}
+              </button>
+              <Link
+                to="/order"
+                className="inline-flex items-center justify-center gap-2 px-4 py-3 text-sm text-[#8B3A43] hover:underline"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Retour à la commande
+              </Link>
+            </div>
           </div>
-          <h1 className="text-2xl font-bold text-[#8B3A43]" style={{ fontFamily: "'Georgia', serif", fontStyle: 'italic' }}>Commande confirmée !</h1>
-          <p className="text-[#9A8A7C]">
-            Votre commande <span className="font-mono font-semibold text-[#392D31]">{order.order_number}</span> a bien été enregistrée.
-          </p>
-          {eventName && (
-            <p className="text-sm text-[#9A8A7C]">{eventName} — {eventDates}</p>
-          )}
-        </div>
+        ) : (
+          <div className="bg-[#FDFAF7] rounded-2xl border border-[#E5D9D0] p-8 text-center space-y-4">
+            <div className="w-16 h-16 bg-[#E5B7B3]/30 rounded-full flex items-center justify-center mx-auto">
+              <CheckCircle2 className="w-10 h-10 text-[#8B3A43]" />
+            </div>
+            <h1 className="text-2xl font-bold text-[#8B3A43]" style={{ fontFamily: "'Georgia', serif", fontStyle: 'italic' }}>Commande confirmée !</h1>
+            <p className="text-[#9A8A7C]">
+              Votre commande <span className="font-mono font-semibold text-[#392D31]">{order.order_number}</span> a bien été enregistrée.
+            </p>
+            {eventName && (
+              <p className="text-sm text-[#9A8A7C]">{eventName} — {eventDates}</p>
+            )}
+          </div>
+        )}
 
         {/* Delivery method communication */}
         <div className="bg-[#FDFAF7] rounded-2xl border border-[#E5D9D0] p-6 space-y-3">
