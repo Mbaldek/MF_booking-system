@@ -2,18 +2,96 @@ import { useState, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Plus, Trash2, User, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useActiveEvents } from '@/hooks/useEvents';
-import { useMealSlots, useSlotMenuCounts } from '@/hooks/useMealSlots';
+import { useMealSlots } from '@/hooks/useMealSlots';
 import { useEventMenuItems } from '@/hooks/useMenuItems';
 import { useCreateOrder } from '@/hooks/useOrders';
 import { supabase } from '@/api/supabase';
-import MenuSelector from '@/components/order/MenuSelector';
 import MfButton from '@/components/ui/MfButton';
 import MfInput from '@/components/ui/MfInput';
 import MfCard from '@/components/ui/MfCard';
 import MfStepIndicator from '@/components/ui/MfStepIndicator';
-import MfBadge from '@/components/ui/MfBadge';
+import MfBlurModal from '@/components/ui/MfBlurModal';
+
+/* ─── CollapsibleCategory ─── */
+function CollapsibleCategory({ catKey, catLabel, catEmoji, items, selectedId, onSelect }) {
+  const selectedItem = selectedId ? items.find((i) => i.id === selectedId) : null;
+  const [open, setOpen] = useState(!selectedItem);
+  const isOpen = !selectedItem || open;
+
+  if (items.length === 0) return null;
+
+  return (
+    <div className={`mb-2 rounded-[14px] overflow-hidden border transition-colors ${
+      selectedItem && !isOpen ? 'border-status-green/20' : 'border-mf-border'
+    }`}>
+      {/* Header */}
+      <button
+        type="button"
+        onClick={() => selectedItem && setOpen(!open)}
+        className={`w-full flex items-center justify-between px-3.5 py-2.5 bg-transparent border-none text-left ${
+          selectedItem ? 'cursor-pointer' : 'cursor-default'
+        }`}
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-[15px]">{catEmoji}</span>
+          <span className="font-body text-[10px] uppercase tracking-[0.1em] font-medium text-mf-rose">{catLabel}</span>
+          {!selectedItem && <span className="font-body text-[9px] text-mf-muted">obligatoire</span>}
+        </div>
+        {selectedItem && !isOpen && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-status-green text-[11px]">✓</span>
+            <span className="font-body text-[12px] text-mf-marron-glace">{selectedItem.name}</span>
+            <span className="font-body text-[10px] text-mf-vieux-rose">modifier</span>
+          </div>
+        )}
+      </button>
+
+      {/* Items list */}
+      <div
+        className="overflow-hidden transition-all duration-300"
+        style={{ maxHeight: isOpen ? items.length * 80 + 20 : 0 }}
+      >
+        <div className="px-3.5 pb-2.5 space-y-1.5">
+          {items.map((item) => {
+            const isSelected = selectedId === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  onSelect(item.id);
+                  setTimeout(() => setOpen(false), 280);
+                }}
+                className={`w-full text-left p-3 rounded-[12px] border-[1.5px] flex items-center gap-2.5 cursor-pointer transition-all ${
+                  isSelected
+                    ? 'border-mf-rose bg-mf-poudre/15'
+                    : 'border-mf-border bg-white'
+                }`}
+              >
+                {/* Radio circle */}
+                <div className={`w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center transition-all ${
+                  isSelected ? 'border-mf-rose bg-mf-rose' : 'border-mf-border bg-white'
+                }`}>
+                  {isSelected && <span className="text-white text-[10px]">✓</span>}
+                </div>
+                <div>
+                  <div className={`font-body text-[13px] ${isSelected ? 'text-mf-rose font-medium' : 'text-mf-marron-glace'}`}>
+                    {item.name}
+                  </div>
+                  {item.description && (
+                    <div className="font-body text-[11px] text-mf-muted">{item.description}</div>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /* ═══════════════════════════════════════════════════════
    OrderPage — Tunnel de commande 4 étapes
@@ -25,13 +103,21 @@ export default function OrderPage() {
 
   // Form state
   const [formData, setFormData] = useState({
-    first_name: '', last_name: '', stand: '', phone: '', email: '',
-    delivery_method: 'livraison',
+    last_name: '', stand: '', phone: '', email: '',
     company_name: '', billing_address: '', billing_postal_code: '', billing_city: '',
   });
-  const [selectedSlotIds, setSelectedSlotIds] = useState([]);
-  const [slotGuests, setSlotGuests] = useState({});
   const [rgpdConsent, setRgpdConsent] = useState(false);
+
+  // V4 states — matrix + menu funnel
+  const [convives, setConvives] = useState([]);
+  const [matrix, setMatrix] = useState({});
+  const [newConviveName, setNewConviveName] = useState('');
+  const [menuSelections, setMenuSelections] = useState({});
+  const [sameForAll, setSameForAll] = useState(true);
+  const [menuSlotIdx, setMenuSlotIdx] = useState(0);
+  const [activeConvive, setActiveConvive] = useState(0);
+  const [autoFillDone, setAutoFillDone] = useState(false);
+  const [showAutoFill, setShowAutoFill] = useState(false);
 
   // Data hooks
   const { data: activeEvents = [], isLoading: eventsLoading } = useActiveEvents();
@@ -40,7 +126,6 @@ export default function OrderPage() {
   const ev = activeEvents.length > 0 ? activeEvents[0] : null;
   const eventId = ev?.id;
   const { data: allMealSlots = [] } = useMealSlots(eventId);
-  const { data: slotCounts = {} } = useSlotMenuCounts(eventId);
   const { data: menuItems = [] } = useEventMenuItems(eventId);
 
   const mealSlots = useMemo(() => {
@@ -64,101 +149,226 @@ export default function OrderPage() {
     return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
   }, [mealSlots]);
 
-  // Handlers
-  const handleToggleSlot = useCallback((slotId) => {
-    setSelectedSlotIds((prev) => {
-      if (prev.includes(slotId)) {
-        setSlotGuests((current) => {
-          const { [slotId]: removed, ...rest } = current;
-          return rest;
+  // ─── V4 Matrix helpers ───
+  const addConvive = useCallback((name) => {
+    const n = name.trim();
+    if (n && !convives.includes(n) && convives.length < 6) {
+      setConvives((prev) => [...prev, n]);
+      setNewConviveName('');
+    }
+  }, [convives]);
+
+  const removeConvive = useCallback((name) => {
+    setConvives((prev) => prev.filter((c) => c !== name));
+    setMatrix((prev) => { const m = { ...prev }; delete m[name]; return m; });
+  }, []);
+
+  const isMatrixChecked = useCallback((conv, slotId) => !!(matrix[conv]?.[slotId]), [matrix]);
+
+  const toggleMatrix = useCallback((conv, slotId) => {
+    setMatrix((prev) => ({
+      ...prev,
+      [conv]: { ...(prev[conv] || {}), [slotId]: !prev[conv]?.[slotId] },
+    }));
+  }, []);
+
+  const toggleRowAll = useCallback((conv) => {
+    const allChecked = mealSlots.every((s) => isMatrixChecked(conv, s.id));
+    setMatrix((prev) => ({
+      ...prev,
+      [conv]: Object.fromEntries(mealSlots.map((s) => [s.id, !allChecked])),
+    }));
+  }, [mealSlots, isMatrixChecked]);
+
+  const selectAllMatrix = useCallback(() => {
+    const m = {};
+    convives.forEach((c) => {
+      m[c] = {};
+      mealSlots.forEach((s) => { m[c][s.id] = true; });
+    });
+    setMatrix(m);
+  }, [convives, mealSlots]);
+
+  const clearAllMatrix = useCallback(() => setMatrix({}), []);
+
+  const isAllMatrixSelected = useMemo(
+    () => convives.length > 0 && mealSlots.length > 0 && convives.every((c) => mealSlots.every((s) => matrix[c]?.[s.id])),
+    [convives, mealSlots, matrix]
+  );
+
+  const isRowAll = useCallback(
+    (conv) => mealSlots.length > 0 && mealSlots.every((s) => matrix[conv]?.[s.id]),
+    [mealSlots, matrix]
+  );
+
+  const v4TotalMeals = useMemo(
+    () => convives.reduce((sum, c) => sum + mealSlots.filter((s) => matrix[c]?.[s.id]).length, 0),
+    [convives, mealSlots, matrix]
+  );
+
+  const v4TotalPrice = useMemo(
+    () => convives.reduce((sum, c) => sum + mealSlots
+      .filter((s) => matrix[c]?.[s.id])
+      .reduce((ss, s) => ss + Number(s.slot_type === 'soir' ? ev?.menu_price_soir : ev?.menu_price_midi) || 0, 0), 0),
+    [convives, mealSlots, matrix, ev]
+  );
+
+  const formatSlotPill = useCallback((slot) => {
+    const icon = slot.slot_type === 'soir' ? '☽' : '☀';
+    const day = format(new Date(slot.slot_date + 'T00:00:00'), 'EEE d', { locale: fr });
+    const label = slot.slot_type === 'midi' ? 'Midi' : 'Soir';
+    return `${icon} ${day} ${label}`;
+  }, []);
+
+  // ─── V4 Menu helpers ───
+  const catConfig = useMemo(() => {
+    const cats = [];
+    if (categories.includes('entree')) cats.push({ key: 'entree', label: 'Entrée', emoji: '🥗', items: entrees });
+    if (categories.includes('plat')) cats.push({ key: 'plat', label: 'Plat', emoji: '🍽', items: plats });
+    if (categories.includes('dessert')) cats.push({ key: 'dessert', label: 'Dessert', emoji: '🍰', items: desserts });
+    if (categories.includes('boisson')) cats.push({ key: 'boisson', label: 'Boisson', emoji: '🥤', items: boissons });
+    return cats;
+  }, [categories, entrees, plats, desserts, boissons]);
+
+  const activeSlots = useMemo(
+    () => mealSlots.filter((s) => convives.some((c) => matrix[c]?.[s.id])),
+    [mealSlots, convives, matrix]
+  );
+
+  const slotConvives = useMemo(() => {
+    const sc = {};
+    activeSlots.forEach((s) => { sc[s.id] = convives.filter((c) => matrix[c]?.[s.id]); });
+    return sc;
+  }, [activeSlots, convives, matrix]);
+
+  const currentSlot = activeSlots[menuSlotIdx];
+  const currentConv = currentSlot ? (slotConvives[currentSlot.id] || []) : [];
+
+  const getSelKey = useCallback(() => sameForAll ? '__all__' : currentConv[activeConvive], [sameForAll, currentConv, activeConvive]);
+  const getSel = useCallback((slotId, k) => (menuSelections[slotId] || {})[k] || {}, [menuSelections]);
+
+  const curSel = currentSlot ? getSel(currentSlot.id, getSelKey()) : {};
+  const isMenuComplete = catConfig.every((c) => curSel[c.key]);
+  const isConvDone = useCallback((slotId, name) => catConfig.every((c) => getSel(slotId, name)[c.key]), [catConfig, getSel]);
+  const isSlotDone = useCallback((slotId) => {
+    const cv = slotConvives[slotId] || [];
+    return sameForAll
+      ? catConfig.every((c) => getSel(slotId, '__all__')[c.key])
+      : cv.every((n) => isConvDone(slotId, n));
+  }, [slotConvives, sameForAll, catConfig, getSel, isConvDone]);
+
+  const doneSlots = activeSlots.filter((s) => isSlotDone(s.id)).length;
+  const allSlotsDone = doneSlots === activeSlots.length && activeSlots.length > 0;
+  const isLastSlot = menuSlotIdx === activeSlots.length - 1;
+  const allConvThisSlot = sameForAll ? isMenuComplete : currentConv.every((n) => isConvDone(currentSlot?.id, n));
+
+  const menuTotal = useMemo(
+    () => activeSlots.reduce((sum, s) => {
+      const price = Number(s.slot_type === 'soir' ? ev?.menu_price_soir : ev?.menu_price_midi) || 0;
+      return sum + (isSlotDone(s.id) ? price * (slotConvives[s.id]?.length || 0) : 0);
+    }, 0),
+    [activeSlots, ev, isSlotDone, slotConvives]
+  );
+
+  const setMenuChoice = useCallback((catKey, itemId) => {
+    if (!currentSlot) return;
+    const slotId = currentSlot.id;
+    const k = sameForAll ? '__all__' : currentConv[activeConvive];
+    setMenuSelections((prev) => ({
+      ...prev,
+      [slotId]: {
+        ...(prev[slotId] || {}),
+        [k]: {
+          ...((prev[slotId] || {})[k] || {}),
+          [catKey]: ((prev[slotId] || {})[k] || {})[catKey] === itemId ? null : itemId,
+          _pf: false,
+        },
+      },
+    }));
+  }, [currentSlot, sameForAll, currentConv, activeConvive]);
+
+  const handleMenuToggle = useCallback((val) => {
+    if (!val && sameForAll && currentSlot) {
+      const shared = getSel(currentSlot.id, '__all__');
+      const ns = { ...(menuSelections[currentSlot.id] || {}) };
+      currentConv.forEach((n) => {
+        if (!ns[n] || !catConfig.some((c) => ns[n][c.key])) {
+          ns[n] = { ...shared, _pf: true };
+        }
+      });
+      setMenuSelections((prev) => ({ ...prev, [currentSlot.id]: ns }));
+    }
+    setSameForAll(val);
+    setActiveConvive(0);
+  }, [sameForAll, currentSlot, currentConv, catConfig, menuSelections, getSel]);
+
+  const handleValidateSlot = useCallback(() => {
+    if (menuSlotIdx === 0 && !autoFillDone && activeSlots.length > 1) {
+      setShowAutoFill(true);
+      return;
+    }
+    if (!isLastSlot) {
+      setMenuSlotIdx((i) => i + 1);
+      setSameForAll(true);
+      setActiveConvive(0);
+    }
+  }, [menuSlotIdx, autoFillDone, activeSlots.length, isLastSlot]);
+
+  const handleAutoFill = useCallback(() => {
+    const firstSlotSel = menuSelections[activeSlots[0]?.id];
+    const ns = { ...menuSelections };
+    activeSlots.slice(1).forEach((s) => {
+      ns[s.id] = {};
+      if (firstSlotSel) {
+        Object.entries(firstSlotSel).forEach(([k, v]) => {
+          ns[s.id][k] = { ...v, _pf: true };
         });
-        return prev.filter((id) => id !== slotId);
       }
-      return [...prev, slotId];
     });
-  }, []);
+    setMenuSelections(ns);
+    setAutoFillDone(true);
+    setShowAutoFill(false);
+    setMenuSlotIdx(1);
+  }, [menuSelections, activeSlots]);
 
-  const handleAddGuest = useCallback((slotId) => {
-    setSlotGuests((prev) => ({
-      ...prev,
-      [slotId]: [{ name: '', entree: null, plat: null, dessert: null, boisson: null }, ...(prev[slotId] || [])],
-    }));
-  }, []);
-
-  const handleRemoveGuest = useCallback((slotId, guestIndex) => {
-    setSlotGuests((prev) => ({
-      ...prev,
-      [slotId]: (prev[slotId] || []).filter((_, i) => i !== guestIndex),
-    }));
-  }, []);
-
-  const handleGuestNameChange = useCallback((slotId, guestIndex, name) => {
-    setSlotGuests((prev) => {
-      const guests = [...(prev[slotId] || [])];
-      guests[guestIndex] = { ...guests[guestIndex], name };
-      return { ...prev, [slotId]: guests };
-    });
-  }, []);
-
-  const handleGuestMenuSelection = useCallback((slotId, guestIndex, type, itemId) => {
-    setSlotGuests((prev) => {
-      const guests = [...(prev[slotId] || [])];
-      guests[guestIndex] = { ...guests[guestIndex], [type]: itemId };
-      return { ...prev, [slotId]: guests };
-    });
-  }, []);
-
-  const calculateTotal = () => {
-    if (!ev) return 0;
-    let total = 0;
-    selectedSlotIds.forEach((slotId) => {
-      const slot = mealSlots.find((s) => s.id === slotId);
-      const price = slot?.slot_type === 'soir' ? Number(ev.menu_price_soir) : Number(ev.menu_price_midi);
-      total += (slotGuests[slotId]?.length || 0) * price;
-    });
-    return total;
-  };
-
-  const total = calculateTotal();
-  const mealCount = selectedSlotIds.reduce((c, sid) => c + (slotGuests[sid]?.length || 0), 0);
-
-  // Validation per step
-  const isStep0Valid = formData.first_name && formData.last_name && formData.stand && formData.phone && formData.email;
-
-  const isStep1Valid = selectedSlotIds.length > 0 && selectedSlotIds.every((slotId) => {
-    const guests = slotGuests[slotId] || [];
-    return guests.length > 0;
-  });
-
-  const isStep2Valid = selectedSlotIds.every((slotId) => {
-    const guests = slotGuests[slotId] || [];
-    return guests.length > 0 && guests.every((g) =>
-      g.name.trim() &&
-      (entrees.length === 0 || g.entree) &&
-      (plats.length === 0 || g.plat) &&
-      (desserts.length === 0 || g.dessert) &&
-      (boissons.length === 0 || g.boisson)
-    );
-  });
-
+  // Validation
+  const isStep0Valid = formData.last_name && formData.stand && formData.phone && formData.email;
   const isStep3Valid = formData.billing_address && formData.billing_postal_code && formData.billing_city && rgpdConsent;
 
-  // Submit
+  // V4 total (all slots, not just "done" ones — for the recap/payment)
+  const v4FinalTotal = useMemo(
+    () => activeSlots.reduce((sum, s) => {
+      const price = Number(s.slot_type === 'soir' ? ev?.menu_price_soir : ev?.menu_price_midi) || 0;
+      return sum + price * (slotConvives[s.id]?.length || 0);
+    }, 0),
+    [activeSlots, ev, slotConvives]
+  );
+
+  // Submit — builds order + order_lines from V4 matrix + menuSelections
   const handleSubmit = async () => {
-    const totalAmount = calculateTotal();
+    let totalAmount = 0;
     const orderLines = [];
-    selectedSlotIds.forEach((slotId) => {
-      const slot = mealSlots.find((s) => s.id === slotId);
-      const menuPrice = slot?.slot_type === 'soir' ? Number(ev.menu_price_soir) : Number(ev.menu_price_midi);
-      (slotGuests[slotId] || []).forEach((guest) => {
-        ['entree', 'plat', 'dessert', 'boisson'].forEach((type) => {
-          if (guest[type]) {
+
+    activeSlots.forEach((slot) => {
+      const menuPrice = Number(slot.slot_type === 'soir' ? ev.menu_price_soir : ev.menu_price_midi) || 0;
+      const cv = slotConvives[slot.id] || [];
+      totalAmount += cv.length * menuPrice;
+
+      cv.forEach((conviveName) => {
+        // Resolve selections: use per-convive if it exists, else __all__
+        const sel = getSel(slot.id, conviveName);
+        const allSel = getSel(slot.id, '__all__');
+        const finalSel = catConfig.some((c) => sel[c.key]) ? sel : allSel;
+
+        catConfig.forEach((cat) => {
+          const itemId = finalSel[cat.key];
+          if (itemId) {
             orderLines.push({
-              meal_slot_id: slotId,
-              menu_item_id: guest[type],
+              meal_slot_id: slot.id,
+              menu_item_id: itemId,
               quantity: 1,
-              unit_price: 0,
-              guest_name: guest.name.trim(),
+              unit_price: menuPrice,
+              guest_name: conviveName,
               menu_unit_price: menuPrice,
             });
           }
@@ -170,14 +380,14 @@ export default function OrderPage() {
       const result = await createOrder.mutateAsync({
         orderData: {
           event_id: ev.id,
-          customer_first_name: formData.first_name,
+          customer_first_name: convives[0] || '',
           customer_last_name: formData.last_name,
           customer_email: formData.email,
           customer_phone: formData.phone,
           stand: formData.stand,
           total_amount: totalAmount,
           payment_status: 'pending',
-          delivery_method: formData.delivery_method,
+          delivery_method: 'livraison',
           company_name: formData.company_name || null,
           billing_address: formData.billing_address,
           billing_postal_code: formData.billing_postal_code,
@@ -203,25 +413,6 @@ export default function OrderPage() {
     }
   };
 
-  // Selected slots grouped by date
-  const selectedSlotsByDate = useMemo(() => {
-    const groups = {};
-    selectedSlotIds.forEach((slotId) => {
-      const slot = mealSlots.find((s) => s.id === slotId);
-      if (!slot) return;
-      if (!groups[slot.slot_date]) groups[slot.slot_date] = [];
-      groups[slot.slot_date].push(slot);
-    });
-    return Object.entries(groups)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, slots]) => ({ date, slots: slots.sort((a, b) => (a.slot_type === 'midi' ? -1 : 1)) }));
-  }, [selectedSlotIds, mealSlots]);
-
-  // Active menu day tab
-  const [activeMenuDay, setActiveMenuDay] = useState(null);
-  const menuDay = activeMenuDay || (selectedSlotsByDate.length > 0 ? selectedSlotsByDate[0].date : null);
-
-  const slotLabels = { midi: 'Midi', soir: 'Soir' };
 
   /* ─── Loading ─── */
   if (eventsLoading) {
@@ -262,7 +453,7 @@ export default function OrderPage() {
 
       {/* ─── STEP INDICATOR ─── */}
       <div className="max-w-[520px] mx-auto px-5 pt-6 pb-4">
-        <MfStepIndicator steps={['Infos', 'Jours', 'Menus', 'Récap']} current={step} />
+        <MfStepIndicator steps={['Infos', 'Créneaux', 'Menus', 'Récap']} current={step} />
       </div>
 
       <div className="max-w-[520px] mx-auto px-5">
@@ -274,42 +465,10 @@ export default function OrderPage() {
               Vos coordonnées
             </h2>
             <div className="flex flex-col gap-4">
-              <div className="grid grid-cols-2 gap-3">
-                <MfInput label="Prénom" value={formData.first_name} onChange={(e) => setFormData({ ...formData, first_name: e.target.value })} placeholder="Jean" />
-                <MfInput label="Nom" value={formData.last_name} onChange={(e) => setFormData({ ...formData, last_name: e.target.value })} placeholder="Dupont" />
-              </div>
+              <MfInput label="Nom" value={formData.last_name} onChange={(e) => setFormData({ ...formData, last_name: e.target.value })} placeholder="Dupont" />
               <MfInput label="Stand" value={formData.stand} onChange={(e) => setFormData({ ...formData, stand: e.target.value })} placeholder="A-42" />
               <MfInput label="Téléphone" type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="06 12 34 56 78" />
-              <MfInput label="Email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="jean@entreprise.com" />
-
-              {/* Delivery method */}
-              <div className="pt-2">
-                <label className="font-body text-[10px] uppercase tracking-[0.12em] text-mf-rose block mb-2 pl-1">
-                  Mode de retrait
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { value: 'retrait', label: 'Retrait', desc: 'Je viens chercher' },
-                    { value: 'livraison', label: 'Livraison', desc: 'Sur mon stand' },
-                  ].map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, delivery_method: opt.value })}
-                      className={`p-3 rounded-card text-left transition-all duration-200 border-[1.5px] cursor-pointer ${
-                        formData.delivery_method === opt.value
-                          ? 'border-mf-rose bg-mf-poudre/15'
-                          : 'border-mf-border bg-white'
-                      }`}
-                    >
-                      <p className={`font-body text-sm font-medium ${formData.delivery_method === opt.value ? 'text-mf-rose' : 'text-mf-marron-glace'}`}>
-                        {opt.label}
-                      </p>
-                      <p className="font-body text-xs text-mf-muted mt-0.5">{opt.desc}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <MfInput label="Email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="contact@entreprise.com" />
             </div>
 
             <MfButton fullWidth disabled={!isStep0Valid} onClick={() => setStep(1)} className="mt-6">
@@ -318,233 +477,555 @@ export default function OrderPage() {
           </MfCard>
         )}
 
-        {/* ═══ STEP 1: SELECT SLOTS + GUESTS ═══ */}
+        {/* ═══ STEP 1: CONVIVES + MATRIX ═══ */}
         {step === 1 && (
-          <MfCard>
-            <h2 className="font-serif text-[22px] font-normal italic text-mf-rose mb-2">
-              Vos jours de repas
-            </h2>
-            <p className="font-body text-[13px] text-mf-muted leading-normal mb-5">
-              Sélectionnez vos créneaux, puis ajoutez un menu par convive.
-            </p>
+          <div className="space-y-3">
 
-            <div className="space-y-4">
-              {slotsByDate.map(([date, slots]) => {
-                const dayName = format(new Date(date + 'T00:00:00'), 'EEEE', { locale: fr });
-                const dayDate = format(new Date(date + 'T00:00:00'), 'd MMM', { locale: fr });
+            {/* ─── Section A: Votre équipe ─── */}
+            <MfCard>
+              <h2 className="font-serif text-[22px] font-normal italic text-mf-rose mb-1">
+                Qui mange ?
+              </h2>
+              <p className="font-body text-[12px] text-mf-muted leading-normal mb-4">
+                Ajoutez les prénoms de chaque convive, une seule fois.
+              </p>
 
-                return (
-                  <div key={date}>
-                    <p className="font-body text-sm font-medium capitalize text-mf-marron-glace mb-2">
-                      {dayName} {dayDate}
+              {/* Convive chips */}
+              {convives.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {convives.map((name) => (
+                    <div key={name} className="flex items-center gap-1.5 py-1.5 pl-2.5 pr-2 rounded-pill bg-mf-poudre/15 border border-mf-poudre">
+                      <div className="w-[26px] h-[26px] rounded-full bg-mf-rose flex items-center justify-center font-body text-[12px] font-medium text-mf-blanc-casse">
+                        {name[0].toUpperCase()}
+                      </div>
+                      <span className="font-body text-[14px] text-mf-marron-glace">{name}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeConvive(name)}
+                        className="w-[22px] h-[22px] rounded-full bg-mf-rose/8 flex items-center justify-center cursor-pointer border-none transition-colors hover:bg-mf-rose/20"
+                      >
+                        <X className="w-3 h-3 text-mf-rose" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add convive input */}
+              {convives.length < 6 ? (
+                <div className="flex gap-1.5">
+                  <input
+                    type="text"
+                    value={newConviveName}
+                    onChange={(e) => setNewConviveName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addConvive(newConviveName)}
+                    placeholder="Prénom du convive"
+                    className="flex-1 px-4 py-2.5 border-[1.5px] border-mf-border rounded-pill text-[14px] font-body bg-white text-mf-marron-glace outline-none focus:border-mf-rose transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => addConvive(newConviveName)}
+                    disabled={!newConviveName.trim()}
+                    className={`w-[44px] h-[44px] rounded-full border-none flex items-center justify-center text-[20px] transition-all cursor-pointer ${
+                      newConviveName.trim()
+                        ? 'bg-mf-rose text-mf-blanc-casse'
+                        : 'bg-mf-border text-mf-muted cursor-default'
+                    }`}
+                  >
+                    +
+                  </button>
+                </div>
+              ) : (
+                <p className="font-body text-[11px] text-mf-muted">Maximum 6 convives atteint</p>
+              )}
+            </MfCard>
+
+            {/* ─── Section B: Qui mange quand ? (Matrix) ─── */}
+            {convives.length > 0 && (
+              <MfCard>
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h2 className="font-serif text-[22px] font-normal italic text-mf-rose mb-0.5">
+                      Qui mange quand ?
+                    </h2>
+                    <p className="font-body text-[12px] text-mf-muted">
+                      Cochez les créneaux pour chaque convive.
                     </p>
-                    <div className="flex flex-wrap gap-2">
-                      {slots.map((slot) => {
-                        const isSelected = selectedSlotIds.includes(slot.id);
-                        const count = slotCounts[slot.id] || 0;
-                        const isFull = slot.max_orders != null && count >= slot.max_orders;
-                        return (
+                  </div>
+                  <button
+                    type="button"
+                    onClick={isAllMatrixSelected ? clearAllMatrix : selectAllMatrix}
+                    className={`shrink-0 font-body text-[10px] uppercase tracking-[0.06em] font-medium px-3.5 py-1.5 rounded-pill border-none cursor-pointer transition-colors ${
+                      isAllMatrixSelected
+                        ? 'bg-mf-vieux-rose/10 text-mf-vieux-rose'
+                        : 'bg-mf-vert-olive/10 text-mf-vert-olive'
+                    }`}
+                  >
+                    {isAllMatrixSelected ? '✕ Tout décocher' : '⚡ Tout cocher'}
+                  </button>
+                </div>
+
+                {/* One card per convive */}
+                <div className="space-y-2">
+                  {convives.map((name) => {
+                    const rowAll = isRowAll(name);
+                    const convSlotCount = mealSlots.filter((s) => matrix[name]?.[s.id]).length;
+                    const convPrice = mealSlots
+                      .filter((s) => matrix[name]?.[s.id])
+                      .reduce((sum, s) => sum + (Number(s.slot_type === 'soir' ? ev.menu_price_soir : ev.menu_price_midi) || 0), 0);
+
+                    return (
+                      <div
+                        key={name}
+                        className={`p-3 rounded-card border transition-colors ${
+                          rowAll
+                            ? 'border-status-green/25 bg-status-green/[0.03]'
+                            : 'border-mf-border bg-white'
+                        }`}
+                      >
+                        {/* Convive header */}
+                        <div className="flex justify-between items-center mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-[32px] h-[32px] rounded-full flex items-center justify-center font-body text-[13px] font-medium transition-all ${
+                              rowAll
+                                ? 'bg-mf-rose text-mf-blanc-casse'
+                                : 'bg-mf-poudre/40 text-mf-marron-glace'
+                            }`}>
+                              {name[0].toUpperCase()}
+                            </div>
+                            <span className="font-body text-[15px] font-medium text-mf-marron-glace">{name}</span>
+                          </div>
                           <button
-                            key={slot.id}
                             type="button"
-                            onClick={() => handleToggleSlot(slot.id)}
-                            disabled={isFull && !isSelected}
-                            className={`flex flex-col items-center gap-0.5 rounded-pill border-[1.5px] px-5 py-2.5 min-w-[90px] transition-all duration-300 font-body cursor-pointer ${
-                              isFull && !isSelected
-                                ? 'bg-mf-blanc-casse border-mf-border text-mf-muted-light opacity-60 cursor-not-allowed'
-                                : isSelected
-                                  ? 'bg-mf-rose border-mf-rose text-mf-blanc-casse'
-                                  : 'bg-white border-mf-border text-mf-marron-glace'
+                            onClick={() => toggleRowAll(name)}
+                            className={`font-body text-[10px] uppercase tracking-[0.06em] px-2.5 py-1 rounded-pill border-none cursor-pointer transition-colors ${
+                              rowAll
+                                ? 'bg-mf-vieux-rose/10 text-mf-vieux-rose'
+                                : 'bg-mf-vert-olive/10 text-mf-vert-olive'
                             }`}
                           >
-                            <span className="text-[13px] font-medium">{slotLabels[slot.slot_type]}</span>
-                            <span className="text-[11px] opacity-70">
-                              {isFull ? 'Complet' : slot.max_orders != null ? `${slot.max_orders - count} pl.` : ''}
-                            </span>
+                            {rowAll ? 'Décocher tout' : '⚡ Tous les créneaux'}
                           </button>
+                        </div>
+
+                        {/* Slot pills */}
+                        <div className="flex flex-wrap gap-1.5">
+                          {mealSlots.map((slot) => {
+                            const checked = !!matrix[name]?.[slot.id];
+                            return (
+                              <button
+                                key={slot.id}
+                                type="button"
+                                onClick={() => toggleMatrix(name, slot.id)}
+                                className={`py-1.5 px-3 rounded-pill border-[1.5px] cursor-pointer transition-all duration-150 font-body text-[11px] flex items-center gap-1.5 ${
+                                  checked
+                                    ? 'border-mf-rose bg-mf-poudre/15 text-mf-rose'
+                                    : 'border-mf-border bg-white text-mf-muted'
+                                }`}
+                              >
+                                {checked && <span className="text-[10px]">✓</span>}
+                                {formatSlotPill(slot)}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Convive stats */}
+                        {convSlotCount > 0 && (
+                          <p className="font-body text-[11px] text-mf-muted mt-1.5">
+                            {convSlotCount} créneau{convSlotCount > 1 ? 'x' : ''}
+                            <span className="text-mf-vert-olive"> · {convPrice}€</span>
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* ─── Sub-total ─── */}
+                {v4TotalMeals > 0 && (
+                  <div className="mt-4 p-3.5 rounded-card bg-mf-blanc-casse">
+                    <div className="flex justify-between mb-1.5">
+                      <span className="font-body text-[12px] text-mf-muted">Total repas</span>
+                      <span className="font-body text-[12px] font-medium text-mf-marron-glace">{v4TotalMeals}</span>
+                    </div>
+
+                    {/* Per-slot breakdown */}
+                    <div className="border-t border-mf-border pt-2 mt-1.5 space-y-0.5">
+                      {mealSlots.filter((s) => convives.some((c) => matrix[c]?.[s.id])).map((slot) => {
+                        const count = convives.filter((c) => matrix[c]?.[slot.id]).length;
+                        const price = Number(slot.slot_type === 'soir' ? ev.menu_price_soir : ev.menu_price_midi) || 0;
+                        return (
+                          <div key={slot.id} className="flex justify-between">
+                            <span className="font-body text-[11px] text-mf-muted">
+                              {formatSlotPill(slot)} · {count} conv.
+                            </span>
+                            <span className="font-body text-[11px] text-mf-marron-glace">{count * price}€</span>
+                          </div>
                         );
                       })}
                     </div>
 
-                    {/* Guest management for selected slots of this date */}
-                    {slots.filter((s) => selectedSlotIds.includes(s.id)).map((slot) => {
-                      const guests = slotGuests[slot.id] || [];
-                      const menuPrice = slot.slot_type === 'soir' ? Number(ev.menu_price_soir) : Number(ev.menu_price_midi);
-                      return (
-                        <div key={`g-${slot.id}`} className="mt-3 ml-2 pl-3 border-l-2 border-mf-poudre">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="font-body text-[11px] uppercase tracking-wider font-medium text-mf-rose">
-                              {slotLabels[slot.slot_type]} — {menuPrice.toFixed(2)}€/menu
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleAddGuest(slot.id)}
-                              className="inline-flex items-center gap-1 px-3 py-1 font-body text-[11px] uppercase tracking-wider rounded-pill bg-mf-rose/10 text-mf-rose transition-colors cursor-pointer border-none"
-                            >
-                              <Plus className="w-3 h-3" /> Convive
-                            </button>
-                          </div>
-                          {guests.length === 0 && (
-                            <p className="font-body text-sm py-3 text-center border-2 border-dashed border-mf-border rounded-card text-mf-muted-light">
-                              Ajoutez au moins un convive
-                            </p>
-                          )}
-                          {guests.map((g, gi) => (
-                            <div key={gi} className="flex items-center gap-2 mb-2">
-                              <User className="w-4 h-4 shrink-0 text-mf-muted-light" />
-                              <input
-                                type="text"
-                                placeholder="Prénom du convive"
-                                value={g.name}
-                                onChange={(e) => handleGuestNameChange(slot.id, gi, e.target.value)}
-                                className="flex-1 px-3 py-2 border border-mf-border rounded-pill text-sm font-body bg-white text-mf-marron-glace outline-none focus:border-mf-rose transition-colors"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveGuest(slot.id, gi)}
-                                className="p-1.5 rounded-full text-mf-vieux-rose transition-colors cursor-pointer bg-transparent border-none hover:text-mf-rose"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })}
+                    <div className="border-t border-mf-border pt-2 mt-2 flex justify-between items-center">
+                      <span className="font-body text-[13px] font-medium text-mf-rose">Estimation</span>
+                      <span className="font-serif text-[20px] italic text-mf-rose">{v4TotalPrice} €</span>
+                    </div>
                   </div>
-                );
-              })}
-            </div>
-
-            {/* Nav buttons */}
-            <div className="flex gap-3 mt-6">
-              <MfButton variant="secondary" onClick={() => setStep(0)} className="flex-1">
-                <ChevronLeft className="w-4 h-4 inline -mt-0.5 mr-1" /> Retour
-              </MfButton>
-              <MfButton
-                disabled={!isStep1Valid}
-                onClick={() => { setStep(2); setActiveMenuDay(selectedSlotsByDate[0]?.date || null); }}
-                className="flex-[2]"
-              >
-                Choisir les menus <ChevronRight className="w-4 h-4 inline -mt-0.5 ml-1" />
-              </MfButton>
-            </div>
-          </MfCard>
-        )}
-
-        {/* ═══ STEP 2: MENU SELECTION ═══ */}
-        {step === 2 && (
-          <div>
-            {/* Day tabs */}
-            <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
-              {selectedSlotsByDate.map(({ date }) => {
-                const dayName = format(new Date(date + 'T00:00:00'), 'EEE d MMM', { locale: fr });
-                const isActive = menuDay === date;
-                const hasMenus = mealSlots.filter((s) => s.slot_date === date && selectedSlotIds.includes(s.id))
-                  .some((s) => (slotGuests[s.id] || []).some((g) => g.entree || g.plat || g.dessert || g.boisson));
-                return (
-                  <button
-                    key={date}
-                    onClick={() => setActiveMenuDay(date)}
-                    className={`whitespace-nowrap font-body text-[12px] px-4 py-2 rounded-pill flex items-center gap-1.5 transition-all duration-200 border-[1.5px] cursor-pointer ${
-                      isActive
-                        ? 'bg-mf-rose border-mf-rose text-mf-blanc-casse'
-                        : hasMenus
-                          ? 'bg-mf-poudre/30 border-mf-poudre text-mf-marron-glace'
-                          : 'bg-white border-mf-border text-mf-marron-glace'
-                    }`}
-                  >
-                    {hasMenus && !isActive && <span className="text-mf-vert-olive">✓</span>}
-                    {dayName}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Menu card for active day */}
-            {menuDay && (
-              <MfCard className="p-5">
-                {mealSlots
-                  .filter((s) => s.slot_date === menuDay && selectedSlotIds.includes(s.id))
-                  .sort((a, b) => (a.slot_type === 'midi' ? -1 : 1))
-                  .map((slot) => {
-                    const guests = slotGuests[slot.id] || [];
-                    const menuPrice = slot.slot_type === 'soir' ? Number(ev.menu_price_soir) : Number(ev.menu_price_midi);
-
-                    return (
-                      <div key={slot.id} className="mb-6 last:mb-0">
-                        <div className="flex items-center justify-between mb-4">
-                          <h3 className="font-serif text-[20px] font-normal italic text-mf-rose">
-                            {format(new Date(menuDay + 'T00:00:00'), 'EEEE d MMMM', { locale: fr })} — {slotLabels[slot.slot_type]}
-                          </h3>
-                          <MfBadge variant="poudre">
-                            {menuPrice.toFixed(2)}€
-                          </MfBadge>
-                        </div>
-
-                        {guests.map((guest, gi) => (
-                          <div key={gi} className="mb-5 p-4 rounded-card bg-mf-blanc-casse/80 border border-mf-border">
-                            <div className="flex items-center gap-2 mb-3">
-                              <User className="w-4 h-4 text-mf-muted-light" />
-                              <span className="font-body text-sm font-medium text-mf-marron-glace">
-                                {guest.name || `Convive ${gi + 1}`}
-                              </span>
-                            </div>
-                            {entrees.length > 0 && (
-                              <MenuSelector type="entree" items={entrees} selectedId={guest.entree}
-                                onSelect={(id) => handleGuestMenuSelection(slot.id, gi, 'entree', id)} required />
-                            )}
-                            {plats.length > 0 && (
-                              <div className="mt-3">
-                                <MenuSelector type="plat" items={plats} selectedId={guest.plat}
-                                  onSelect={(id) => handleGuestMenuSelection(slot.id, gi, 'plat', id)} required />
-                              </div>
-                            )}
-                            {desserts.length > 0 && (
-                              <div className="mt-3">
-                                <MenuSelector type="dessert" items={desserts} selectedId={guest.dessert}
-                                  onSelect={(id) => handleGuestMenuSelection(slot.id, gi, 'dessert', id)} required />
-                              </div>
-                            )}
-                            {boissons.length > 0 && (
-                              <div className="mt-3">
-                                <MenuSelector type="boisson" items={boissons} selectedId={guest.boisson}
-                                  onSelect={(id) => handleGuestMenuSelection(slot.id, gi, 'boisson', id)} required />
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })}
-
-                <MfButton variant="secondary" fullWidth onClick={() => setStep(1)} className="mt-2">
-                  <ChevronLeft className="w-4 h-4 inline -mt-0.5 mr-1" /> Modifier les jours
-                </MfButton>
+                )}
               </MfCard>
             )}
 
-            {/* Sticky footer */}
-            <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-between items-center bg-white border-t border-mf-border px-6 py-4 shadow-[0_-4px_20px_rgba(57,45,49,0.06)]">
-              <div>
-                <div className="font-body text-[12px] uppercase tracking-wider text-mf-muted">
-                  {mealCount} repas sélectionné{mealCount > 1 ? 's' : ''}
-                </div>
-                <div className="font-serif text-[24px] italic text-mf-rose">
-                  {total.toFixed(2)} €
-                </div>
-              </div>
-              <MfButton disabled={!isStep2Valid} onClick={() => setStep(3)}>
-                Récapitulatif <ChevronRight className="w-4 h-4 inline -mt-0.5 ml-1" />
+            {/* ─── Navigation ─── */}
+            <div className="flex gap-3">
+              <MfButton variant="outline" onClick={() => setStep(0)} className="flex-1">
+                ← Infos
+              </MfButton>
+              <MfButton
+                disabled={v4TotalMeals === 0}
+                onClick={() => { setStep(2); setMenuSlotIdx(0); }}
+                className="flex-[2]"
+              >
+                {v4TotalMeals > 0
+                  ? `Choisir les menus (${v4TotalMeals} repas) →`
+                  : 'Sélectionnez au moins 1 créneau'}
               </MfButton>
             </div>
           </div>
         )}
 
+        {/* ═══ STEP 2: MENU SELECTION (V4 funnel) ═══ */}
+        {step === 2 && currentSlot && (
+          <div>
+            {/* ─── A) Slot tabs ─── */}
+            <div className="flex gap-1.5 overflow-x-auto pb-1.5 mb-2.5">
+              {activeSlots.map((s, i) => {
+                const isActive = i === menuSlotIdx;
+                const done = isSlotDone(s.id);
+                const cv = slotConvives[s.id] || [];
+                const isPf = done && getSel(s.id, '__all__')._pf;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => { setMenuSlotIdx(i); setSameForAll(true); setActiveConvive(0); }}
+                    className={`whitespace-nowrap font-body text-[11px] px-3 py-1.5 rounded-pill flex items-center gap-1 border-[1.5px] cursor-pointer transition-all ${
+                      isActive
+                        ? 'bg-mf-rose border-mf-rose text-mf-blanc-casse'
+                        : done
+                          ? 'bg-mf-poudre/40 border-mf-poudre text-mf-marron-glace'
+                          : 'bg-white border-mf-border text-mf-marron-glace'
+                    }`}
+                  >
+                    {done && !isActive && (
+                      <span className={`text-[9px] ${isPf ? 'text-mf-vert-olive' : 'text-status-green'}`}>
+                        {isPf ? '⚡' : '✓'}
+                      </span>
+                    )}
+                    {formatSlotPill(s)}
+                    <span className={`text-[9px] ${isActive ? 'text-mf-poudre' : 'text-mf-muted'}`}>{cv.length}p</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* ─── B) Progress bar ─── */}
+            <div className="p-2.5 px-3.5 rounded-[10px] bg-white border border-mf-border mb-2.5">
+              <div className="flex justify-between mb-1">
+                <span className="font-body text-[11px] text-mf-marron-glace">
+                  Créneau <strong>{menuSlotIdx + 1}</strong>/{activeSlots.length}
+                </span>
+                <span className={`font-body text-[11px] font-medium ${allSlotsDone ? 'text-status-green' : 'text-mf-rose'}`}>
+                  {doneSlots}/{activeSlots.length}
+                </span>
+              </div>
+              <div className="h-1 rounded-sm bg-mf-blanc-casse">
+                <div
+                  className={`h-full rounded-sm transition-all duration-400 ${allSlotsDone ? 'bg-status-green' : 'bg-mf-rose'}`}
+                  style={{ width: `${(doneSlots / activeSlots.length) * 100}%` }}
+                />
+              </div>
+            </div>
+
+            {/* ─── C) Slot card ─── */}
+            <MfCard>
+              {/* C1. Header */}
+              <div className="flex justify-between items-center mb-1">
+                <h2 className="font-serif text-[18px] font-normal italic text-mf-rose">
+                  {format(new Date(currentSlot.slot_date + 'T00:00:00'), 'EEEE d MMMM', { locale: fr })} — {currentSlot.slot_type === 'midi' ? 'Midi' : 'Soir'}
+                </h2>
+                <span className="font-body text-[11px] font-medium text-mf-vert-olive px-2.5 py-0.5 rounded-pill bg-mf-vert-olive/10">
+                  {(Number(currentSlot.slot_type === 'soir' ? ev.menu_price_soir : ev.menu_price_midi) || 0) * currentConv.length}€
+                </span>
+              </div>
+
+              {/* C2. Convive avatars */}
+              <div className="flex gap-1.5 my-2 pb-2 border-b border-mf-blanc-casse">
+                {currentConv.map((n, i) => {
+                  const done = sameForAll ? isMenuComplete : isConvDone(currentSlot.id, n);
+                  const ac = !sameForAll && i === activeConvive;
+                  return (
+                    <div
+                      key={n}
+                      onClick={() => !sameForAll && setActiveConvive(i)}
+                      className={`flex flex-col items-center gap-0.5 transition-opacity ${
+                        sameForAll ? 'opacity-45' : 'cursor-pointer opacity-100'
+                      }`}
+                    >
+                      <div className={`w-[34px] h-[34px] rounded-full flex items-center justify-center font-body text-[13px] font-medium border-2 transition-all ${
+                        ac
+                          ? 'bg-mf-rose border-mf-rose text-mf-blanc-casse'
+                          : done
+                            ? 'bg-status-green/15 border-status-green/35 text-status-green'
+                            : 'bg-mf-poudre/30 border-transparent text-mf-marron-glace'
+                      }`}>
+                        {done && !ac ? <span className="text-[12px]">✓</span> : n[0].toUpperCase()}
+                      </div>
+                      <span className={`font-body text-[8px] ${ac ? 'text-mf-rose' : 'text-mf-muted'}`}>{n}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* C3. Same-for-all toggle */}
+              {currentConv.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => handleMenuToggle(!sameForAll)}
+                  className={`w-full flex items-center gap-2.5 p-2.5 px-3 rounded-[14px] border-[1.5px] cursor-pointer text-left mb-2.5 transition-colors ${
+                    sameForAll
+                      ? 'bg-mf-vert-olive/8 border-mf-vert-olive'
+                      : 'bg-white border-mf-border'
+                  }`}
+                >
+                  {/* Toggle switch */}
+                  <div className={`w-[38px] h-5 rounded-[10px] p-0.5 shrink-0 flex items-center transition-colors ${
+                    sameForAll ? 'bg-mf-vert-olive' : 'bg-mf-border'
+                  }`}>
+                    <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${
+                      sameForAll ? 'translate-x-[18px]' : 'translate-x-0'
+                    }`} />
+                  </div>
+                  <div>
+                    <div className="font-body text-[12px] font-medium text-mf-marron-glace">Même menu pour tous</div>
+                    {sameForAll && (
+                      <div className="font-body text-[10px] text-mf-vert-olive">
+                        ⚡ Un choix pour {currentConv.join(' & ')}
+                      </div>
+                    )}
+                  </div>
+                </button>
+              )}
+
+              {/* C4. Convive tabs (when sameForAll=false) */}
+              {!sameForAll && (
+                <div className="flex gap-1 mb-2 overflow-x-auto">
+                  {currentConv.map((n, i) => {
+                    const done = isConvDone(currentSlot.id, n);
+                    const ac = i === activeConvive;
+                    return (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setActiveConvive(i)}
+                        className={`whitespace-nowrap font-body text-[11px] py-1.5 px-3 rounded-pill border-[1.5px] cursor-pointer flex items-center gap-1 transition-all ${
+                          ac
+                            ? 'bg-mf-rose border-mf-rose text-mf-blanc-casse'
+                            : done
+                              ? 'bg-status-green/10 border-status-green/30 text-mf-marron-glace'
+                              : 'bg-white border-mf-border text-mf-marron-glace'
+                        }`}
+                      >
+                        {done && !ac && <span className="text-[9px] text-status-green">✓</span>}
+                        {n}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* C5. Pre-filled banner */}
+              {curSel._pf && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] mb-2 bg-mf-vert-olive/8 border border-mf-vert-olive/18 font-body text-[11px] text-mf-vert-olive">
+                  ⚡ Pré-rempli. Modifiez si besoin.
+                </div>
+              )}
+
+              {/* C6. Collapsible categories */}
+              {catConfig.map((cat) => (
+                <CollapsibleCategory
+                  key={cat.key + currentSlot.id + (sameForAll ? '__all__' : currentConv[activeConvive])}
+                  catKey={cat.key}
+                  catLabel={cat.label}
+                  catEmoji={cat.emoji}
+                  items={cat.items}
+                  selectedId={curSel[cat.key]}
+                  onSelect={(id) => setMenuChoice(cat.key, id)}
+                />
+              ))}
+
+              {/* C7. Validate CTA */}
+              {isLastSlot ? (
+                <MfButton
+                  fullWidth
+                  variant={allSlotsDone ? 'green' : 'primary'}
+                  disabled={!allSlotsDone}
+                  onClick={() => setStep(3)}
+                  className="mt-1.5"
+                >
+                  {allSlotsDone ? 'Voir le récapitulatif →' : `${doneSlots}/${activeSlots.length} créneaux`}
+                </MfButton>
+              ) : (
+                <MfButton
+                  fullWidth
+                  disabled={!allConvThisSlot}
+                  onClick={handleValidateSlot}
+                  className="mt-1.5"
+                >
+                  {allConvThisSlot ? 'Valider ma sélection →' : 'Complétez les menus'}
+                </MfButton>
+              )}
+            </MfCard>
+
+            {/* ─── E) Back navigation ─── */}
+            <MfButton
+              variant="outline"
+              fullWidth
+              onClick={() => menuSlotIdx > 0 ? setMenuSlotIdx((i) => i - 1) : setStep(1)}
+              className="mt-2.5"
+            >
+              {menuSlotIdx > 0 ? '← Créneau précédent' : '‹ Créneaux & convives'}
+            </MfButton>
+          </div>
+        )}
+
+        {/* ─── Auto-fill modal ─── */}
+        <MfBlurModal open={showAutoFill} onClose={() => { setAutoFillDone(true); setShowAutoFill(false); setMenuSlotIdx(1); }}>
+          <div className="w-[50px] h-[50px] rounded-full mx-auto mb-3 flex items-center justify-center text-[22px]"
+            style={{ background: 'linear-gradient(135deg, rgba(150,138,66,0.12), rgba(229,183,179,0.25))' }}>
+            ⚡
+          </div>
+          <h3 className="font-serif text-[22px] font-normal italic text-mf-rose mb-2">Même menu partout ?</h3>
+          <p className="font-body text-[13px] text-mf-muted leading-relaxed mb-1.5">Votre sélection du</p>
+          {activeSlots[0] && (
+            <div className="inline-block px-3.5 py-2 rounded-[12px] bg-mf-blanc-casse font-body text-[14px] font-medium text-mf-marron-glace mb-2">
+              {formatSlotPill(activeSlots[0])}
+            </div>
+          )}
+          <p className="font-body text-[13px] text-mf-muted mb-5">
+            sera appliquée aux <strong className="text-mf-marron-glace">{activeSlots.length - 1} autres créneaux</strong>.
+          </p>
+          <div className="flex flex-col gap-2">
+            <MfButton fullWidth onClick={handleAutoFill}>⚡ Appliquer à tous</MfButton>
+            <MfButton variant="outline" fullWidth onClick={() => { setAutoFillDone(true); setShowAutoFill(false); setMenuSlotIdx(1); }}>
+              Non, je choisis pour chaque
+            </MfButton>
+          </div>
+        </MfBlurModal>
+
+        {/* ─── Sticky footer (step 2) ─── */}
+        {step === 2 && (
+          <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-between items-center bg-white border-t border-mf-border px-5 py-3 shadow-[0_-3px_16px_rgba(57,45,49,0.05)]">
+            <div>
+              <div className="font-body text-[10px] uppercase tracking-[0.06em] text-mf-muted">
+                {doneSlots}/{activeSlots.length} créneaux
+              </div>
+              <div className="font-serif text-[20px] italic text-mf-rose">
+                {menuTotal.toFixed(2)} €
+              </div>
+            </div>
+            {allSlotsDone && (
+              <MfButton onClick={() => setStep(3)}>
+                Récapitulatif →
+              </MfButton>
+            )}
+          </div>
+        )}
+
         {/* ═══ STEP 3: RECAP + BILLING ═══ */}
         {step === 3 && (
-          <div className="space-y-5">
-            {/* Billing */}
+          <div className="space-y-4">
+
+            {/* 1. Title */}
+            <MfCard>
+              <h2 className="font-serif text-[22px] font-normal italic text-mf-rose mb-4">
+                Récapitulatif
+              </h2>
+
+              {/* 2. Client block */}
+              <div className="p-3 rounded-[14px] bg-mf-blanc-casse mb-4">
+                <div className="font-body text-[10px] uppercase tracking-[0.1em] text-mf-vieux-rose mb-1">Client</div>
+                <div className="font-body text-[14px] font-medium text-mf-marron-glace">
+                  Famille {formData.last_name}
+                </div>
+                <div className="font-body text-[12px] text-mf-muted">
+                  Stand {formData.stand} · {formData.email} · {formData.phone}
+                </div>
+              </div>
+
+              {/* 3. Slots recap */}
+              <div className="space-y-3">
+                {activeSlots.map((slot) => {
+                  const cv = slotConvives[slot.id] || [];
+                  const price = Number(slot.slot_type === 'soir' ? ev.menu_price_soir : ev.menu_price_midi) || 0;
+                  const allItems = [...entrees, ...plats, ...desserts, ...boissons];
+
+                  return (
+                    <div key={slot.id}>
+                      {/* Slot header */}
+                      <div className="flex justify-between items-center mb-1.5">
+                        <span className="font-body text-[11px] uppercase tracking-[0.08em] font-medium text-mf-rose">
+                          {formatSlotPill(slot)}
+                        </span>
+                        <span className="font-body text-[12px] font-medium text-mf-vert-olive">
+                          {cv.length * price}€
+                        </span>
+                      </div>
+
+                      {/* Convive rows */}
+                      {cv.map((name) => {
+                        const sel = getSel(slot.id, name);
+                        const allSel = getSel(slot.id, '__all__');
+                        const finalSel = catConfig.some((c) => sel[c.key]) ? sel : allSel;
+
+                        return (
+                          <div key={name} className="p-2 px-2.5 rounded-[10px] bg-mf-blanc-casse/80 mb-1">
+                            <div className="font-body text-[12px] font-medium text-mf-marron-glace mb-1">
+                              👤 {name}
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {catConfig.map((cat) => {
+                                const item = allItems.find((i) => i.id === finalSel[cat.key]);
+                                return item ? (
+                                  <span key={cat.key} className="font-body text-[10px] px-2 py-0.5 rounded-pill bg-white border border-mf-border text-mf-marron-glace">
+                                    {cat.emoji} {item.name}
+                                  </span>
+                                ) : null;
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* Separator */}
+                      <div className="h-px bg-mf-border mt-2" />
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* 5. Total */}
+              <div className="flex items-baseline justify-between pt-3 mt-3 border-t-2 border-mf-rose">
+                <div>
+                  <span className="font-body text-[12px] uppercase tracking-[0.1em] text-mf-rose font-medium">Total</span>
+                  <div className="font-body text-[11px] text-mf-muted">{v4TotalMeals} repas</div>
+                </div>
+                <span className="font-serif text-[28px] italic text-mf-rose">
+                  {v4FinalTotal.toFixed(2)} €
+                </span>
+              </div>
+            </MfCard>
+
+            {/* 4. Billing */}
             <MfCard>
               <h2 className="font-serif text-[22px] font-normal italic text-mf-rose mb-5">
                 Facturation
@@ -559,63 +1040,7 @@ export default function OrderPage() {
               </div>
             </MfCard>
 
-            {/* Order summary */}
-            <MfCard>
-              <h2 className="font-serif text-[22px] font-normal italic text-mf-rose mb-5">
-                Récapitulatif
-              </h2>
-
-              <div className="font-body text-sm text-mf-muted mb-4 space-y-1">
-                <p>{formData.first_name} {formData.last_name} — Stand {formData.stand}</p>
-                <p>{formData.email} · {formData.phone}</p>
-                <p className="text-[11px] uppercase tracking-wider mt-1 text-mf-vert-olive">
-                  {formData.delivery_method === 'retrait' ? 'Retrait sur place' : 'Livraison au stand'}
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                {selectedSlotsByDate.map(({ date, slots }) => (
-                  <div key={date}>
-                    {slots.map((slot) => {
-                      const guests = slotGuests[slot.id] || [];
-                      const menuPrice = slot.slot_type === 'soir' ? Number(ev.menu_price_soir) : Number(ev.menu_price_midi);
-                      return guests.map((guest, gi) => (
-                        <div key={`${slot.id}-${gi}`} className="rounded-xl p-3 mb-2 bg-mf-blanc-casse border border-mf-border">
-                          <div className="flex justify-between items-center mb-1">
-                            <span className="font-body text-[11px] uppercase tracking-wider font-medium text-mf-rose">
-                              {format(new Date(date + 'T00:00:00'), 'EEE d MMM', { locale: fr })} · {slotLabels[slot.slot_type]}
-                            </span>
-                            <span className="font-body text-xs font-medium text-mf-muted">{menuPrice.toFixed(2)}€</span>
-                          </div>
-                          <p className="font-body text-sm font-medium text-mf-marron-glace">{guest.name || `Convive ${gi + 1}`}</p>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {['entree', 'plat', 'dessert', 'boisson'].map((type) => {
-                              if (!guest[type]) return null;
-                              const allItems = [...entrees, ...plats, ...desserts, ...boissons];
-                              const item = allItems.find((i) => i.id === guest[type]);
-                              return item ? (
-                                <span key={type} className="font-body text-xs px-2 py-0.5 rounded-pill bg-mf-poudre/30 text-mf-marron-glace">
-                                  {item.name}
-                                </span>
-                              ) : null;
-                            })}
-                          </div>
-                        </div>
-                      ));
-                    })}
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex items-center justify-between pt-4 mt-4 border-t-2 border-mf-rose">
-                <span className="font-body text-[13px] uppercase tracking-[0.1em] text-mf-rose font-medium">Total</span>
-                <span className="font-serif text-[28px] italic text-mf-rose">
-                  {total.toFixed(2)}€
-                </span>
-              </div>
-            </MfCard>
-
-            {/* RGPD consent */}
+            {/* 6. RGPD */}
             <MfCard className="p-5">
               <label className="flex items-start gap-3 cursor-pointer">
                 <input
@@ -634,15 +1059,16 @@ export default function OrderPage() {
               </label>
             </MfCard>
 
-            {/* Action buttons */}
+            {/* 7. Action buttons */}
             <div className="flex gap-3">
-              <MfButton variant="secondary" onClick={() => setStep(2)} className="flex-1">
-                <ChevronLeft className="w-4 h-4 inline -mt-0.5 mr-1" /> Menus
+              <MfButton variant="outline" onClick={() => setStep(2)} className="flex-1">
+                ← Menus
               </MfButton>
               <MfButton
+                variant="green"
                 disabled={!isStep3Valid || createOrder.isPending}
                 onClick={handleSubmit}
-                className={`flex-[2] flex items-center justify-center gap-2 ${createOrder.isPending ? 'opacity-70' : ''}`}
+                className={`flex-[2] ${createOrder.isPending ? 'opacity-70' : ''}`}
               >
                 {createOrder.isPending ? (
                   <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> En cours...</>

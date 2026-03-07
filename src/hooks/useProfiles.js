@@ -34,3 +34,36 @@ export function useUpdateProfile() {
     },
   });
 }
+
+export function useCreateUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ email, password, display_name, phone, role }) => {
+      const res = await supabase.functions.invoke('create-user', {
+        body: { email, password, display_name, phone, role },
+      });
+      if (res.error) throw new Error(res.error.message || 'Erreur creation utilisateur');
+      if (res.data?.error) throw new Error(res.data.error);
+      return res.data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['profiles'] });
+    },
+  });
+}
+
+export function useDeleteUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (userId) => {
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['profiles'] });
+    },
+  });
+}

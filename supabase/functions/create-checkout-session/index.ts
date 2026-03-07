@@ -47,7 +47,7 @@ serve(async (req) => {
     const menuCount = menuKeys.size
 
     // Create Stripe Checkout session
-    const origin = req.headers.get('origin') || 'https://maisonfelicien.fr'
+    const origin = req.headers.get('origin') || 'https://reservation.maison-felicien.com'
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
