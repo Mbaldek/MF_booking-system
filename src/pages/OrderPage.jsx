@@ -391,7 +391,7 @@ export default function OrderPage() {
               meal_slot_id: slot.id,
               menu_item_id: itemId,
               quantity: 1,
-              unit_price: 0,
+              unit_price: menuPrice,
               guest_name: conviveName,
               menu_unit_price: menuPrice,
             });
@@ -399,6 +399,11 @@ export default function OrderPage() {
         });
       });
     });
+
+    if (totalAmount <= 0) {
+      alert('Le montant total est à 0 € — vérifiez vos sélections.');
+      return;
+    }
 
     try {
       const result = await createOrder.mutateAsync({
