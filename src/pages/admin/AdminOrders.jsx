@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Search, ShoppingBag, ChevronDown, ChevronUp, X, AlertTriangle, Trash2 } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, X, AlertTriangle, Trash2, Download, Plus } from 'lucide-react';
 import { useActiveEvent } from '@/hooks/useEvents';
 import EventSelector from '@/components/admin/EventSelector';
 import { useOrders, useUpdateOrder, useDeleteOrder } from '@/hooks/useOrders';
@@ -9,98 +9,70 @@ import ConfirmDeleteModal from '@/components/admin/ConfirmDeleteModal';
 import { useOrderLines } from '@/hooks/useOrderLines';
 import { groupOrderLines, sortedSlotEntries } from '@/lib/groupOrderLines';
 import { supabase } from '@/api/supabase';
+import MfBadge from '@/components/ui/MfBadge';
+import MfButton from '@/components/ui/MfButton';
+import MfCard from '@/components/ui/MfCard';
 
 /* ───────── helpers ───────── */
 
 const PAYMENT_LABELS = {
   pending: 'En attente',
-  paid: 'Paye',
-  refunded: 'Rembourse',
-  cancelled: 'Annule',
+  paid: 'Payée',
+  refunded: 'Remboursée',
+  cancelled: 'Annulée',
 };
 
-const PAYMENT_COLORS = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  paid: 'bg-green-100 text-green-800',
-  refunded: 'bg-gray-100 text-gray-600',
-  cancelled: 'bg-red-100 text-red-800',
+const PAYMENT_BADGE_VARIANT = {
+  pending: 'orange',
+  paid: 'green',
+  refunded: 'rose',
+  cancelled: 'red',
 };
 
 const PREP_LABELS = {
   pending: 'En attente',
-  preparing: 'En preparation',
-  ready: 'Pret',
-  delivered: 'Livre',
+  preparing: 'En préparation',
+  ready: 'Prêt',
+  delivered: 'Livré',
 };
 
-const PREP_COLORS = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  preparing: 'bg-blue-100 text-blue-800',
-  ready: 'bg-green-100 text-green-800',
-  delivered: 'bg-gray-100 text-gray-600',
+const PREP_BADGE_VARIANT = {
+  pending: 'orange',
+  preparing: 'olive',
+  ready: 'green',
+  delivered: 'rose',
 };
 
-const SLOT_TYPE_LABEL = {
-  midi: 'Midi',
-  soir: 'Soir',
-};
+const SLOT_TYPE_LABEL = { midi: 'Midi', soir: 'Soir' };
 
-function paymentBadge(status) {
-  return (
-    <span
-      className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${PAYMENT_COLORS[status] || 'bg-gray-100 text-gray-600'}`}
-    >
-      {PAYMENT_LABELS[status] || status}
-    </span>
-  );
-}
-
-function prepBadge(status) {
-  return (
-    <span
-      className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${PREP_COLORS[status] || 'bg-gray-100 text-gray-600'}`}
-    >
-      {PREP_LABELS[status] || status}
-    </span>
-  );
-}
+const TYPE_LABELS = { entree: 'Entrée', plat: 'Plat', dessert: 'Dessert', boisson: 'Boisson' };
 
 function formatSlotHeader(slotDate, slotType) {
   if (!slotDate) return 'Date inconnue';
   const d = new Date(slotDate + 'T00:00:00');
   const label = format(d, 'EEEE d MMMM', { locale: fr });
-  const capitalised = label.charAt(0).toUpperCase() + label.slice(1);
-  return `${capitalised} — ${SLOT_TYPE_LABEL[slotType] || slotType}`;
+  return `${label.charAt(0).toUpperCase() + label.slice(1)} — ${SLOT_TYPE_LABEL[slotType] || slotType}`;
 }
 
-/* ──── next valid payment transition ──── */
 function nextPaymentStatus(current) {
-  const transitions = {
-    pending: 'paid',
-    paid: 'refunded',
-  };
-  return transitions[current] || null;
+  return { pending: 'paid', paid: 'refunded' }[current] || null;
 }
 
 function nextPaymentLabel(current) {
-  const labels = {
-    pending: 'Marquer comme paye',
-    paid: 'Rembourser',
-  };
-  return labels[current] || null;
+  return { pending: 'Marquer comme payée', paid: 'Rembourser' }[current] || null;
 }
 
 /* ───────── loading spinner ───────── */
 function Spinner() {
   return (
     <div className="flex items-center justify-center py-20">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-500 border-t-transparent" />
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-mf-rose mx-auto" />
     </div>
   );
 }
 
 /* ═══════════════════════════════════════════════════
-   TAB 1 — Factures globales (financial view)
+   TAB 1 — Financial view (table layout)
    ═══════════════════════════════════════════════════ */
 
 const PAGE_SIZE = 20;
@@ -108,11 +80,12 @@ const PAGE_SIZE = 20;
 function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [expandedId, setExpandedId] = useState(null);
-  const [confirmModal, setConfirmModal] = useState(null); // { order, action: 'cancel'|'refund' }
+  const [slotFilter, setSlotFilter] = useState('all');
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [confirmModal, setConfirmModal] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [page, setPage] = useState(0);
-  const [deleteModal, setDeleteModal] = useState(null); // order to delete
+  const [deleteModal, setDeleteModal] = useState(null);
 
   /* line lookup keyed by order_id */
   const linesByOrder = useMemo(() => {
@@ -125,11 +98,72 @@ function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
     return map;
   }, [orderLines]);
 
-  /* filtered orders — see filteredAll in the action handlers section below */
+  /* slot types per order (for midi/soir filter) */
+  const slotTypesByOrder = useMemo(() => {
+    const map = {};
+    for (const line of orderLines ?? []) {
+      const oid = line.order_id;
+      if (!map[oid]) map[oid] = new Set();
+      if (line.meal_slot?.slot_type) map[oid].add(line.meal_slot.slot_type);
+    }
+    return map;
+  }, [orderLines]);
 
-  function toggleExpand(id) {
-    setExpandedId((prev) => (prev === id ? null : id));
-  }
+  /* prep progress per order */
+  const prepProgressByOrder = useMemo(() => {
+    const map = {};
+    for (const [orderId, lines] of Object.entries(linesByOrder)) {
+      const total = lines.length;
+      if (total === 0) { map[orderId] = 0; continue; }
+      const done = lines.filter((l) => l.prep_status === 'delivered' || l.prep_status === 'ready').length;
+      map[orderId] = Math.round((done / total) * 100);
+    }
+    return map;
+  }, [linesByOrder]);
+
+  /* status counts */
+  const statusCounts = useMemo(() => {
+    const counts = { all: 0, paid: 0, pending: 0, cancelled: 0, refunded: 0 };
+    for (const o of orders ?? []) {
+      counts.all++;
+      if (counts[o.payment_status] !== undefined) counts[o.payment_status]++;
+    }
+    return counts;
+  }, [orders]);
+
+  /* filtered */
+  const filteredAll = useMemo(() => {
+    let result = orders ?? [];
+    if (statusFilter !== 'all') result = result.filter((o) => o.payment_status === statusFilter);
+    if (slotFilter !== 'all') {
+      result = result.filter((o) => {
+        const types = slotTypesByOrder[o.id];
+        return types && types.has(slotFilter);
+      });
+    }
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      result = result.filter((o) => {
+        const fullName = `${o.customer_first_name ?? ''} ${o.customer_last_name ?? ''}`.toLowerCase();
+        return (
+          fullName.includes(q) ||
+          (o.stand ?? '').toLowerCase().includes(q) ||
+          (o.customer_email ?? '').toLowerCase().includes(q) ||
+          (o.order_number ?? '').toLowerCase().includes(q) ||
+          (o.company_name ?? '').toLowerCase().includes(q)
+        );
+      });
+    }
+    return result;
+  }, [orders, statusFilter, slotFilter, search, slotTypesByOrder]);
+
+  const totalRevenue = useMemo(
+    () => filteredAll.filter((o) => o.payment_status === 'paid').reduce((s, o) => s + Number(o.total_amount || 0), 0),
+    [filteredAll],
+  );
+
+  const totalPages = Math.ceil(filteredAll.length / PAGE_SIZE);
+  const paginated = filteredAll.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   function handleStatusUpdate(order) {
     const next = nextPaymentStatus(order.payment_status);
@@ -145,7 +179,6 @@ function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
     if (!confirmModal) return;
     const { order, action } = confirmModal;
     setActionLoading(true);
-
     try {
       if (action === 'cancel') {
         updateOrder.mutate({ id: order.id, payment_status: 'cancelled' });
@@ -165,224 +198,244 @@ function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
     }
   }
 
-  // Reset page when filters change
-  const filteredAll = useMemo(() => {
-    let result = orders ?? [];
-    if (statusFilter !== 'all') result = result.filter((o) => o.payment_status === statusFilter);
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      result = result.filter((o) => {
-        const fullName = `${o.customer_first_name ?? ''} ${o.customer_last_name ?? ''}`.toLowerCase();
-        return fullName.includes(q) || (o.stand ?? '').toLowerCase().includes(q) || (o.customer_email ?? '').toLowerCase().includes(q) || (o.order_number ?? '').toLowerCase().includes(q);
-      });
-    }
-    return result;
-  }, [orders, statusFilter, search]);
-
-  const totalPages = Math.ceil(filteredAll.length / PAGE_SIZE);
-  const paginated = filteredAll.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const STATUS_FILTERS = [
+    { key: 'all', label: 'Toutes' },
+    { key: 'paid', label: 'Payées' },
+    { key: 'pending', label: 'En attente' },
+    { key: 'cancelled', label: 'Annulées' },
+    { key: 'refunded', label: 'Remboursées' },
+  ];
 
   return (
-    <div className="space-y-4">
-      {/* search + filter bar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+    <div className="space-y-5">
+      {/* ─── Filters ─── */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        {/* Search */}
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-mf-muted" />
           <input
             type="text"
-            placeholder="Rechercher par nom, stand, email, n° commande..."
+            placeholder="Rechercher par nom, n° ou stand..."
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-            className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-10 pr-4 text-sm outline-none focus:border-[#8B3A43] focus:ring-2 focus:ring-[#8B3A43]/20"
+            className="w-full pl-10 pr-4 py-2.5 rounded-pill border border-mf-border bg-white font-body text-[13px] text-mf-marron-glace placeholder:text-mf-muted outline-none focus:border-mf-rose transition-colors"
           />
         </div>
 
-        <select
-          value={statusFilter}
-          onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
-          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#8B3A43] focus:ring-2 focus:ring-[#8B3A43]/20"
-        >
-          <option value="all">Tous</option>
-          <option value="pending">En attente</option>
-          <option value="paid">Paye</option>
-          <option value="refunded">Rembourse</option>
-          <option value="cancelled">Annule</option>
-        </select>
+        {/* Status pills */}
+        <div className="flex gap-1.5 flex-wrap">
+          {STATUS_FILTERS.map((f) => (
+            <button
+              key={f.key}
+              onClick={() => { setStatusFilter(f.key); setPage(0); }}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-pill font-body text-[11px] border transition-all duration-200 cursor-pointer ${
+                statusFilter === f.key
+                  ? 'bg-mf-rose border-mf-rose text-white'
+                  : 'bg-white border-mf-border text-mf-marron-glace hover:border-mf-rose/40'
+              }`}
+            >
+              {f.label}
+              <span className={`text-[10px] px-1.5 rounded-pill ${
+                statusFilter === f.key ? 'text-mf-poudre' : 'text-mf-muted'
+              }`}>
+                {statusCounts[f.key]}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Slot toggle */}
+        <div className="inline-flex rounded-pill border border-mf-border overflow-hidden ml-auto shrink-0">
+          {[
+            { key: 'all', label: 'Tous' },
+            { key: 'midi', label: '☀' },
+            { key: 'soir', label: '☽' },
+          ].map((s) => (
+            <button
+              key={s.key}
+              onClick={() => { setSlotFilter(s.key); setPage(0); }}
+              className={`px-3.5 py-2 font-body text-[12px] border-none transition-all duration-200 cursor-pointer ${
+                slotFilter === s.key
+                  ? 'bg-mf-rose text-white'
+                  : 'bg-transparent text-mf-muted hover:text-mf-marron-glace'
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <p className="text-xs text-gray-400">{filteredAll.length} commande{filteredAll.length !== 1 ? 's' : ''}</p>
+      {/* ─── Subtitle ─── */}
+      <p className="font-body text-[12px] text-mf-muted">
+        {filteredAll.length} commande{filteredAll.length !== 1 ? 's' : ''} · {totalRevenue.toFixed(2)} € de CA
+      </p>
 
-      {/* order cards */}
-      {paginated.length === 0 && (
-        <p className="py-8 text-center text-sm text-gray-400">Aucune commande trouvee.</p>
-      )}
-
-      {paginated.map((order) => {
-        const isExpanded = expandedId === order.id;
-        const lines = linesByOrder[order.id] ?? [];
-        const grouped = groupOrderLines(lines);
-        const slots = sortedSlotEntries(grouped);
-        const next = nextPaymentStatus(order.payment_status);
-        const canCancel = order.payment_status === 'pending';
-        const canRefund = order.payment_status === 'paid';
-
-        return (
-          <div
-            key={order.id}
-            className="rounded-xl bg-white shadow-sm border border-gray-100 overflow-hidden"
-          >
-            {/* card header — always visible */}
-            <button
-              type="button"
-              onClick={() => toggleExpand(order.id)}
-              className="flex w-full items-start justify-between gap-4 p-4 text-left hover:bg-gray-50 transition-colors"
-            >
-              <div className="min-w-0 flex-1 space-y-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-semibold text-gray-900">
-                    {order.order_number}
-                  </span>
-                  {paymentBadge(order.payment_status)}
-                  {order.delivery_method && (
-                    <span className="inline-block rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600">
-                      {order.delivery_method === 'retrait' ? 'Retrait' : 'Livraison'}
-                    </span>
-                  )}
-                </div>
-
-                <p className="text-sm text-gray-700">
-                  {order.customer_first_name} {order.customer_last_name}
-                  {order.stand && (
-                    <span className="ml-2 text-gray-400">— Stand {order.stand}</span>
-                  )}
-                </p>
-
-                <p className="text-xs text-gray-400">
-                  {order.customer_email}
-                  {order.customer_phone && ` | ${order.customer_phone}`}
-                </p>
-
-                <p className="text-xs text-gray-400">
-                  {order.created_at &&
-                    format(new Date(order.created_at), "d MMM yyyy 'a' HH:mm", {
-                      locale: fr,
-                    })}
-                </p>
-              </div>
-
-              <div className="flex flex-col items-end gap-1 shrink-0">
-                <span className="text-lg font-bold text-gray-900">
-                  {Number(order.total_amount ?? 0).toFixed(2)}&nbsp;&euro;
-                </span>
-                {isExpanded ? (
-                  <ChevronUp className="h-4 w-4 text-gray-400" />
-                ) : (
-                  <ChevronDown className="h-4 w-4 text-gray-400" />
-                )}
-              </div>
-            </button>
-
-            {/* expanded detail */}
-            {isExpanded && (
-              <div className="border-t border-gray-100 bg-gray-50 px-4 py-3 space-y-3">
-                {slots.length === 0 && (
-                  <p className="text-xs text-gray-400">Aucune ligne de commande.</p>
-                )}
-
-                {slots.map(([slotKey, slot]) => (
-                  <div key={slotKey}>
-                    <p className="text-xs font-medium text-gray-500 mb-1">
-                      {formatSlotHeader(slot.slot_date, slot.slot_type)}
-                      {slot.guest_name && (
-                        <span className="ml-2 text-[#8B3A43] font-semibold">{slot.guest_name}</span>
-                      )}
-                    </p>
-                    <ul className="space-y-0.5 pl-3">
-                      {['entree', 'plat', 'dessert', 'boisson'].map((type) => {
-                        const item = slot[type];
-                        if (!item) return null;
-                        return (
-                          <li
-                            key={type}
-                            className="flex items-center justify-between text-sm text-gray-700"
-                          >
-                            <span>{item.name}</span>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                    {slot.menu_unit_price != null && (
-                      <p className="mt-1 text-right text-xs font-medium text-gray-500">
-                        Menu : {Number(slot.menu_unit_price).toFixed(2)}&nbsp;&euro;
-                      </p>
-                    )}
-                  </div>
+      {/* ─── Table ─── */}
+      <MfCard className="p-0 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b border-mf-border">
+                {['N° Commande', 'Client', 'Stand', 'Service', 'Articles', 'Total', 'Statut', 'Préparation'].map((h) => (
+                  <th
+                    key={h}
+                    className="font-body text-[9px] uppercase tracking-[0.1em] text-mf-muted font-normal text-left px-4 py-3"
+                  >
+                    {h}
+                  </th>
                 ))}
+              </tr>
+            </thead>
+            <tbody>
+              {paginated.map((order) => {
+                const lines = linesByOrder[order.id] ?? [];
+                const lineCount = lines.length;
+                const slotTypes = slotTypesByOrder[order.id];
+                const hasMidday = slotTypes?.has('midi');
+                const hasSoir = slotTypes?.has('soir');
+                const prepPct = prepProgressByOrder[order.id] ?? 0;
 
-                {/* action buttons */}
-                <div className="pt-2 border-t border-gray-200 flex justify-end gap-2">
-                  {(order.payment_status === 'cancelled' || order.payment_status === 'refunded') && (
-                    <button
-                      type="button"
-                      onClick={() => setDeleteModal(order)}
-                      className="rounded-lg border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors inline-flex items-center gap-1.5"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      Supprimer
-                    </button>
-                  )}
-                  {canCancel && (
-                    <button
-                      type="button"
-                      onClick={() => setConfirmModal({ order, action: 'cancel' })}
-                      className="rounded-lg border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
-                    >
-                      Annuler
-                    </button>
-                  )}
-                  {next && (
-                    <button
-                      type="button"
-                      onClick={() => handleStatusUpdate(order)}
-                      disabled={updateOrder.isPending}
-                      className="rounded-lg bg-[#8B3A43] px-4 py-1.5 text-sm font-medium text-white hover:bg-[#7a3039] disabled:opacity-50 transition-colors"
-                    >
-                      {updateOrder.isPending ? '...' : nextPaymentLabel(order.payment_status)}
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })}
+                return (
+                  <tr
+                    key={order.id}
+                    onClick={() => setSelectedOrder(order)}
+                    className="border-b border-mf-blanc-casse hover:bg-mf-poudre/10 cursor-pointer transition-all duration-200"
+                  >
+                    {/* N° Commande */}
+                    <td className="px-4 py-3">
+                      <span className="font-body text-[13px] text-mf-rose font-medium">{order.order_number}</span>
+                      <div className="font-body text-[10px] text-mf-muted">
+                        {order.created_at && format(new Date(order.created_at), 'dd/MM · HH:mm', { locale: fr })}
+                      </div>
+                    </td>
 
-      {/* Pagination */}
+                    {/* Client */}
+                    <td className="px-4 py-3">
+                      <div className="font-body text-[13px] text-mf-marron-glace font-medium">
+                        {order.customer_first_name} {order.customer_last_name}
+                      </div>
+                      {order.company_name && (
+                        <div className="font-body text-[10px] text-mf-muted">{order.company_name}</div>
+                      )}
+                    </td>
+
+                    {/* Stand */}
+                    <td className="px-4 py-3">
+                      {order.stand ? (
+                        <span className="inline-block font-body text-[12px] font-medium text-mf-vert-olive px-2.5 py-0.5 rounded-lg bg-mf-vert-olive/10">
+                          {order.stand}
+                        </span>
+                      ) : (
+                        <span className="font-body text-[12px] text-mf-muted">—</span>
+                      )}
+                    </td>
+
+                    {/* Service */}
+                    <td className="px-4 py-3">
+                      <div className="flex gap-1">
+                        {hasMidday && (
+                          <span className="font-body text-[11px] text-mf-vert-olive">☀ Midi</span>
+                        )}
+                        {hasSoir && (
+                          <span className="font-body text-[11px] text-mf-vieux-rose">☽ Soir</span>
+                        )}
+                        {!hasMidday && !hasSoir && (
+                          <span className="font-body text-[11px] text-mf-muted">—</span>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Articles */}
+                    <td className="px-4 py-3">
+                      <span className="font-body text-[13px] text-mf-marron-glace font-medium">{lineCount}</span>
+                    </td>
+
+                    {/* Total */}
+                    <td className="px-4 py-3">
+                      <span className="font-serif text-[14px] italic text-mf-rose">
+                        {Number(order.total_amount ?? 0).toFixed(2)} €
+                      </span>
+                    </td>
+
+                    {/* Statut */}
+                    <td className="px-4 py-3">
+                      <MfBadge variant={PAYMENT_BADGE_VARIANT[order.payment_status] || 'rose'}>
+                        {PAYMENT_LABELS[order.payment_status] || order.payment_status}
+                      </MfBadge>
+                    </td>
+
+                    {/* Préparation */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-12 h-1.5 rounded-full bg-mf-blanc-casse">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${
+                              prepPct === 100 ? 'bg-status-green' : prepPct > 0 ? 'bg-status-orange' : 'bg-mf-muted/40'
+                            }`}
+                            style={{ width: `${prepPct}%` }}
+                          />
+                        </div>
+                        <span className={`font-body text-[10px] ${
+                          prepPct === 100 ? 'text-status-green' : 'text-mf-muted'
+                        }`}>
+                          {prepPct}%
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          {paginated.length === 0 && (
+            <div className="text-center py-12">
+              <div className="text-[28px] opacity-30 mb-2">📋</div>
+              <p className="font-body text-[13px] text-mf-muted">Aucune commande trouvée</p>
+            </div>
+          )}
+        </div>
+      </MfCard>
+
+      {/* ─── Pagination ─── */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between pt-2">
+        <div className="flex items-center justify-between pt-1">
           <button
-            type="button"
             onClick={() => setPage((p) => Math.max(0, p - 1))}
             disabled={page === 0}
-            className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 disabled:opacity-30 hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 font-body text-[11px] uppercase tracking-wider rounded-pill border border-mf-border text-mf-marron-glace disabled:opacity-30 hover:border-mf-rose/40 transition-all duration-200 cursor-pointer bg-white"
           >
-            &larr; Precedent
+            ← Précédent
           </button>
-          <span className="text-sm text-gray-500">
+          <span className="font-body text-[12px] text-mf-muted">
             Page {page + 1} / {totalPages}
           </span>
           <button
-            type="button"
             onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
             disabled={page >= totalPages - 1}
-            className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 disabled:opacity-30 hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 font-body text-[11px] uppercase tracking-wider rounded-pill border border-mf-border text-mf-marron-glace disabled:opacity-30 hover:border-mf-rose/40 transition-all duration-200 cursor-pointer bg-white"
           >
-            Suivant &rarr;
+            Suivant →
           </button>
         </div>
       )}
 
-      {/* Delete modal (double validation) */}
+      {/* ─── Order Detail Modal ─── */}
+      {selectedOrder && (
+        <OrderDetailModal
+          order={selectedOrder}
+          lines={linesByOrder[selectedOrder.id] ?? []}
+          prepProgress={prepProgressByOrder[selectedOrder.id] ?? 0}
+          onClose={() => setSelectedOrder(null)}
+          onStatusUpdate={handleStatusUpdate}
+          onCancel={(order) => setConfirmModal({ order, action: 'cancel' })}
+          onDelete={setDeleteModal}
+          updatePending={updateOrder.isPending}
+        />
+      )}
+
+      {/* ─── Delete modal ─── */}
       {deleteModal && (
         <ConfirmDeleteModal
           title="Supprimer la commande"
@@ -392,7 +445,7 @@ function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
             try {
               await deleteOrder.mutateAsync(deleteModal.id);
               setDeleteModal(null);
-              setExpandedId(null);
+              setSelectedOrder(null);
             } catch (err) {
               alert(`Erreur: ${err.message}`);
             }
@@ -402,42 +455,46 @@ function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
         />
       )}
 
-      {/* Confirm modal */}
+      {/* ─── Confirm Action modal ─── */}
       {confirmModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-6 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div onClick={() => setConfirmModal(null)} className="absolute inset-0 bg-mf-marron-glace/30 backdrop-blur-sm" style={{ animation: 'mf-backdrop-in 0.3s ease' }} />
+          <div className="relative bg-white rounded-card w-full max-w-sm p-6 space-y-4 shadow-xl" style={{ animation: 'mf-modal-in 0.4s ease both' }}>
+            <style>{`
+              @keyframes mf-backdrop-in { from { opacity: 0 } to { opacity: 1 } }
+              @keyframes mf-modal-in { from { opacity: 0; transform: scale(0.92) translateY(16px) } to { opacity: 1; transform: scale(1) translateY(0) } }
+            `}</style>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-                <AlertTriangle className="w-5 h-5 text-red-600" />
+              <div className="w-10 h-10 rounded-full bg-status-red/12 flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-status-red" />
               </div>
               <div>
-                <h3 className="text-base font-semibold text-gray-900">
+                <h3 className="font-body text-[15px] font-medium text-mf-marron-glace">
                   {confirmModal.action === 'cancel' ? 'Annuler la commande' : 'Rembourser la commande'}
                 </h3>
-                <p className="text-sm text-gray-500">{confirmModal.order.order_number}</p>
+                <p className="font-body text-[12px] text-mf-muted">{confirmModal.order.order_number}</p>
               </div>
             </div>
 
-            <p className="text-sm text-gray-600">
+            <p className="font-body text-[13px] text-mf-muted leading-relaxed">
               {confirmModal.action === 'cancel'
-                ? 'Cette commande sera marquee comme annulee. Cette action est irreversible.'
-                : `Le montant de ${Number(confirmModal.order.total_amount).toFixed(2)}€ sera rembourse via Stripe. Cette action est irreversible.`}
+                ? 'Cette commande sera marquée comme annulée. Cette action est irréversible.'
+                : `Le montant de ${Number(confirmModal.order.total_amount).toFixed(2)} € sera remboursé via Stripe. Cette action est irréversible.`}
             </p>
 
-            <div className="flex gap-2 justify-end">
-              <button
-                type="button"
+            <div className="flex gap-2 justify-end pt-2">
+              <MfButton
+                variant="secondary"
+                size="sm"
                 onClick={() => setConfirmModal(null)}
                 disabled={actionLoading}
-                className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Retour
-              </button>
+              </MfButton>
               <button
-                type="button"
                 onClick={handleConfirmAction}
                 disabled={actionLoading}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+                className="inline-flex items-center justify-center gap-2 font-body text-[11px] uppercase tracking-wider rounded-pill px-5 py-2 bg-status-red text-white hover:opacity-90 disabled:opacity-50 transition-all duration-200 cursor-pointer"
               >
                 {actionLoading ? 'En cours...' : 'Confirmer'}
               </button>
@@ -450,11 +507,205 @@ function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
 }
 
 /* ═══════════════════════════════════════════════════
-   TAB 2 — Commandes quotidiennes (operational view)
+   ORDER DETAIL MODAL
+   ═══════════════════════════════════════════════════ */
+
+function OrderDetailModal({ order, lines, prepProgress, onClose, onStatusUpdate, onCancel, onDelete, updatePending }) {
+  const grouped = groupOrderLines(lines);
+  const slots = sortedSlotEntries(grouped);
+  const next = nextPaymentStatus(order.payment_status);
+  const canCancel = order.payment_status === 'pending';
+  const canDelete = order.payment_status === 'cancelled' || order.payment_status === 'refunded';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <style>{`
+        @keyframes mf-backdrop-in { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes mf-modal-in { from { opacity: 0; transform: scale(0.92) translateY(16px) } to { opacity: 1; transform: scale(1) translateY(0) } }
+      `}</style>
+      <div onClick={onClose} className="absolute inset-0 bg-mf-marron-glace/30 backdrop-blur-sm" style={{ animation: 'mf-backdrop-in 0.3s ease' }} />
+      <div
+        className="relative bg-white rounded-card w-full max-w-lg max-h-[85vh] overflow-y-auto shadow-xl"
+        style={{ animation: 'mf-modal-in 0.4s ease both' }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-5 border-b border-mf-border">
+          <div>
+            <h2 className="font-serif text-[24px] italic text-mf-rose">{order.order_number}</h2>
+            <MfBadge variant={PAYMENT_BADGE_VARIANT[order.payment_status] || 'rose'} className="mt-1">
+              {PAYMENT_LABELS[order.payment_status] || order.payment_status}
+            </MfBadge>
+          </div>
+          <button onClick={onClose} className="p-1.5 text-mf-muted hover:text-mf-rose rounded-lg transition-colors cursor-pointer bg-transparent border-none">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-5">
+          {/* Client info */}
+          <div className="rounded-2xl bg-mf-blanc-casse p-4">
+            <div className="font-body text-[10px] uppercase tracking-[0.1em] text-mf-vieux-rose mb-2">Client</div>
+            <div className="font-body text-[16px] text-mf-marron-glace font-medium">
+              {order.customer_first_name} {order.customer_last_name}
+            </div>
+            {order.company_name && (
+              <div className="font-body text-[13px] text-mf-muted">{order.company_name}</div>
+            )}
+            <div className="flex flex-wrap gap-x-5 gap-y-1 mt-2">
+              {order.stand && (
+                <div>
+                  <span className="font-body text-[10px] text-mf-muted">Stand </span>
+                  <span className="font-body text-[12px] text-mf-marron-glace font-medium">{order.stand}</span>
+                </div>
+              )}
+              {order.customer_email && (
+                <div>
+                  <span className="font-body text-[10px] text-mf-muted">Email </span>
+                  <span className="font-body text-[12px] text-mf-marron-glace">{order.customer_email}</span>
+                </div>
+              )}
+              {order.customer_phone && (
+                <div>
+                  <span className="font-body text-[10px] text-mf-muted">Tél. </span>
+                  <span className="font-body text-[12px] text-mf-marron-glace">{order.customer_phone}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Info grid */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Date', value: order.created_at ? format(new Date(order.created_at), 'dd/MM/yyyy', { locale: fr }) : '—' },
+              { label: 'Service', value: (() => {
+                const types = new Set(lines.map((l) => l.meal_slot?.slot_type).filter(Boolean));
+                if (types.has('midi') && types.has('soir')) return '☀ Midi + ☽ Soir';
+                if (types.has('midi')) return '☀ Midi';
+                if (types.has('soir')) return '☽ Soir';
+                return '—';
+              })() },
+              { label: 'Mode', value: order.delivery_method === 'retrait' ? '📦 Emporter' : '🚚 Livraison' },
+            ].map((d) => (
+              <div key={d.label} className="rounded-xl bg-mf-blanc-casse p-3 text-center">
+                <div className="font-body text-[9px] uppercase tracking-[0.08em] text-mf-muted">{d.label}</div>
+                <div className="font-body text-[13px] text-mf-marron-glace font-medium mt-1">{d.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Items by slot / guest */}
+          {slots.length > 0 && (
+            <div className="space-y-3">
+              <div className="font-body text-[10px] uppercase tracking-[0.1em] text-mf-vieux-rose">Détail des menus</div>
+              {slots.map(([slotKey, slot]) => (
+                <div key={slotKey} className="rounded-xl border border-mf-border p-3">
+                  <p className="font-body text-[11px] text-mf-muted mb-2">
+                    {formatSlotHeader(slot.slot_date, slot.slot_type)}
+                    {slot.guest_name && (
+                      <span className="ml-2 font-medium text-mf-rose">{slot.guest_name}</span>
+                    )}
+                  </p>
+                  <ul className="space-y-1">
+                    {['entree', 'plat', 'dessert', 'boisson'].map((type) => {
+                      const item = slot[type];
+                      if (!item) return null;
+                      return (
+                        <li key={type} className="flex items-center justify-between">
+                          <span className="font-body text-[13px] text-mf-marron-glace">{item.name}</span>
+                          <div className="flex items-center gap-2">
+                            <MfBadge variant={PREP_BADGE_VARIANT[item.prep_status] || 'rose'}>
+                              {PREP_LABELS[item.prep_status] || item.prep_status}
+                            </MfBadge>
+                            <span className="font-body text-[10px] text-mf-muted">{TYPE_LABELS[type]}</span>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  {slot.menu_unit_price != null && (
+                    <p className="mt-2 text-right font-body text-[11px] text-mf-muted">
+                      Menu : {Number(slot.menu_unit_price).toFixed(2)} €
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Prep progress */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-body text-[12px] text-mf-marron-glace">Préparation</span>
+              <span className={`font-body text-[12px] font-medium ${
+                prepProgress === 100 ? 'text-status-green' : 'text-status-orange'
+              }`}>
+                {prepProgress}%
+              </span>
+            </div>
+            <div className="h-1.5 rounded-full bg-mf-blanc-casse">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  prepProgress === 100 ? 'bg-status-green' : 'bg-status-orange'
+                }`}
+                style={{ width: `${prepProgress}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Total */}
+          <div className="flex items-baseline justify-between pt-4 border-t-2 border-mf-rose">
+            <span className="font-body text-[11px] uppercase tracking-[0.1em] text-mf-rose">
+              {lines.length} article{lines.length !== 1 ? 's' : ''} · Total
+            </span>
+            <span className="font-serif text-[28px] italic text-mf-marron-glace">
+              {Number(order.total_amount ?? 0).toFixed(2)} €
+            </span>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2 pt-2">
+            {canDelete && (
+              <button
+                onClick={() => onDelete(order)}
+                className="flex items-center gap-1.5 font-body text-[11px] uppercase tracking-wider rounded-pill px-4 py-2.5 border-[1.5px] border-status-red/30 text-status-red bg-white hover:bg-status-red/5 transition-all duration-200 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Supprimer
+              </button>
+            )}
+            {canCancel && (
+              <button
+                onClick={() => onCancel(order)}
+                className="font-body text-[11px] uppercase tracking-wider rounded-pill px-4 py-2.5 border-[1.5px] border-status-red/30 text-status-red bg-white hover:bg-status-red/5 transition-all duration-200 cursor-pointer"
+              >
+                Annuler
+              </button>
+            )}
+            {next && (
+              <MfButton
+                size="sm"
+                onClick={() => onStatusUpdate(order)}
+                disabled={updatePending}
+                className="flex-1"
+              >
+                {updatePending ? '...' : nextPaymentLabel(order.payment_status)}
+              </MfButton>
+            )}
+            <MfButton variant="secondary" size="sm" onClick={onClose}>
+              Fermer
+            </MfButton>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   TAB 2 — Daily operational view
    ═══════════════════════════════════════════════════ */
 
 function DailyTab({ orderLines }) {
-  /* group lines by slot key (date + type) then by order */
   const slotGroups = useMemo(() => {
     const map = {};
 
@@ -478,7 +729,6 @@ function DailyTab({ orderLines }) {
       map[key].orderMap[menuKey].lines.push(line);
     }
 
-    /* sort slot keys chronologically, midi before soir */
     return Object.values(map).sort((a, b) => {
       const dc = (a.slot_date || '').localeCompare(b.slot_date || '');
       if (dc !== 0) return dc;
@@ -488,9 +738,10 @@ function DailyTab({ orderLines }) {
 
   if (slotGroups.length === 0) {
     return (
-      <p className="py-8 text-center text-sm text-gray-400">
-        Aucune commande quotidienne.
-      </p>
+      <div className="text-center py-12">
+        <div className="text-[28px] opacity-30 mb-2">📋</div>
+        <p className="font-body text-[13px] text-mf-muted">Aucune commande quotidienne</p>
+      </div>
     );
   }
 
@@ -502,50 +753,49 @@ function DailyTab({ orderLines }) {
 
         return (
           <section key={`${group.slot_date}__${group.slot_type}`}>
-            <h3 className="mb-3 text-sm font-semibold text-gray-700">{header}</h3>
+            <h3 className="font-body text-[12px] font-medium text-mf-marron-glace uppercase tracking-wider mb-3">
+              {header}
+            </h3>
 
             <div className="space-y-3">
               {orderEntries.map(({ order, guest_name, lines }) => (
-                <div
+                <MfCard
                   key={`${order?.id ?? lines[0]?.order_id}__${guest_name || ''}`}
-                  className="rounded-xl bg-white shadow-sm border border-gray-100 p-4 space-y-2"
+                  className="p-4 space-y-2"
                 >
-                  {/* order header */}
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-900">
+                      <p className="font-body text-[13px] font-medium text-mf-marron-glace">
                         {order?.customer_first_name} {order?.customer_last_name}
                         {order?.stand && (
-                          <span className="ml-2 text-gray-400 font-normal">
-                            — Stand {order.stand}
-                          </span>
+                          <span className="ml-2 text-mf-muted font-normal">— Stand {order.stand}</span>
                         )}
                       </p>
                       <div className="flex items-center gap-2">
-                        <p className="text-xs text-gray-400">{order?.order_number}</p>
+                        <p className="font-body text-[11px] text-mf-muted">{order?.order_number}</p>
                         {guest_name && (
-                          <span className="text-xs text-purple-600 font-medium">Menu : {guest_name}</span>
+                          <span className="font-body text-[11px] text-mf-rose font-medium">Menu : {guest_name}</span>
                         )}
                       </div>
                     </div>
-                    {paymentBadge(order?.payment_status ?? 'pending')}
+                    <MfBadge variant={PAYMENT_BADGE_VARIANT[order?.payment_status] || 'rose'}>
+                      {PAYMENT_LABELS[order?.payment_status] || 'En attente'}
+                    </MfBadge>
                   </div>
 
-                  {/* items */}
                   <ul className="space-y-1 pl-1">
                     {lines.map((line) => (
-                      <li
-                        key={line.id}
-                        className="flex items-center justify-between text-sm"
-                      >
-                        <span className="text-gray-700">
+                      <li key={line.id} className="flex items-center justify-between">
+                        <span className="font-body text-[13px] text-mf-marron-glace">
                           {line.menu_item?.name ?? '—'}
                         </span>
-                        {prepBadge(line.prep_status)}
+                        <MfBadge variant={PREP_BADGE_VARIANT[line.prep_status] || 'rose'}>
+                          {PREP_LABELS[line.prep_status] || line.prep_status}
+                        </MfBadge>
                       </li>
                     ))}
                   </ul>
-                </div>
+                </MfCard>
               ))}
             </div>
           </section>
@@ -579,24 +829,41 @@ export default function AdminOrders() {
   const isLoading = eventLoading || ordersLoading || linesLoading;
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 space-y-5">
-      {/* page title */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-xl font-bold text-gray-900">Commandes</h1>
-        <EventSelector selectedEventId={selectedEventId} onEventChange={setSelectedEventId} />
+    <div className="p-6 lg:p-8 space-y-6 max-w-[1200px]">
+      {/* ─── Header ─── */}
+      <div className="flex items-start justify-between flex-wrap gap-4">
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="font-serif text-[28px] italic text-mf-rose">Commandes</h1>
+            <p className="font-body text-[13px] text-mf-muted mt-0.5">
+              {activeEvent?.name || 'Aucun événement'}
+            </p>
+          </div>
+          {orders && (
+            <span className="inline-flex items-center rounded-pill px-3 py-1 bg-mf-poudre/30 font-body text-[12px] text-mf-rose font-medium">
+              {orders.length}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <EventSelector selectedEventId={selectedEventId} onEventChange={setSelectedEventId} />
+          <MfButton variant="outline" size="sm">
+            <Download className="w-3.5 h-3.5 mr-1" />
+            Exporter CSV
+          </MfButton>
+        </div>
       </div>
 
-      {/* tabs */}
+      {/* ─── Tabs ─── */}
       <div className="flex gap-2">
         {TABS.map((tab) => (
           <button
             key={tab.key}
-            type="button"
             onClick={() => setActiveTab(tab.key)}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+            className={`px-5 py-2.5 rounded-pill font-body text-[12px] border transition-all duration-200 cursor-pointer ${
               activeTab === tab.key
-                ? 'bg-amber-500 text-white shadow-sm'
-                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                ? 'bg-mf-rose border-mf-rose text-white'
+                : 'bg-white border-mf-border text-mf-marron-glace hover:border-mf-rose/40'
             }`}
           >
             {tab.label}
@@ -604,7 +871,7 @@ export default function AdminOrders() {
         ))}
       </div>
 
-      {/* content */}
+      {/* ─── Content ─── */}
       {isLoading ? (
         <Spinner />
       ) : activeTab === 'financial' ? (
