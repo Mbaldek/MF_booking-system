@@ -1,8 +1,10 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Analytics } from '@vercel/analytics/react';
 import { AuthProvider } from '@/lib/AuthContext';
 import RoleGuard from '@/lib/RoleGuard';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import { supabaseMissing } from '@/api/supabase';
 
 // Layouts (always loaded — they wrap routes)
@@ -83,67 +85,70 @@ export default function App() {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <BrowserRouter>
-          <Suspense fallback={<LazyFallback />}>
-            <Routes>
-              {/* Public — critical */}
-              <Route path="/" element={<MainPage />} />
-              <Route path="/order" element={<OrderPage />} />
-              <Route path="/order/success/:orderId" element={<OrderSuccess />} />
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <BrowserRouter>
+            <Suspense fallback={<LazyFallback />}>
+              <Routes>
+                {/* Public — critical */}
+                <Route path="/" element={<MainPage />} />
+                <Route path="/order" element={<OrderPage />} />
+                <Route path="/order/success/:orderId" element={<OrderSuccess />} />
 
-              {/* Public — lazy */}
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/my-orders" element={<CustomerOrders />} />
-              <Route path="/reservation/:eventId" element={<ReservationPage />} />
-              <Route path="/feedback" element={<FeedbackPage />} />
-              <Route path="/main-old" element={<MainPageTest />} />
-              <Route path="/home-old" element={<HomePage />} />
-              <Route path="/order-old" element={<OrderFunnelTest />} />
-              <Route path="/order-legacy" element={<OrderPageLegacy />} />
+                {/* Public — lazy */}
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/my-orders" element={<CustomerOrders />} />
+                <Route path="/reservation/:eventId" element={<ReservationPage />} />
+                <Route path="/feedback" element={<FeedbackPage />} />
+                <Route path="/main-old" element={<MainPageTest />} />
+                <Route path="/home-old" element={<HomePage />} />
+                <Route path="/order-old" element={<OrderFunnelTest />} />
+                <Route path="/order-legacy" element={<OrderPageLegacy />} />
 
-              {/* Delivery QR scan — no auth required */}
-              <Route path="/staff/deliver/:orderId/:slotId" element={<DeliverPage />} />
+                {/* Delivery QR scan — no auth required */}
+                <Route path="/staff/deliver/:orderId/:slotId" element={<DeliverPage />} />
 
-              {/* Admin */}
-              <Route
-                path="/admin"
-                element={
-                  <RoleGuard allowedRoles={['admin']}>
-                    <AdminLayout />
-                  </RoleGuard>
-                }
-              >
-                <Route index element={<AdminDashboard />} />
-                <Route path="events" element={<AdminEvent />} />
-                <Route path="menu" element={<AdminMenu />} />
-                <Route path="orders" element={<AdminOrders />} />
-                <Route path="operations" element={<AdminOperations />} />
-                <Route path="stats" element={<AdminStats />} />
-                <Route path="reminders" element={<AdminEmailReminders />} />
-                <Route path="users" element={<AdminUsers />} />
-                <Route path="notifications" element={<AdminNotifications />} />
-                <Route path="restaurant" element={<AdminRestaurant />} />
-                <Route path="guide" element={<AdminGuide />} />
-              </Route>
+                {/* Admin */}
+                <Route
+                  path="/admin"
+                  element={
+                    <RoleGuard allowedRoles={['admin']}>
+                      <AdminLayout />
+                    </RoleGuard>
+                  }
+                >
+                  <Route index element={<AdminDashboard />} />
+                  <Route path="events" element={<AdminEvent />} />
+                  <Route path="menu" element={<AdminMenu />} />
+                  <Route path="orders" element={<AdminOrders />} />
+                  <Route path="operations" element={<AdminOperations />} />
+                  <Route path="stats" element={<AdminStats />} />
+                  <Route path="reminders" element={<AdminEmailReminders />} />
+                  <Route path="users" element={<AdminUsers />} />
+                  <Route path="notifications" element={<AdminNotifications />} />
+                  <Route path="restaurant" element={<AdminRestaurant />} />
+                  <Route path="guide" element={<AdminGuide />} />
+                </Route>
 
-              {/* Staff */}
-              <Route
-                path="/staff"
-                element={
-                  <RoleGuard allowedRoles={['admin', 'staff']}>
-                    <StaffLayout />
-                  </RoleGuard>
-                }
-              >
-                <Route path="kitchen" element={<StaffKitchen />} />
-                <Route path="delivery" element={<StaffDelivery />} />
-              </Route>
-            </Routes>
-          </Suspense>
-        </BrowserRouter>
-      </AuthProvider>
-    </QueryClientProvider>
+                {/* Staff */}
+                <Route
+                  path="/staff"
+                  element={
+                    <RoleGuard allowedRoles={['admin', 'staff']}>
+                      <StaffLayout />
+                    </RoleGuard>
+                  }
+                >
+                  <Route path="kitchen" element={<StaffKitchen />} />
+                  <Route path="delivery" element={<StaffDelivery />} />
+                </Route>
+              </Routes>
+            </Suspense>
+          </BrowserRouter>
+        </AuthProvider>
+      </QueryClientProvider>
+      <Analytics />
+    </ErrorBoundary>
   );
 }

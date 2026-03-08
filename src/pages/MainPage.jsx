@@ -6,7 +6,6 @@ import { ExternalLink } from 'lucide-react';
 import ClientHeader from '@/components/layout/ClientHeader';
 import MfButton from '@/components/ui/MfButton';
 import { useActiveEvents } from '@/hooks/useEvents';
-import { useMealSlots } from '@/hooks/useMealSlots';
 import { useEventMenuItems } from '@/hooks/useMenuItems';
 import { useEventSlotMenuItems } from '@/hooks/useSlotMenuItems';
 
