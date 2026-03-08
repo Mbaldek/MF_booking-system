@@ -7,8 +7,11 @@ const VIDEOS = [
   '/brand/Vidéo_Générée_Après_Commande.mp4',
 ];
 
-/* Cut: stop each video 1.5s before end to hide bad logo */
-const CUT_BEFORE_END = 1.5;
+/* Per-video cut rules */
+const MAX_TIME = {
+  0: 4,    // Cinematic_Tea_House_Montage.mp4 — only first 4s
+};
+const CUT_BEFORE_END = 1.5; // default: stop 1.5s before end
 
 /* ─── Decorative SVGs (from MainPage) ─── */
 
@@ -22,7 +25,7 @@ const Ornament = ({ size = 120, className = '' }) => (
 );
 
 const Fleuron = () => (
-  <svg width="40" height="48" viewBox="0 0 40 48" fill="none" className="text-white/70">
+  <svg width="40" height="48" viewBox="0 0 40 48" fill="none" className="text-mf-rose">
     <path d="M20 4 C20 4, 28 14, 28 22 C28 27, 24 30, 20 30 C16 30, 12 27, 12 22 C12 14, 20 4, 20 4Z" fill="currentColor" opacity="0.7" />
     <path d="M20 4 C20 4, 12 14, 12 22 C12 27, 16 30, 20 30 C24 30, 28 27, 28 22 C28 14, 20 4, 20 4Z" fill="currentColor" opacity="0.5" transform="rotate(60 20 22)" />
     <path d="M20 4 C20 4, 12 14, 12 22 C12 27, 16 30, 20 30 C24 30, 28 27, 28 22 C28 14, 20 4, 20 4Z" fill="currentColor" opacity="0.5" transform="rotate(-60 20 22)" />
@@ -57,15 +60,19 @@ export default function HeroVideoTest() {
     }, 600); // match CSS transition duration
   }, []);
 
-  /* Cut video before the bad logo at the end */
+  /* Cut video: per-video max time OR default cut before end */
   const handleTimeUpdate = useCallback(() => {
     const v = videoRef.current;
     if (!v || !v.duration) return;
-    if (v.currentTime >= v.duration - CUT_BEFORE_END) {
+    const maxTime = MAX_TIME[currentIdx];
+    if (maxTime && v.currentTime >= maxTime) {
+      v.pause();
+      goNext();
+    } else if (!maxTime && v.currentTime >= v.duration - CUT_BEFORE_END) {
       v.pause();
       goNext();
     }
-  }, [goNext]);
+  }, [goNext, currentIdx]);
 
   /* Auto-play when source changes */
   useEffect(() => {
@@ -76,10 +83,10 @@ export default function HeroVideoTest() {
   }, [currentIdx]);
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-mf-marron-glace">
+    <section className="relative text-center overflow-hidden pt-[72px] pb-14 px-6">
       <style>{styles}</style>
 
-      {/* ─── Video ─── */}
+      {/* ─── Video background (blurred) ─── */}
       <video
         ref={videoRef}
         src={VIDEOS[currentIdx]}
@@ -91,86 +98,90 @@ export default function HeroVideoTest() {
         className="absolute inset-0 w-full h-full transition-opacity duration-[600ms] ease-in-out"
         style={{
           objectFit: 'cover',
-          objectPosition: 'center 20%', /* push down = crop bottom logo */
+          objectPosition: 'center 20%',
           opacity: fading ? 0 : 1,
+          filter: 'blur(6px) brightness(0.85)',
+          transform: 'scale(1.12)',
         }}
       />
 
-      {/* ─── Bottom crop mask (hides logo at bottom) ─── */}
-      <div
-        className="absolute bottom-0 left-0 right-0 h-[15%] pointer-events-none"
-        style={{
-          background: 'linear-gradient(to bottom, transparent, #392D31)',
-        }}
-      />
-
-      {/* ─── Overlay gradient ─── */}
+      {/* ─── Soft overlay tint ─── */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background: `
             linear-gradient(to bottom,
-              rgba(57,45,49,0.45) 0%,
-              rgba(57,45,49,0.15) 40%,
-              rgba(57,45,49,0.10) 60%,
-              rgba(57,45,49,0.50) 100%
+              rgba(240,240,230,0.35) 0%,
+              rgba(240,240,230,0.15) 50%,
+              rgba(240,240,230,0.45) 100%
             )
           `,
         }}
       />
 
       {/* ─── Decorative ornaments ─── */}
-      <div className="hero-float hero-pulse absolute top-8 -left-4 text-white/20 pointer-events-none">
-        <Ornament size={90} />
+      <div className="hero-float hero-pulse absolute top-5 -left-5 text-mf-poudre pointer-events-none z-[2]">
+        <Ornament size={100} />
       </div>
-      <div className="hero-float hero-pulse absolute top-12 -right-3 text-white/20 pointer-events-none" style={{ animationDelay: '2s' }}>
-        <Ornament size={70} />
+      <div className="hero-float hero-pulse absolute top-10 -right-4 text-mf-poudre pointer-events-none z-[2]" style={{ animationDelay: '2s' }}>
+        <Ornament size={80} />
       </div>
 
-      {/* ─── Content overlay ─── */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6 z-10">
-        <p className="font-body text-[10px] tracking-[0.3em] uppercase text-mf-poudre mb-4">
-          Traiteur événementiel
-        </p>
-
-        <div className="mb-4 opacity-70 flex justify-center">
-          <Fleuron />
-        </div>
-
-        <p className="font-body text-[10px] tracking-[0.35em] uppercase text-mf-poudre/80 mb-1">
-          Maison
-        </p>
-        <h1 className="font-serif text-[56px] font-normal italic text-white leading-[1.05] tracking-tight mb-4 drop-shadow-lg">
-          Félicien
-        </h1>
-
-        <p className="font-body text-[15px] text-white/80 leading-[1.7] max-w-[380px] mx-auto mb-8 drop-shadow-sm">
-          Des repas d'exception livrés directement sur votre stand.
-          Commandez pour votre équipe, nous nous occupons du reste.
-        </p>
-
-        <a
-          href="https://maisonfelicien.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm border border-white/30 text-white font-body text-[14px] tracking-wide px-8 py-3 rounded-full hover:bg-white/25 transition-all duration-300"
+      {/* ─── Frosted glass card ─── */}
+      <div className="relative z-[1] flex justify-center">
+        <div
+          className="rounded-2xl px-8 py-10 max-w-[400px] w-full"
+          style={{
+            background: 'rgba(255,255,255,0.78)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            border: '1px solid rgba(255,255,255,0.5)',
+            boxShadow: '0 8px 32px rgba(229,183,179,0.18)',
+          }}
         >
-          Découvrir la boutique
-        </a>
+          <p className="font-body text-[10px] tracking-[0.3em] uppercase text-mf-vert-olive mb-4">
+            Traiteur événementiel
+          </p>
+
+          <div className="mb-4 opacity-60 flex justify-center">
+            <Fleuron />
+          </div>
+
+          <p className="font-body text-[10px] tracking-[0.35em] uppercase text-mf-vieux-rose mb-1">
+            Maison
+          </p>
+          <h1 className="font-serif text-[56px] font-normal italic text-mf-rose leading-[1.05] tracking-tight mb-4">
+            Félicien
+          </h1>
+
+          <p className="font-body text-[15px] text-mf-muted leading-[1.7] max-w-[380px] mx-auto mb-7">
+            Des repas d'exception livrés directement sur votre stand.
+            Commandez pour votre équipe, nous nous occupons du reste.
+          </p>
+
+          <a
+            href="https://maisonfelicien.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 bg-mf-rose text-white font-body text-[13px] tracking-[0.15em] uppercase px-8 py-3 rounded-full hover:bg-mf-vieux-rose transition-all duration-300"
+          >
+            Découvrir la boutique
+          </a>
+        </div>
       </div>
 
       {/* ─── Video indicator dots ─── */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-10">
+      <div className="flex justify-center gap-2 mt-5 relative z-[1]">
         {VIDEOS.map((_, i) => (
           <button
             key={i}
             onClick={() => { if (i !== currentIdx) { setFading(true); setTimeout(() => { setCurrentIdx(i); setFading(false); }, 600); } }}
-            className={`w-2 h-2 rounded-full transition-all duration-300 ${
-              i === currentIdx ? 'bg-white w-6' : 'bg-white/40 hover:bg-white/60'
+            className={`h-2 rounded-full transition-all duration-300 ${
+              i === currentIdx ? 'bg-mf-rose w-6' : 'bg-mf-poudre w-2 hover:bg-mf-vieux-rose'
             }`}
           />
         ))}
       </div>
-    </div>
+    </section>
   );
 }
