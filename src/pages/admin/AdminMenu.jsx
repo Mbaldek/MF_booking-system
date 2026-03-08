@@ -5,6 +5,7 @@ import ConfirmDeleteModal from '@/components/admin/ConfirmDeleteModal';
 import MfButton from '@/components/ui/MfButton';
 import MfInput from '@/components/ui/MfInput';
 import MfBadge from '@/components/ui/MfBadge';
+import PageTour from '@/components/onboarding/PageTour';
 
 const CATEGORIES = [
   { key: 'entree', label: 'Entrées', icon: '🥗' },
@@ -141,6 +142,7 @@ export default function AdminMenu() {
 
   return (
     <div className="p-6 lg:p-8 space-y-6 max-w-[1000px]">
+      <PageTour page="menu" />
       {/* ─── Header ─── */}
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
@@ -149,14 +151,14 @@ export default function AdminMenu() {
             {menuItems.length} plat{menuItems.length !== 1 ? 's' : ''} au catalogue
           </p>
         </div>
-        <MfButton onClick={openCreateForm} size="sm">
+        <MfButton onClick={openCreateForm} size="sm" data-tour="add-menu-item">
           <Plus className="w-3.5 h-3.5 mr-1.5" />
           Ajouter un plat
         </MfButton>
       </div>
 
       {/* ─── Category Tabs ─── */}
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2 flex-wrap" data-tour="category-tabs">
         {catCounts.map((c) => (
           <button
             key={c.key}

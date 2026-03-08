@@ -5,6 +5,7 @@ import { Users, Shield, ChefHat, User, ChevronDown, Plus, X, Pencil, Trash2, Eye
 import { useProfiles, useUpdateProfile, useCreateUser, useDeleteUser } from '@/hooks/useProfiles';
 import MfButton from '@/components/ui/MfButton';
 import MfInput from '@/components/ui/MfInput';
+import PageTour from '@/components/onboarding/PageTour';
 
 const ROLE_CONFIG = {
   admin: { label: 'Admin', icon: Shield, color: 'bg-mf-poudre/40 text-mf-rose' },
@@ -234,20 +235,21 @@ export default function AdminUsers() {
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
+      <PageTour page="users" />
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-mf-marron-glace">Utilisateurs</h1>
           <p className="text-sm text-mf-muted mt-1 font-body">Gerez les roles et acces</p>
         </div>
-        <MfButton size="sm" onClick={() => setShowCreate(true)}>
+        <MfButton size="sm" onClick={() => setShowCreate(true)} data-tour="add-user-btn">
           <Plus className="w-4 h-4" />
           Ajouter
         </MfButton>
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2 flex-wrap" data-tour="user-roles">
         {[
           { key: 'all', label: 'Tous' },
           { key: 'admin', label: 'Admins' },

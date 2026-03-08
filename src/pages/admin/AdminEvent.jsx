@@ -7,6 +7,7 @@ import { useMenuCatalog, useAllEventMenuItems, useLinkMenuToEvent, useUnlinkMenu
 import { useMealSlots, useUpdateSlotCapacity } from '@/hooks/useMealSlots';
 import { supabase } from '@/api/supabase';
 import ConfirmDeleteModal from '@/components/admin/ConfirmDeleteModal';
+import PageTour from '@/components/onboarding/PageTour';
 
 const TYPE_LABELS = { entree: 'Entrées', plat: 'Plats', dessert: 'Desserts', boisson: 'Boissons' };
 
@@ -465,6 +466,7 @@ export default function AdminEvent() {
 
   return (
     <div className="bg-slate-50 min-h-screen px-3 py-4 sm:px-4 sm:py-8">
+      <PageTour page="events" />
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -472,7 +474,7 @@ export default function AdminEvent() {
             <p className="text-sm text-gray-500 mt-1">Gérez vos salons, foires et congrès</p>
           </div>
           {!showCreateForm && (
-            <button onClick={() => setShowCreateForm(true)}
+            <button onClick={() => setShowCreateForm(true)} data-tour="create-event-btn"
               className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
               <Plus className="w-4 h-4" /> Créer un événement
             </button>
@@ -495,8 +497,8 @@ export default function AdminEvent() {
           </div>
         ) : (
           <div className="space-y-4">
-            {events.map((event) => (
-              <div key={event.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            {events.map((event, idx) => (
+              <div key={event.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden" {...(idx === 0 ? { 'data-tour': 'event-card' } : {})}>
                 <div className="p-6">
                   {editingId === event.id ? (
                     <div>
@@ -573,6 +575,7 @@ export default function AdminEvent() {
                     type="button"
                     onClick={() => setExpandedMenuId(expandedMenuId === event.id ? null : event.id)}
                     className="w-full flex items-center justify-between px-6 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                    data-tour="menu-config"
                   >
                     <span className="flex items-center gap-2">
                       <UtensilsCrossed className="w-4 h-4" />

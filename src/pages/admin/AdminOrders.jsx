@@ -14,6 +14,7 @@ import MfBadge from '@/components/ui/MfBadge';
 import MfButton from '@/components/ui/MfButton';
 import MfCard from '@/components/ui/MfCard';
 import { printTicket } from '@/components/staff/printTicket';
+import PageTour from '@/components/onboarding/PageTour';
 
 /* ───────── helpers ───────── */
 
@@ -215,7 +216,7 @@ function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
   return (
     <div className="space-y-5">
       {/* ─── Filters ─── */}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center" data-tour="order-filters">
         {/* Search */}
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-mf-muted" />
@@ -896,6 +897,7 @@ export default function AdminOrders() {
 
   return (
     <div className="p-6 lg:p-8 space-y-6 max-w-[1200px]">
+      <PageTour page="orders" />
       {/* ─── Header ─── */}
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
@@ -921,7 +923,7 @@ export default function AdminOrders() {
       </div>
 
       {/* ─── Tabs ─── */}
-      <div className="flex gap-2">
+      <div className="flex gap-2" data-tour="order-tabs">
         {TABS.map((tab) => (
           <button
             key={tab.key}

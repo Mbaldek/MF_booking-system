@@ -3,8 +3,18 @@ import { useAuth } from '@/lib/AuthContext';
 import { useUnseenOrderCount } from '@/hooks/useOrders';
 import {
   TrendingUp, Calendar, UtensilsCrossed, ShoppingBag,
-  ClipboardList, BarChart3, Mail, Users, Home, LogOut, ChefHat, BookOpen, Bell,
+  ClipboardList, BarChart3, Mail, Users, Home, LogOut, ChefHat, BookOpen, Bell, HelpCircle,
 } from 'lucide-react';
+import { resetTour } from '@/components/onboarding/PageTour';
+
+// Map route paths to tour page keys
+const TOUR_PAGE_MAP = {
+  '/admin': 'dashboard',
+  '/admin/events': 'events',
+  '/admin/menu': 'menu',
+  '/admin/orders': 'orders',
+  '/admin/users': 'users',
+};
 
 const navItems = [
   { path: '/admin', label: 'Tableau de bord', icon: TrendingUp, end: true },
@@ -82,6 +92,26 @@ export default function AdminSidebar() {
           );
         })}
       </nav>
+
+      {/* Help button */}
+      {TOUR_PAGE_MAP[location.pathname] && (
+        <div className="px-5 pb-2">
+          <button
+            onClick={() => {
+              const page = TOUR_PAGE_MAP[location.pathname];
+              resetTour(page);
+              window.dispatchEvent(new CustomEvent('mf-tour-restart', { detail: page }));
+              // Force re-render by navigating to same page
+              window.location.reload();
+            }}
+            className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-mf-muted hover:text-mf-rose hover:bg-mf-poudre/15 transition-all duration-200 font-body text-[12px] bg-transparent border-none cursor-pointer"
+            title="Relancer le guide de cette page"
+          >
+            <HelpCircle className="w-4 h-4" />
+            Guide de la page
+          </button>
+        </div>
+      )}
 
       {/* Footer */}
       <div className="px-6 py-4 border-t border-mf-border">

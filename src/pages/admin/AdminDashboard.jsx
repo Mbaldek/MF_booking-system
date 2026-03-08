@@ -11,6 +11,8 @@ import { useOrders } from '@/hooks/useOrders';
 import { useOrderLines } from '@/hooks/useOrderLines';
 import MfCard from '@/components/ui/MfCard';
 import MfBadge from '@/components/ui/MfBadge';
+import StartupChecklist from '@/components/onboarding/StartupChecklist';
+import PageTour from '@/components/onboarding/PageTour';
 
 const STATUS_MAP = {
   paid: { variant: 'green', label: 'Payée' },
@@ -111,6 +113,9 @@ export default function AdminDashboard() {
 
   return (
     <div className="p-6 lg:p-8 space-y-6 max-w-[1200px]">
+      <PageTour page="dashboard" />
+      <StartupChecklist activeEventId={eventId} />
+
       {/* ─── Header ─── */}
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
@@ -119,7 +124,7 @@ export default function AdminDashboard() {
             {currentEvent?.name || 'Aucun événement'} · {format(new Date(), 'EEEE d MMMM yyyy', { locale: fr })}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" data-tour="event-selector">
           <select
             value={eventId || ''}
             onChange={(e) => setSelectedEventId(e.target.value || null)}
@@ -141,7 +146,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* ─── Stat Cards (4) ─── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4" data-tour="stat-cards">
         <StatCard
           icon={<ShoppingBag className="w-5 h-5 text-mf-rose" />}
           value={stats.totalOrders}
@@ -171,7 +176,7 @@ export default function AdminDashboard() {
       {/* ─── Main grid: Orders table + Right column ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
         {/* Recent orders */}
-        <MfCard className="p-0 overflow-hidden">
+        <MfCard className="p-0 overflow-hidden" data-tour="recent-orders">
           <div className="flex items-center justify-between px-5 py-4 border-b border-mf-border">
             <h2 className="font-serif text-[20px] italic text-mf-rose">Dernières commandes</h2>
             <Link to="/admin/orders" className="font-body text-[10px] uppercase tracking-widest text-mf-rose hover:text-mf-vieux-rose transition-colors">
@@ -268,7 +273,7 @@ export default function AdminDashboard() {
           </MfCard>
 
           {/* Pipeline cuisine */}
-          <MfCard>
+          <MfCard data-tour="kitchen-pipeline">
             <h3 className="font-serif text-[18px] italic text-mf-rose mb-4">Pipeline cuisine</h3>
             <div className="flex flex-col gap-3">
               {pipeline.map((p) => (
@@ -289,7 +294,7 @@ export default function AdminDashboard() {
           </MfCard>
 
           {/* Quick actions */}
-          <MfCard>
+          <MfCard data-tour="quick-actions">
             <h3 className="font-serif text-[18px] italic text-mf-rose mb-4">Actions rapides</h3>
             <div className="flex flex-col gap-2">
               {[
