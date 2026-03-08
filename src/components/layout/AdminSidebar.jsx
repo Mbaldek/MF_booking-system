@@ -2,7 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
 import {
   TrendingUp, Calendar, UtensilsCrossed, ShoppingBag,
-  ClipboardList, BarChart3, Mail, Users, Home, LogOut, ChefHat, BookOpen,
+  ClipboardList, BarChart3, Mail, Users, Home, LogOut, ChefHat, BookOpen, Bell,
 } from 'lucide-react';
 
 const navItems = [
@@ -15,6 +15,7 @@ const navItems = [
   { path: '/admin/stats', label: 'Statistiques', icon: BarChart3 },
   { path: '/admin/reminders', label: 'Rappels email', icon: Mail },
   { path: '/admin/users', label: 'Accès & droits', icon: Users },
+  { path: '/admin/notifications', label: 'Notifications', icon: Bell },
 ];
 
 export default function AdminSidebar() {
