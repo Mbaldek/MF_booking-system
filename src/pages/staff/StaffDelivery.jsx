@@ -98,8 +98,13 @@ export default function StaffDelivery() {
     const readyIds = card.lines.filter((l) => l.prep_status === 'ready').map((l) => l.id);
     if (readyIds.length === 0) return;
     const deliveredBy = profile?.display_name || profile?.email || 'staff';
+    const orderId = card.lines[0]?.order_id;
     const onSuccess = () => {
       setInTransitKeys((prev) => { const next = new Set(prev); next.delete(card.key); return next; });
+      if (orderId) {
+        supabase.functions.invoke('send-delivery-confirmation', { body: { orderId } })
+          .catch((e) => console.warn('Email livraison non envoyé:', e));
+      }
     };
     if (photo) {
       deliverMutation.mutate({ lineIds: readyIds, photo, delivered_by: deliveredBy }, { onSuccess });

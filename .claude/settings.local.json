@@ -6,7 +6,14 @@
       "mcp__claude_ai_Supabase__execute_sql",
       "Bash(npx vite build --logLevel error)",
       "Bash(npx supabase functions deploy create-checkout-session --project-ref nodywhjtymmzzxllggnu)",
-      "Bash(npx supabase functions deploy stripe-webhook --project-ref nodywhjtymmzzxllggnu)"
+      "Bash(npx supabase functions deploy stripe-webhook --project-ref nodywhjtymmzzxllggnu)",
+      "Bash(npx supabase functions deploy send-daily-reminders --project-ref nodywhjtymmzzxllggnu --no-verify-jwt)",
+      "Bash(npx supabase functions deploy send-delivery-confirmation --project-ref nodywhjtymmzzxllggnu --no-verify-jwt)",
+      "mcp__claude_ai_Supabase__list_extensions",
+      "Bash(npx supabase db push --project-ref nodywhjtymmzzxllggnu)",
+      "Bash(npx supabase db push)",
+      "Bash(npx supabase functions deploy send-order-confirmation --project-ref nodywhjtymmzzxllggnu --no-verify-jwt)",
+      "Bash(npx supabase functions deploy send-admin-notification --project-ref nodywhjtymmzzxllggnu --no-verify-jwt)"
     ]
   }
 }
