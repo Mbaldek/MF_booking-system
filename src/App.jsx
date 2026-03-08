@@ -25,6 +25,7 @@ const OrderFunnelTest = lazy(() => import('@/pages/OrderFunnelTest'));
 const MainPageTest = lazy(() => import('@/pages/MainPageTest'));
 const ReservationPage = lazy(() => import('@/pages/ReservationPage'));
 const FeedbackPage = lazy(() => import('@/pages/FeedbackPage'));
+const HeroVideoTest = lazy(() => import('@/pages/HeroVideoTest'));
 
 // Lazy-loaded admin pages
 const AdminDashboard = lazy(() => import('@/pages/admin/AdminDashboard'));
@@ -105,6 +106,7 @@ export default function App() {
                 <Route path="/home-old" element={<HomePage />} />
                 <Route path="/order-old" element={<OrderFunnelTest />} />
                 <Route path="/order-legacy" element={<OrderPageLegacy />} />
+                <Route path="/hero-test" element={<HeroVideoTest />} />
 
                 {/* Delivery QR scan — no auth required */}
                 <Route path="/staff/deliver/:orderId/:slotId" element={<DeliverPage />} />
