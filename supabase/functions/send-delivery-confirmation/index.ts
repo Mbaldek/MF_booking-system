@@ -123,7 +123,10 @@ serve(async (req) => {
       body: JSON.stringify({
         from: emailFrom,
         to: [setting.recipient_override || order.customer_email],
-        subject: setting.subject_template || 'Bon appétit ! Votre repas a été livré',
+        subject: (setting.subject_template || 'Bon appétit ! Votre repas a été livré')
+          .replace('{stand}', order.stand || '')
+          .replace('{order_number}', order.order_number || '')
+          .replace('{event_name}', order.event?.name || ''),
         html,
       }),
     })

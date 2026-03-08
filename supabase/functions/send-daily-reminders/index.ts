@@ -363,7 +363,10 @@ serve(async (req) => {
       </div>`
 
       const clientRecipient = clientSetting?.recipient_override || email
-      const clientSubject = clientSetting?.subject_template || 'Demain — votre repas vous attend !'
+      const clientSubject = (clientSetting?.subject_template || 'Demain — votre repas vous attend !')
+        .replace('{event_name}', (order.event as Record<string, string>)?.name || '')
+        .replace('{slot_label}', slotLabel)
+        .replace('{date}', tomorrowLabel)
       const sent = await sendEmail(
         resendApiKey,
         emailFrom,
