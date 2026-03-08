@@ -22,6 +22,7 @@ const CustomerOrders = lazy(() => import('@/pages/CustomerOrders'));
 const OrderFunnelTest = lazy(() => import('@/pages/OrderFunnelTest'));
 const MainPageTest = lazy(() => import('@/pages/MainPageTest'));
 const ReservationPage = lazy(() => import('@/pages/ReservationPage'));
+const FeedbackPage = lazy(() => import('@/pages/FeedbackPage'));
 
 // Lazy-loaded admin pages
 const AdminDashboard = lazy(() => import('@/pages/admin/AdminDashboard'));
@@ -92,6 +93,7 @@ export default function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/my-orders" element={<CustomerOrders />} />
               <Route path="/reservation/:eventId" element={<ReservationPage />} />
+              <Route path="/feedback" element={<FeedbackPage />} />
               <Route path="/main-old" element={<MainPageTest />} />
               <Route path="/home-old" element={<HomePage />} />
               <Route path="/order-old" element={<OrderFunnelTest />} />
