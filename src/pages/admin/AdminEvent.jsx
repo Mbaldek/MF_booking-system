@@ -63,52 +63,52 @@ function EventForm({ initialData, onSubmit, onCancel, isPending }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-1">
-        <label htmlFor="event-name" className="block text-sm font-medium text-gray-700">Nom *</label>
+        <label htmlFor="event-name" className="block text-sm font-medium text-mf-marron-glace">Nom *</label>
         <input id="event-name" type="text" required value={name}
           onChange={(e) => {
             setName(e.target.value);
             if (!slugDirty) setSlug(slugify(e.target.value));
           }}
           placeholder="Ex : Salon de la Gastronomie 2026"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+          className="w-full px-3 py-2 border border-mf-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-mf-rose focus:border-transparent" />
       </div>
 
       <div className="space-y-1">
-        <label htmlFor="event-slug" className="block text-sm font-medium text-gray-700">
-          Slug URL <span className="font-normal text-gray-400">(lien partageable)</span>
+        <label htmlFor="event-slug" className="block text-sm font-medium text-mf-marron-glace">
+          Slug URL <span className="font-normal text-mf-muted">(lien partageable)</span>
         </label>
         <div className="flex items-center gap-0">
-          <span className="px-3 py-2 bg-gray-50 border border-r-0 border-gray-300 rounded-l-lg text-xs text-gray-400 whitespace-nowrap">/reservation/</span>
+          <span className="px-3 py-2 bg-mf-blanc-casse border border-r-0 border-mf-border rounded-l-lg text-xs text-mf-muted whitespace-nowrap">/reservation/</span>
           <input id="event-slug" type="text" value={slug}
             onChange={(e) => { setSlug(e.target.value); setSlugDirty(true); }}
             placeholder="salon-gastronomie-2026"
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-r-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+            className="flex-1 px-3 py-2 border border-mf-border rounded-r-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-mf-rose focus:border-transparent" />
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-1">
-          <label htmlFor="start-date" className="block text-sm font-medium text-gray-700">Date de début *</label>
+          <label htmlFor="start-date" className="block text-sm font-medium text-mf-marron-glace">Date de début *</label>
           <input id="start-date" type="date" required value={startDate} onChange={(e) => setStartDate(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+            className="w-full px-3 py-2 border border-mf-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-mf-rose focus:border-transparent" />
         </div>
         <div className="space-y-1">
-          <label htmlFor="end-date" className="block text-sm font-medium text-gray-700">Date de fin *</label>
+          <label htmlFor="end-date" className="block text-sm font-medium text-mf-marron-glace">Date de fin *</label>
           <input id="end-date" type="date" required value={endDate} min={startDate || undefined} onChange={(e) => setEndDate(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+            className="w-full px-3 py-2 border border-mf-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-mf-rose focus:border-transparent" />
         </div>
       </div>
 
       <div className="space-y-1">
-        <label htmlFor="event-desc" className="block text-sm font-medium text-gray-700">Description</label>
+        <label htmlFor="event-desc" className="block text-sm font-medium text-mf-marron-glace">Description</label>
         <textarea id="event-desc" rows={2} value={description} onChange={(e) => setDescription(e.target.value)}
           placeholder="Description de l'événement..."
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none" />
+          className="w-full px-3 py-2 border border-mf-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-mf-rose focus:border-transparent resize-none" />
       </div>
 
       {/* Meal service type */}
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Service repas *</label>
+        <label className="block text-sm font-medium text-mf-marron-glace">Service repas *</label>
         <div className="grid grid-cols-3 gap-2">
           {[
             { value: 'midi', label: 'Midi uniquement' },
@@ -121,8 +121,8 @@ function EventForm({ initialData, onSubmit, onCancel, isPending }) {
               onClick={() => setMealService(opt.value)}
               className={`px-3 py-2.5 text-sm font-medium rounded-lg border-2 transition-colors ${
                 mealService === opt.value
-                  ? 'border-blue-500 bg-blue-50 text-blue-700'
-                  : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
+                  ? 'border-mf-rose bg-mf-poudre/20 text-mf-rose'
+                  : 'border-mf-border bg-white text-mf-muted hover:border-mf-border'
               }`}
             >
               {opt.label}
@@ -135,27 +135,27 @@ function EventForm({ initialData, onSubmit, onCancel, isPending }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {showMidi && (
           <div className="space-y-1">
-            <label htmlFor="price-midi" className="block text-sm font-medium text-gray-700">Prix menu midi (€) *</label>
+            <label htmlFor="price-midi" className="block text-sm font-medium text-mf-marron-glace">Prix menu midi (€) *</label>
             <input id="price-midi" type="number" min="0" step="0.01" value={menuPriceMidi}
               onChange={(e) => setMenuPriceMidi(e.target.value)}
               placeholder="0.00"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+              className="w-full px-3 py-2 border border-mf-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-mf-rose focus:border-transparent" />
           </div>
         )}
         {showSoir && (
           <div className="space-y-1">
-            <label htmlFor="price-soir" className="block text-sm font-medium text-gray-700">Prix menu soir (€) *</label>
+            <label htmlFor="price-soir" className="block text-sm font-medium text-mf-marron-glace">Prix menu soir (€) *</label>
             <input id="price-soir" type="number" min="0" step="0.01" value={menuPriceSoir}
               onChange={(e) => setMenuPriceSoir(e.target.value)}
               placeholder="0.00"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+              className="w-full px-3 py-2 border border-mf-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-mf-rose focus:border-transparent" />
           </div>
         )}
       </div>
 
       {/* Menu categories */}
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Composition du menu</label>
+        <label className="block text-sm font-medium text-mf-marron-glace">Composition du menu</label>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {[
             { value: 'entree', label: 'Entrée' },
@@ -171,8 +171,8 @@ function EventForm({ initialData, onSubmit, onCancel, isPending }) {
                 onClick={() => toggleCategory(cat.value)}
                 className={`px-3 py-2 text-sm font-medium rounded-lg border-2 transition-colors ${
                   active
-                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                    : 'border-gray-200 bg-white text-gray-400 hover:border-gray-300'
+                    ? 'border-mf-rose bg-mf-poudre/20 text-mf-rose'
+                    : 'border-mf-border bg-white text-mf-muted hover:border-mf-border'
                 }`}
               >
                 {cat.label}
@@ -188,7 +188,7 @@ function EventForm({ initialData, onSubmit, onCancel, isPending }) {
 
       <div className="flex items-center gap-3 pt-2">
         <button type="submit" disabled={!isValid || isPending}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+          className="inline-flex items-center gap-2 px-4 py-2 bg-mf-rose text-white text-sm font-medium rounded-pill hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
           {isPending ? (
             <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> Enregistrement...</>
           ) : (
@@ -197,7 +197,7 @@ function EventForm({ initialData, onSubmit, onCancel, isPending }) {
         </button>
         {onCancel && (
           <button type="button" onClick={onCancel}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors">
+            className="inline-flex items-center gap-2 px-4 py-2 bg-mf-blanc-casse text-mf-marron-glace text-sm font-medium rounded-lg hover:bg-mf-poudre/20 transition-colors">
             <X className="w-4 h-4" /> Annuler
           </button>
         )}
@@ -236,15 +236,15 @@ function EventMenuConfig({ eventId }) {
         if (items.length === 0) return null;
         return (
           <div key={type}>
-            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{TYPE_LABELS[type]}</h4>
+            <h4 className="text-xs font-semibold text-mf-muted uppercase tracking-wide mb-2">{TYPE_LABELS[type]}</h4>
             <div className="space-y-1.5">
               {items.map((item) => {
                 const emi = linkedMap[item.id];
                 const isLinked = !!emi;
                 return (
-                  <div key={item.id} className={`flex items-center gap-3 p-2.5 rounded-lg border transition-colors ${isLinked ? 'border-blue-200 bg-blue-50/50' : 'border-gray-100 bg-white'}`}>
+                  <div key={item.id} className={`flex items-center gap-3 p-2.5 rounded-lg border transition-colors ${isLinked ? 'border-mf-rose/30 bg-mf-poudre/10' : 'border-mf-border bg-white'}`}>
                     <button type="button" onClick={() => handleToggle(item)}
-                      className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${isLinked ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
+                      className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${isLinked ? 'bg-mf-rose border-mf-rose' : 'border-mf-border'}`}>
                       {isLinked && (
                         <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
@@ -252,8 +252,8 @@ function EventMenuConfig({ eventId }) {
                       )}
                     </button>
                     <div className="flex-1 min-w-0">
-                      <span className="text-sm font-medium text-gray-900">{item.name}</span>
-                      <span className="text-xs text-gray-400 ml-2">{Number(item.price).toFixed(2)}€</span>
+                      <span className="text-sm font-medium text-mf-marron-glace">{item.name}</span>
+                      <span className="text-xs text-mf-muted ml-2">{Number(item.price).toFixed(2)}€</span>
                     </div>
                     {isLinked && (
                       <input
@@ -263,7 +263,7 @@ function EventMenuConfig({ eventId }) {
                         placeholder={Number(item.price).toFixed(2)}
                         defaultValue={emi.custom_price ?? ''}
                         onBlur={(e) => handlePriceChange(emi, e.target.value)}
-                        className="w-20 px-2 py-1 border border-gray-200 rounded text-xs text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className="w-20 px-2 py-1 border border-mf-border rounded text-xs text-right focus:outline-none focus:ring-1 focus:ring-mf-rose"
                         title="Prix personnalisé (laisser vide = prix catalogue)"
                       />
                     )}
@@ -275,7 +275,7 @@ function EventMenuConfig({ eventId }) {
         );
       })}
       {catalog.length === 0 && (
-        <p className="text-sm text-gray-400 text-center py-4">Aucun article dans le catalogue. Ajoutez des articles dans "Menu" d'abord.</p>
+        <p className="text-sm text-mf-muted text-center py-4">Aucun article dans le catalogue. Ajoutez des articles dans "Menu" d'abord.</p>
       )}
     </div>
   );
@@ -321,11 +321,11 @@ function EventImageUpload({ event, onUpdate }) {
         </div>
       ) : (
         <button onClick={() => fileRef.current?.click()} disabled={uploading}
-          className="w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center hover:border-blue-400 transition-colors disabled:opacity-50">
+          className="w-20 h-20 border-2 border-dashed border-mf-border rounded-lg flex flex-col items-center justify-center hover:border-mf-rose/40 transition-colors disabled:opacity-50">
           {uploading ? (
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600" />
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-mf-rose" />
           ) : (
-            <><Image className="w-5 h-5 text-gray-400" /><span className="text-[10px] text-gray-400 mt-1">Photo</span></>
+            <><Image className="w-5 h-5 text-mf-muted" /><span className="text-[10px] text-mf-muted mt-1">Photo</span></>
           )}
         </button>
       )}
@@ -346,20 +346,20 @@ function SlotCapacityConfig({ eventId }) {
 
   return (
     <div className="flex items-center gap-3">
-      <label className="text-sm text-gray-600 whitespace-nowrap">Capacité max par créneau :</label>
+      <label className="text-sm text-mf-muted whitespace-nowrap">Capacité max par créneau :</label>
       <input
         type="number"
         min="1"
         placeholder="Illimité"
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        className="w-24 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43] focus:border-transparent"
+        className="w-24 px-2 py-1.5 border border-mf-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-mf-rose focus:border-transparent"
       />
       <button
         type="button"
         onClick={handleSave}
         disabled={updateCapacity.isPending}
-        className="px-3 py-1.5 text-xs font-medium bg-[#8B3A43] text-white rounded-lg hover:bg-[#7a3039] disabled:opacity-50 transition-colors"
+        className="px-3 py-1.5 text-xs font-medium bg-mf-rose text-white rounded-lg hover:opacity-90 disabled:opacity-50 transition-colors"
       >
         {updateCapacity.isPending ? '...' : 'Appliquer'}
       </button>
@@ -367,7 +367,7 @@ function SlotCapacityConfig({ eventId }) {
         <button
           type="button"
           onClick={() => { setValue(''); updateCapacity.mutate({ eventId, maxOrders: null }); }}
-          className="text-xs text-gray-400 hover:text-gray-600"
+          className="text-xs text-mf-muted hover:text-mf-muted"
         >
           Retirer la limite
         </button>
@@ -448,7 +448,7 @@ export default function AdminEvent() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-mf-rose" />
       </div>
     );
   }
@@ -458,7 +458,7 @@ export default function AdminEvent() {
       <div className="flex items-center justify-center py-16">
         <div className="bg-white rounded-xl shadow-sm p-8 max-w-md text-center space-y-3">
           <p className="text-red-600 font-medium">Erreur lors du chargement</p>
-          <p className="text-sm text-gray-500">{error.message}</p>
+          <p className="text-sm text-mf-muted">{error.message}</p>
         </div>
       </div>
     );
@@ -470,39 +470,39 @@ export default function AdminEvent() {
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Événements</h1>
-            <p className="text-sm text-gray-500 mt-1">Gérez vos salons, foires et congrès</p>
+            <h1 className="text-2xl font-semibold text-mf-marron-glace">Événements</h1>
+            <p className="text-sm text-mf-muted mt-1">Gérez vos salons, foires et congrès</p>
           </div>
           {!showCreateForm && (
             <button onClick={() => setShowCreateForm(true)} data-tour="create-event-btn"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+              className="inline-flex items-center gap-2 px-4 py-2 bg-mf-rose text-white text-sm font-medium rounded-pill hover:opacity-90 transition-colors shadow-sm">
               <Plus className="w-4 h-4" /> Créer un événement
             </button>
           )}
         </div>
 
         {showCreateForm && (
-          <div className="bg-white rounded-xl shadow-sm border border-blue-100 p-6">
-            <h2 className="text-lg font-medium text-gray-900 mb-2">Nouvel événement</h2>
-            <p className="text-sm text-gray-500 mb-4">Les créneaux repas seront auto-générés pour chaque jour.</p>
+          <div className="bg-white rounded-xl shadow-sm border border-mf-poudre p-6">
+            <h2 className="text-lg font-medium text-mf-marron-glace mb-2">Nouvel événement</h2>
+            <p className="text-sm text-mf-muted mb-4">Les créneaux repas seront auto-générés pour chaque jour.</p>
             <EventForm onSubmit={handleCreate} onCancel={() => setShowCreateForm(false)} isPending={createEvent.isPending} />
           </div>
         )}
 
         {events.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm p-12 text-center">
-            <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 font-medium">Aucun événement</p>
-            <p className="text-sm text-gray-400 mt-1">Créez votre premier événement pour commencer.</p>
+            <Calendar className="w-12 h-12 text-mf-muted mx-auto mb-4" />
+            <p className="text-mf-muted font-medium">Aucun événement</p>
+            <p className="text-sm text-mf-muted mt-1">Créez votre premier événement pour commencer.</p>
           </div>
         ) : (
           <div className="space-y-4">
             {events.map((event, idx) => (
-              <div key={event.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden" {...(idx === 0 ? { 'data-tour': 'event-card' } : {})}>
+              <div key={event.id} className="bg-white rounded-xl shadow-sm border border-mf-border overflow-hidden" {...(idx === 0 ? { 'data-tour': 'event-card' } : {})}>
                 <div className="p-6">
                   {editingId === event.id ? (
                     <div>
-                      <h3 className="text-sm font-medium text-gray-500 mb-3">Modifier l'événement</h3>
+                      <h3 className="text-sm font-medium text-mf-muted mb-3">Modifier l'événement</h3>
                       <EventForm initialData={event} onSubmit={handleUpdate} onCancel={() => setEditingId(null)} isPending={updateEvent.isPending} />
                     </div>
                   ) : (
@@ -511,32 +511,32 @@ export default function AdminEvent() {
                         <EventImageUpload event={event} onUpdate={handleImageUpdate} />
                         <div className="space-y-1">
                           <div className="flex items-center gap-3">
-                            <h3 className="text-lg font-semibold text-gray-900">{event.name}</h3>
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${event.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                            <h3 className="text-lg font-semibold text-mf-marron-glace">{event.name}</h3>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${event.is_active ? 'bg-status-green/15 text-status-green' : 'bg-mf-blanc-casse text-mf-muted'}`}>
                               {event.is_active ? 'Actif' : 'Inactif'}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-500 flex items-center gap-1.5">
+                          <p className="text-sm text-mf-muted flex items-center gap-1.5">
                             <Calendar className="w-4 h-4" />
                             {format(new Date(event.start_date + 'T00:00:00'), 'd MMM yyyy', { locale: fr })} — {format(new Date(event.end_date + 'T00:00:00'), 'd MMM yyyy', { locale: fr })}
                           </p>
-                          {event.description && <p className="text-xs text-gray-400 mt-1">{event.description}</p>}
+                          {event.description && <p className="text-xs text-mf-muted mt-1">{event.description}</p>}
                           {(Number(event.menu_price_midi) > 0 || Number(event.menu_price_soir) > 0) && (
-                            <p className="text-xs text-gray-500 mt-1">
+                            <p className="text-xs text-mf-muted mt-1">
                               {Number(event.menu_price_midi) > 0 && <span>Midi : {Number(event.menu_price_midi).toFixed(2)}€</span>}
                               {Number(event.menu_price_midi) > 0 && Number(event.menu_price_soir) > 0 && <span> · </span>}
                               {Number(event.menu_price_soir) > 0 && <span>Soir : {Number(event.menu_price_soir).toFixed(2)}€</span>}
                             </p>
                           )}
                           <div className="flex items-center gap-1.5 mt-1.5">
-                            <span className="text-xs text-gray-400 font-mono truncate max-w-[260px]">
+                            <span className="text-xs text-mf-muted font-mono truncate max-w-[260px]">
                               /reservation/{event.slug || event.id}
                             </span>
                             <button
                               type="button"
                               title="Copier le lien de réservation"
                               onClick={() => handleCopy(event.id, `${window.location.origin}/reservation/${event.slug || event.id}`)}
-                              className="shrink-0 text-gray-400 hover:text-[#8B3A43] transition-colors"
+                              className="shrink-0 text-mf-muted hover:text-mf-rose transition-colors"
                             >
                               {copiedId === event.id
                                 ? <Check className="w-3.5 h-3.5 text-green-500" />
@@ -548,11 +548,11 @@ export default function AdminEvent() {
 
                       <div className="flex items-center gap-2 shrink-0">
                         <button onClick={() => handleToggleActive(event)} disabled={updateEvent.isPending}
-                          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${event.is_active ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-green-50 text-green-700 hover:bg-green-100'}`}>
+                          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${event.is_active ? 'bg-mf-blanc-casse text-mf-muted hover:bg-mf-poudre/20' : 'bg-status-green/10 text-status-green hover:bg-status-green/20'}`}>
                           {event.is_active ? 'Désactiver' : 'Activer'}
                         </button>
                         <button onClick={() => setEditingId(event.id)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-mf-muted bg-mf-blanc-casse rounded-lg hover:bg-mf-poudre/20 transition-colors">
                           <Pencil className="w-3.5 h-3.5" /> Modifier
                         </button>
                         <button onClick={() => handleDelete(event)} disabled={deleteEvent.isPending}
@@ -574,7 +574,7 @@ export default function AdminEvent() {
                   <button
                     type="button"
                     onClick={() => setExpandedMenuId(expandedMenuId === event.id ? null : event.id)}
-                    className="w-full flex items-center justify-between px-6 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                    className="w-full flex items-center justify-between px-6 py-3 text-sm font-medium text-mf-muted hover:bg-mf-blanc-casse transition-colors"
                     data-tour="menu-config"
                   >
                     <span className="flex items-center gap-2">

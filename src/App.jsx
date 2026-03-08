@@ -103,7 +103,7 @@ export default function App() {
               <Route path="/order-legacy" element={<OrderPageLegacy />} />
 
               {/* Delivery QR scan — no auth required */}
-              <Route path="/staff/deliver/:orderId" element={<DeliverPage />} />
+              <Route path="/staff/deliver/:orderId/:slotId" element={<DeliverPage />} />
 
               {/* Admin */}
               <Route

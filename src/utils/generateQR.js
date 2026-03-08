@@ -2,10 +2,10 @@ import QRCode from 'qrcode';
 
 /**
  * Generate a QR code data URL (base64 PNG) for delivery confirmation.
- * The encoded URL points to /staff/deliver/:orderId
+ * The encoded URL points to /staff/deliver/:orderId/:slotId
  */
-export async function generateDeliveryQR(orderId) {
-  const url = `${window.location.origin}/staff/deliver/${orderId}`;
+export async function generateDeliveryQR(orderId, slotId) {
+  const url = `${window.location.origin}/staff/deliver/${orderId}/${slotId}`;
   return QRCode.toDataURL(url, {
     width: 256,
     margin: 2,

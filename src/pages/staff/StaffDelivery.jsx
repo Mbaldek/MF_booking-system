@@ -36,6 +36,10 @@ export default function StaffDelivery() {
         { event: '*', schema: 'public', table: 'order_lines' },
         () => queryClient.invalidateQueries({ queryKey: ['order_lines'] })
       )
+      .on('broadcast', { event: 'delivery-confirmed' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['order_lines'] });
+        queryClient.invalidateQueries({ queryKey: ['orders'] });
+      })
       .subscribe();
     return () => supabase.removeChannel(channel);
   }, [eventId, queryClient]);

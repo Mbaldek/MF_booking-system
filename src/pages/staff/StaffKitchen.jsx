@@ -69,6 +69,10 @@ export default function StaffKitchen() {
         { event: '*', schema: 'public', table: 'order_lines' },
         () => queryClient.invalidateQueries({ queryKey: ['order_lines'] })
       )
+      .on('broadcast', { event: 'delivery-confirmed' }, () => {
+        queryClient.invalidateQueries({ queryKey: ['order_lines'] });
+        queryClient.invalidateQueries({ queryKey: ['orders'] });
+      })
       .subscribe();
     return () => supabase.removeChannel(channel);
   }, [eventId, queryClient]);
@@ -348,6 +352,7 @@ export default function StaffKitchen() {
 function handlePrintTicket(group) {
   printTicket({
     orderId: group.lines[0]?.order_id,
+    slotId: group.mealSlot?.id,
     orderNumber: group.order?.order_number || '—',
     stand: group.order?.stand || '—',
     customerName: group.guestName,

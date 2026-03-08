@@ -676,27 +676,39 @@ function OrderDetailModal({ order, lines, prepStatus, onClose, onStatusUpdate, o
             </div>
           )}
 
-          {/* Print ticket */}
-          {order.payment_status === 'paid' && (
-            <button
-              onClick={() => {
-                const slotTypes = [...new Set(lines.map((l) => l.meal_slot?.slot_type).filter(Boolean))];
-                const slotDates = [...new Set(lines.map((l) => l.meal_slot?.slot_date).filter(Boolean))];
-                printTicket({
-                  orderId: order.id,
-                  orderNumber: order.order_number,
-                  stand: order.stand,
-                  customerName: `${order.customer_first_name || ''} ${order.customer_last_name || ''}`.trim(),
-                  slotType: slotTypes[0],
-                  slotDate: slotDates[0],
-                  lines,
-                });
-              }}
-              className="w-full min-h-[44px] rounded-pill border border-mf-poudre bg-mf-poudre/15 font-body text-[12px] font-medium text-mf-rose cursor-pointer transition-all duration-200 hover:bg-mf-poudre/25 flex items-center justify-center gap-1.5"
-            >
-              🖨 Imprimer ticket livraison
-            </button>
-          )}
+          {/* Print tickets (one per slot) */}
+          {order.payment_status === 'paid' && (() => {
+            const slotMap = {};
+            lines.forEach((l) => {
+              const sid = l.meal_slot?.id;
+              if (!sid) return;
+              if (!slotMap[sid]) slotMap[sid] = { slotId: sid, slotType: l.meal_slot?.slot_type, slotDate: l.meal_slot?.slot_date, lines: [] };
+              slotMap[sid].lines.push(l);
+            });
+            const slotEntries = Object.values(slotMap);
+            return (
+              <div className="flex gap-2">
+                {slotEntries.map((s) => (
+                  <button
+                    key={s.slotId}
+                    onClick={() => printTicket({
+                      orderId: order.id,
+                      slotId: s.slotId,
+                      orderNumber: order.order_number,
+                      stand: order.stand,
+                      customerName: `${order.customer_first_name || ''} ${order.customer_last_name || ''}`.trim(),
+                      slotType: s.slotType,
+                      slotDate: s.slotDate,
+                      lines: s.lines,
+                    })}
+                    className="flex-1 min-h-[44px] rounded-pill border border-mf-poudre bg-mf-poudre/15 font-body text-[12px] font-medium text-mf-rose cursor-pointer transition-all duration-200 hover:bg-mf-poudre/25 flex items-center justify-center gap-1.5"
+                  >
+                    🖨 {s.slotType === 'midi' ? '☀ Midi' : '☽ Soir'}
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
 
           {/* Total */}
           <div className="flex items-baseline justify-between pt-4 border-t-2 border-mf-rose">
@@ -888,6 +900,13 @@ export default function AdminOrders() {
       .channel('admin-order-lines')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'order_lines' }, () => {
         qc.invalidateQueries({ queryKey: ['order_lines', eventId] });
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, () => {
+        qc.invalidateQueries({ queryKey: ['orders', eventId] });
+      })
+      .on('broadcast', { event: 'delivery-confirmed' }, () => {
+        qc.invalidateQueries({ queryKey: ['order_lines', eventId] });
+        qc.invalidateQueries({ queryKey: ['orders', eventId] });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };

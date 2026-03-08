@@ -3,19 +3,20 @@ import { generateDeliveryQR } from '@/utils/generateQR';
 const TYPE_EMOJI = { entree: '🥗', plat: '🍽', dessert: '🍰', boisson: '🥂' };
 
 /**
- * Opens a print window with a delivery ticket for an order.
+ * Opens a print window with a delivery ticket for one slot of an order.
  * @param {object} opts
  * @param {string} opts.orderId
+ * @param {string} opts.slotId - meal_slot_id for this ticket
  * @param {string} opts.orderNumber
  * @param {string} opts.stand
  * @param {string} opts.customerName
  * @param {string} opts.slotType - 'midi' | 'soir'
  * @param {string} opts.slotDate - ISO date string
- * @param {Array} opts.lines - order lines with menu_item and guest_name
+ * @param {Array} opts.lines - order lines for this slot only
  */
-export async function printTicket({ orderId, orderNumber, stand, customerName, slotType, slotDate, lines }) {
-  // Generate QR code
-  const qrDataUrl = await generateDeliveryQR(orderId);
+export async function printTicket({ orderId, slotId, orderNumber, stand, customerName, slotType, slotDate, lines }) {
+  // Generate QR code with orderId + slotId
+  const qrDataUrl = await generateDeliveryQR(orderId, slotId);
 
   // Group items by guest, count duplicates
   const guestGroups = {};
