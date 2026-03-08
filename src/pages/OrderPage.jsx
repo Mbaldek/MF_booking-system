@@ -373,10 +373,10 @@ export default function OrderPage() {
   // ─── V4 Menu helpers ───
   const catConfig = useMemo(() => {
     const cats = [];
-    if (categories.includes('entree')) cats.push({ key: 'entree', label: 'Entrée', emoji: '🥗', items: entrees });
-    if (categories.includes('plat')) cats.push({ key: 'plat', label: 'Plat', emoji: '🍽', items: plats });
-    if (categories.includes('dessert')) cats.push({ key: 'dessert', label: 'Dessert', emoji: '🍰', items: desserts });
-    if (categories.includes('boisson')) cats.push({ key: 'boisson', label: 'Boisson', emoji: '🥤', items: boissons });
+    if (categories.includes('entree') && entrees.length > 0) cats.push({ key: 'entree', label: 'Entrée', emoji: '🥗', items: entrees });
+    if (categories.includes('plat') && plats.length > 0) cats.push({ key: 'plat', label: 'Plat', emoji: '🍽', items: plats });
+    if (categories.includes('dessert') && desserts.length > 0) cats.push({ key: 'dessert', label: 'Dessert', emoji: '🍰', items: desserts });
+    if (categories.includes('boisson') && boissons.length > 0) cats.push({ key: 'boisson', label: 'Boisson', emoji: '🥤', items: boissons });
     return cats;
   }, [categories, entrees, plats, desserts, boissons]);
 
@@ -1140,11 +1140,15 @@ export default function OrderPage() {
                 <MfButton
                   fullWidth
                   variant={allSlotsDone ? 'green' : 'primary'}
-                  disabled={!allSlotsDone}
-                  onClick={() => goToStep(3)}
+                  disabled={!allConvThisSlot}
+                  onClick={() => allSlotsDone && goToStep(3)}
                   className="mt-1.5"
                 >
-                  {allSlotsDone ? 'Voir le récapitulatif →' : `${doneSlots}/${activeSlots.length} créneaux`}
+                  {allSlotsDone
+                    ? 'Voir le récapitulatif →'
+                    : allConvThisSlot
+                      ? `${doneSlots}/${activeSlots.length} créneaux`
+                      : 'Complétez les menus'}
                 </MfButton>
               ) : (
                 <MfButton
