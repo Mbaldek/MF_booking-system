@@ -426,7 +426,7 @@ export default function MainPage() {
 
       {/* ═══ HERO ═══ */}
       <section
-        className="relative text-center overflow-hidden pt-[72px] pb-14 px-6"
+        className="relative text-center overflow-hidden bg-mf-blanc-casse pt-[72px] pb-14 px-6"
         style={{
           opacity: heroLoaded ? 1 : 0,
           transform: heroLoaded ? 'translateY(0)' : 'translateY(40px)',
@@ -472,7 +472,7 @@ export default function MainPage() {
         </div>
 
         <div className="relative z-[2] animate-fade-up">
-          <p className="font-body text-[10px] tracking-[0.3em] uppercase text-mf-vert-olive mb-4">
+          <p className="font-body text-[10px] tracking-[0.3em] uppercase text-mf-marron-glace mb-4">
             Traiteur événementiel
           </p>
 
@@ -487,7 +487,7 @@ export default function MainPage() {
             Félicien
           </h1>
 
-          <p className="font-body text-[15px] text-mf-muted leading-[1.7] max-w-[380px] mx-auto mb-7">
+          <p className="font-body text-[15px] text-mf-marron-glace/80 leading-[1.7] max-w-[380px] mx-auto mb-7">
             Des repas d'exception livrés directement sur votre stand.
             Commandez pour votre équipe, nous nous occupons du reste.
           </p>
