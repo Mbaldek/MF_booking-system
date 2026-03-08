@@ -1,8 +1,9 @@
 /**
  * Groups order_lines by (meal_slot_id, guest_name), reconstructing per-menu selections.
+ * Supplements (is_supplement=true) are collected in a separate `supplements` array.
  *
  * Input:  array of order_lines with joined meal_slot and menu_item
- * Output: { [key]: { slot_date, slot_type, guest_name, menu_unit_price, entree, plat, dessert, boisson, lines[] } }
+ * Output: { [key]: { slot_date, slot_type, guest_name, menu_unit_price, entree, plat, dessert, boisson, supplements[], lines[] } }
  */
 export function groupOrderLines(orderLines) {
   const grouped = {};
@@ -22,20 +23,33 @@ export function groupOrderLines(orderLines) {
         plat: null,
         dessert: null,
         boisson: null,
+        supplements: [],
         lines: [],
       };
     }
 
-    const type = line.menu_item?.type;
-    if (type && ['entree', 'plat', 'dessert', 'boisson'].includes(type)) {
-      grouped[key][type] = {
-        id: line.menu_item.id ?? line.menu_item_id,
-        name: line.menu_item.name,
+    if (line.is_supplement) {
+      grouped[key].supplements.push({
+        id: line.menu_item?.id ?? line.menu_item_id,
+        name: line.menu_item?.name || '?',
+        type: line.menu_item?.type,
         price: Number(line.unit_price),
-        quantity: line.quantity,
+        quantity: line.quantity || 1,
         line_id: line.id,
         prep_status: line.prep_status,
-      };
+      });
+    } else {
+      const type = line.menu_item?.type;
+      if (type && ['entree', 'plat', 'dessert', 'boisson'].includes(type)) {
+        grouped[key][type] = {
+          id: line.menu_item.id ?? line.menu_item_id,
+          name: line.menu_item.name,
+          price: Number(line.unit_price),
+          quantity: line.quantity,
+          line_id: line.id,
+          prep_status: line.prep_status,
+        };
+      }
     }
 
     grouped[key].lines.push(line);

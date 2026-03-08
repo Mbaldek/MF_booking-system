@@ -368,6 +368,9 @@ function MobileOrderCard({ group, onAdvance, updateStatus, profile }) {
   const nextAction = NEXT_ACTION[group.status];
   const slotType = group.mealSlot?.slot_type;
 
+  const formuleLines = useMemo(() => group.lines.filter((l) => !l.is_supplement), [group.lines]);
+  const suppLines = useMemo(() => group.lines.filter((l) => l.is_supplement), [group.lines]);
+
   // Collect allergy tags from all items in the group
   const allergyTags = useMemo(() => {
     const tags = new Set();
@@ -436,7 +439,8 @@ function MobileOrderCard({ group, onAdvance, updateStatus, profile }) {
         style={{ maxHeight: expanded ? 800 : 0 }}
       >
         <div className="px-4 pb-3">
-          {group.lines.map((line) => {
+          {/* Formule items */}
+          {formuleLines.map((line) => {
             const lineNext = NEXT_STATUS[line.prep_status];
             const lineAction = lineNext ? NEXT_ACTION[line.prep_status] : null;
             return (
@@ -446,7 +450,6 @@ function MobileOrderCard({ group, onAdvance, updateStatus, profile }) {
                   <span className="font-body text-[14px] text-mf-marron-glace">{line.menu_item?.name}</span>
                   {line.quantity > 1 && <span className="font-body text-[13px] text-mf-rose font-medium"> ×{line.quantity}</span>}
                 </div>
-                {/* Per-item advance button */}
                 {lineAction ? (
                   <button
                     onClick={(e) => { e.stopPropagation(); advanceItem(line); }}
@@ -463,6 +466,43 @@ function MobileOrderCard({ group, onAdvance, updateStatus, profile }) {
               </div>
             );
           })}
+          {/* Supplements */}
+          {suppLines.length > 0 && (
+            <>
+              <div className="flex items-center gap-2 py-2 mt-1">
+                <div className="flex-1 h-px bg-mf-vert-olive/20" />
+                <span className="font-body text-[10px] uppercase tracking-[0.1em] text-mf-vert-olive font-medium">Suppléments</span>
+                <div className="flex-1 h-px bg-mf-vert-olive/20" />
+              </div>
+              {suppLines.map((line) => {
+                const lineNext = NEXT_STATUS[line.prep_status];
+                const lineAction = lineNext ? NEXT_ACTION[line.prep_status] : null;
+                return (
+                  <div key={line.id} className="flex items-center gap-2.5 py-2.5 border-b border-mf-blanc-casse last:border-b-0">
+                    <span className="text-[20px] w-7 text-center">＋</span>
+                    <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                      <span className="font-body text-[14px] text-mf-marron-glace">{line.menu_item?.name}</span>
+                      {line.quantity > 1 && <span className="font-body text-[13px] text-mf-vert-olive font-medium">×{line.quantity}</span>}
+                      <span className="font-body text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-mf-vert-olive/15 text-mf-vert-olive font-medium">SUPP.</span>
+                    </div>
+                    {lineAction ? (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); advanceItem(line); }}
+                        className={`shrink-0 w-9 h-9 rounded-full border cursor-pointer transition-all active:scale-90 flex items-center justify-center font-body text-[11px] font-medium ${lineAction.itemCls}`}
+                        title={lineAction.label}
+                      >
+                        ▶
+                      </button>
+                    ) : (
+                      <span className="shrink-0 w-9 h-9 rounded-full bg-mf-muted/10 flex items-center justify-center font-body text-[10px] text-mf-muted">
+                        ✓✓
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </>
+          )}
         </div>
       </div>
 
@@ -494,6 +534,9 @@ function DesktopOrderCard({ group, onAdvance, updateStatus, profile }) {
   const nextAction = NEXT_ACTION[group.status];
   const sc = SC[group.status];
   const slotType = group.mealSlot?.slot_type;
+
+  const formuleLines = useMemo(() => group.lines.filter((l) => !l.is_supplement), [group.lines]);
+  const suppLines = useMemo(() => group.lines.filter((l) => l.is_supplement), [group.lines]);
 
   // Collect allergy tags
   const allergyTags = useMemo(() => {
@@ -548,9 +591,9 @@ function DesktopOrderCard({ group, onAdvance, updateStatus, profile }) {
         </div>
       )}
 
-      {/* Items list */}
+      {/* Items list — formule */}
       <div className="space-y-1 mb-2">
-        {group.lines.map((line) => {
+        {formuleLines.map((line) => {
           const lineNext = NEXT_STATUS[line.prep_status];
           const lineAction = lineNext ? NEXT_ACTION[line.prep_status] : null;
           return (
@@ -578,6 +621,45 @@ function DesktopOrderCard({ group, onAdvance, updateStatus, profile }) {
             </div>
           );
         })}
+        {/* Supplements */}
+        {suppLines.length > 0 && (
+          <>
+            <div className="flex items-center gap-1.5 pt-1">
+              <div className="flex-1 h-px bg-mf-vert-olive/20" />
+              <span className="font-body text-[8px] uppercase tracking-[0.1em] text-mf-vert-olive font-medium">Suppl.</span>
+              <div className="flex-1 h-px bg-mf-vert-olive/20" />
+            </div>
+            {suppLines.map((line) => {
+              const lineNext = NEXT_STATUS[line.prep_status];
+              const lineAction = lineNext ? NEXT_ACTION[line.prep_status] : null;
+              return (
+                <div key={line.id} className="flex items-center gap-2">
+                  <span className="text-[13px] w-5 text-center text-mf-vert-olive">＋</span>
+                  <span className="font-body text-[12px] text-mf-marron-glace truncate flex-1">
+                    {line.menu_item?.name}
+                  </span>
+                  {line.quantity > 1 && (
+                    <span className="font-body text-[11px] text-mf-vert-olive font-medium">×{line.quantity}</span>
+                  )}
+                  <span className="font-body text-[7px] uppercase tracking-wider px-1 py-0.5 rounded-full bg-mf-vert-olive/15 text-mf-vert-olive font-medium">SUPP.</span>
+                  {lineAction ? (
+                    <button
+                      onClick={() => advanceItem(line)}
+                      className={`shrink-0 w-7 h-7 rounded-full border cursor-pointer transition-all active:scale-90 flex items-center justify-center font-body text-[9px] font-medium ${lineAction.itemCls}`}
+                      title={lineAction.label}
+                    >
+                      ▶
+                    </button>
+                  ) : (
+                    <span className="shrink-0 w-7 h-7 rounded-full bg-mf-muted/10 flex items-center justify-center font-body text-[9px] text-mf-muted">
+                      ✓✓
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </>
+        )}
       </div>
 
       {/* Date */}

@@ -669,6 +669,31 @@ function OrderDetailModal({ order, lines, prepStatus, onClose, onStatusUpdate, o
                       );
                     })}
                   </ul>
+                  {/* Supplements */}
+                  {slot.supplements?.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-mf-vert-olive/15">
+                      <div className="font-body text-[9px] uppercase tracking-widest text-mf-vert-olive font-medium mb-1">Suppléments</div>
+                      <ul className="space-y-1">
+                        {slot.supplements.map((supp, si) => (
+                          <li key={si} className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-body text-[13px] text-mf-marron-glace">{supp.name}</span>
+                              {supp.quantity > 1 && (
+                                <span className="font-body text-[12px] text-mf-vert-olive font-medium">×{supp.quantity}</span>
+                              )}
+                              <span className="font-body text-[8px] uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-mf-vert-olive/15 text-mf-vert-olive font-medium">SUPP.</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <MfBadge variant={PREP_BADGE_VARIANT[supp.prep_status] || 'rose'}>
+                                {PREP_LABELS[supp.prep_status] || supp.prep_status}
+                              </MfBadge>
+                              <span className="font-body text-[10px] text-mf-vert-olive">{Number(supp.price).toFixed(2)} €</span>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   {slot.menu_unit_price != null && (
                     <p className="mt-2 text-right font-body text-[11px] text-mf-muted">
                       Menu : {Number(slot.menu_unit_price).toFixed(2)} €

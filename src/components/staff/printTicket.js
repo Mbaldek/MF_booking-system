@@ -18,9 +18,12 @@ export async function printTicket({ orderId, slotId, orderNumber, stand, custome
   // Generate QR code with orderId + slotId
   const qrDataUrl = await generateDeliveryQR(orderId, slotId);
 
-  // Group items by guest, count duplicates
+  // Separate formule vs supplements, group by guest
+  const formuleLines = lines.filter((l) => !l.is_supplement);
+  const suppLines = lines.filter((l) => l.is_supplement);
+
   const guestGroups = {};
-  for (const line of lines) {
+  for (const line of formuleLines) {
     const guest = line.guest_name || customerName || 'Convive';
     if (!guestGroups[guest]) guestGroups[guest] = {};
     const name = line.menu_item?.name || '—';
@@ -30,6 +33,14 @@ export async function printTicket({ orderId, slotId, orderNumber, stand, custome
       guestGroups[guest][key] = { name, type, count: 0 };
     }
     guestGroups[guest][key].count += (line.quantity || 1);
+  }
+
+  // Group supplements (not per-guest)
+  const suppGroups = {};
+  for (const line of suppLines) {
+    const name = line.menu_item?.name || '—';
+    if (!suppGroups[name]) suppGroups[name] = { name, count: 0 };
+    suppGroups[name].count += (line.quantity || 1);
   }
 
   // Collect allergies
@@ -55,6 +66,17 @@ export async function printTicket({ orderId, slotId, orderNumber, stand, custome
       const emoji = TYPE_EMOJI[item.type] || '🍽';
       const qty = item.count > 1 ? ` ×${item.count}` : '';
       itemsHtml += `<div style="font-size:12px;padding:1px 0">${emoji} ${item.name}${qty}</div>`;
+    }
+  }
+
+  // Supplements HTML
+  let suppHtml = '';
+  const suppEntries = Object.values(suppGroups);
+  if (suppEntries.length > 0) {
+    suppHtml += `<div style="font-size:10px;text-align:center;margin:6px 0 3px;color:#968A42;font-weight:700;letter-spacing:1px">— Suppléments —</div>`;
+    for (const s of suppEntries) {
+      const qty = s.count > 1 ? ` ×${s.count}` : '';
+      suppHtml += `<div style="font-size:12px;padding:1px 0;color:#968A42">＋ ${s.name}${qty}</div>`;
     }
   }
 
@@ -86,7 +108,7 @@ export async function printTicket({ orderId, slotId, orderNumber, stand, custome
   <div class="stand">${stand || '—'}</div>
   <div class="client">${customerName}</div>
   <div class="count">${lines.length} article${lines.length > 1 ? 's' : ''}</div>
-  <div class="items">${itemsHtml}</div>
+  <div class="items">${itemsHtml}${suppHtml}</div>
   ${allergyHtml}
   <div class="qr"><img src="${qrDataUrl}" alt="QR"></div>
   <div class="footer">${orderNumber}</div>

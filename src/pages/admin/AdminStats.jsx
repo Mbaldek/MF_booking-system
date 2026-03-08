@@ -216,11 +216,12 @@ export default function AdminStats() {
     const avgOrder = paid.length > 0 ? totalRevenue / paid.length : 0;
     const uniqueEmails = new Set(filteredOrders.map((o) => o.customer_email)).size;
 
-    // Menu item popularity (from filtered lines)
+    // Menu item popularity (from filtered lines) — exclude supplements
     const paidOrderIds = new Set(paid.map((o) => o.id));
     const paidLines = filteredLines.filter((l) => paidOrderIds.has(l.order?.id || l.order_id));
     const itemCounts = {};
     for (const line of paidLines) {
+      if (line.is_supplement) continue;
       const name = line.menu_item?.name || 'Inconnu';
       const type = line.menu_item?.type || '';
       const key = `${name}|${type}`;

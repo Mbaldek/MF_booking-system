@@ -52,8 +52,8 @@ serve(async (req) => {
       `order_lines?order_id=eq.${orderId}&select=*,meal_slot:meal_slots(slot_date,slot_type),menu_item:menu_items(name,type)&order=created_at.asc`
     )
 
-    // Group lines by slot + guest
-    const groups: Record<string, { date: string; type: string; guest: string; items: string[] }> = {}
+    // Group lines by slot + guest, separate formule vs supplements
+    const groups: Record<string, { date: string; type: string; guest: string; items: string[]; supplements: string[] }> = {}
     for (const line of lines || []) {
       const key = `${line.meal_slot?.slot_date}_${line.meal_slot?.slot_type}_${line.guest_name || ''}`
       if (!groups[key]) {
@@ -62,15 +62,26 @@ serve(async (req) => {
           type: line.meal_slot?.slot_type || '',
           guest: line.guest_name || '',
           items: [],
+          supplements: [],
         }
       }
-      groups[key].items.push(`${line.menu_item?.name || '?'} (${TYPE_LABELS[line.menu_item?.type] || ''})`)
+      const label = `${line.menu_item?.name || '?'} (${TYPE_LABELS[line.menu_item?.type] || ''})`
+      if (line.is_supplement) {
+        const qty = (line.quantity || 1) > 1 ? ` ×${line.quantity}` : ''
+        const price = line.unit_price ? ` — ${Number(line.unit_price).toFixed(2)}€` : ''
+        groups[key].supplements.push(`＋ ${line.menu_item?.name || '?'}${qty}${price}`)
+      } else {
+        groups[key].items.push(label)
+      }
     }
 
     const sortedGroups = Object.values(groups).sort((a, b) => {
       if (a.date !== b.date) return a.date.localeCompare(b.date)
       return a.type === 'midi' ? -1 : 1
     })
+
+    // Check if any group has supplements
+    const hasSupplements = sortedGroups.some((g) => g.supplements.length > 0)
 
     // Build HTML email
     const menuRows = sortedGroups.map((g) => `
@@ -79,6 +90,14 @@ serve(async (req) => {
         <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-size:13px;color:#374151">${SLOT_LABELS[g.type] || g.type}</td>
         <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-size:13px;color:#968A42;font-weight:500">${g.guest || '—'}</td>
         <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-size:12px;color:#111827">${g.items.join(', ')}</td>
+      </tr>
+    `).join('')
+
+    // Supplements section
+    const suppRows = sortedGroups.filter((g) => g.supplements.length > 0).map((g) => `
+      <tr>
+        <td style="padding:6px 12px;border-bottom:1px solid #f3f4f6;font-size:12px;color:#374151">${g.date} ${SLOT_LABELS[g.type] || g.type}</td>
+        <td style="padding:6px 12px;border-bottom:1px solid #f3f4f6;font-size:12px;color:#968A42">${g.supplements.join('<br/>')}</td>
       </tr>
     `).join('')
 
@@ -107,6 +126,16 @@ serve(async (req) => {
           </thead>
           <tbody>${menuRows}</tbody>
         </table>
+
+        ${hasSupplements ? `
+        <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
+          <thead>
+            <tr style="background:#f0f0e6">
+              <th style="text-align:left;padding:8px 12px;font-size:11px;font-weight:bold;color:#968A42;text-transform:uppercase;border-bottom:1px solid #e5e7eb" colspan="2">Suppléments</th>
+            </tr>
+          </thead>
+          <tbody>${suppRows}</tbody>
+        </table>` : ''}
 
         <div style="background:#f8fafc;border-radius:8px;padding:16px;text-align:center;margin-bottom:20px">
           <p style="margin:0;font-size:13px;color:#6b7280">Montant total</p>
