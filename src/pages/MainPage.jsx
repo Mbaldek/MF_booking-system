@@ -103,8 +103,10 @@ export default function MainPage() {
   const hasCapacity = mealSlots.some((s) => s.max_orders != null);
 
   const menuByCategory = useMemo(() => {
+    const categories = ev?.menu_categories || ['entree', 'plat', 'dessert', 'boisson'];
     const groups = {};
     menuItems.forEach((item) => {
+      if (!categories.includes(item.type)) return;
       if (!groups[item.type]) groups[item.type] = [];
       groups[item.type].push(item);
     });
@@ -112,7 +114,7 @@ export default function MainPage() {
       const order = ['entree', 'plat', 'dessert', 'boisson'];
       return order.indexOf(a) - order.indexOf(b);
     });
-  }, [menuItems]);
+  }, [menuItems, ev]);
 
   return (
     <div className="min-h-screen bg-mf-blanc-casse overflow-hidden">
