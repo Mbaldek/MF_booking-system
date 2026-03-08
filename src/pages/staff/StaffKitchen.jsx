@@ -12,10 +12,10 @@ import EventSelector from '@/components/admin/EventSelector';
 
 /* ─── Static class maps (avoids dynamic Tailwind JIT issues) ─── */
 const SC = {
-  pending:   { text: 'text-mf-muted',     bg: 'bg-mf-muted',     light: 'bg-mf-muted/10',     count: 'bg-mf-muted/20 text-mf-muted',       tab: 'border-b-mf-muted bg-mf-muted/5',         borderL: 'border-l-mf-muted',     borderB: 'border-b-mf-muted/40' },
-  preparing: { text: 'text-status-orange', bg: 'bg-status-orange', light: 'bg-status-orange/10', count: 'bg-status-orange/20 text-status-orange', tab: 'border-b-status-orange bg-status-orange/5', borderL: 'border-l-status-orange', borderB: 'border-b-status-orange/40' },
-  ready:     { text: 'text-mf-vert-olive', bg: 'bg-mf-vert-olive', light: 'bg-mf-vert-olive/10', count: 'bg-mf-vert-olive/20 text-mf-vert-olive', tab: 'border-b-mf-vert-olive bg-mf-vert-olive/5', borderL: 'border-l-mf-vert-olive', borderB: 'border-b-mf-vert-olive/40' },
-  delivered: { text: 'text-status-green',  bg: 'bg-status-green',  light: 'bg-status-green/10',  count: 'bg-status-green/20 text-status-green',   tab: 'border-b-status-green bg-status-green/5',   borderL: 'border-l-status-green',  borderB: 'border-b-status-green/40' },
+  pending:   { text: 'text-mf-vieux-rose',  bg: 'bg-mf-vieux-rose',  light: 'bg-mf-vieux-rose/10',  count: 'bg-mf-vieux-rose/20 text-mf-vieux-rose',    tab: 'border-b-mf-vieux-rose bg-mf-vieux-rose/5',    borderL: 'border-l-mf-vieux-rose',  borderB: 'border-b-mf-vieux-rose/40' },
+  preparing: { text: 'text-status-orange',   bg: 'bg-status-orange',   light: 'bg-status-orange/10',   count: 'bg-status-orange/20 text-status-orange',      tab: 'border-b-status-orange bg-status-orange/5',      borderL: 'border-l-status-orange',   borderB: 'border-b-status-orange/40' },
+  ready:     { text: 'text-status-green',    bg: 'bg-status-green',    light: 'bg-status-green/10',    count: 'bg-status-green/20 text-status-green',        tab: 'border-b-status-green bg-status-green/5',        borderL: 'border-l-status-green',    borderB: 'border-b-status-green/40' },
+  delivered: { text: 'text-mf-muted',        bg: 'bg-mf-muted',        light: 'bg-mf-muted/10',        count: 'bg-mf-muted/20 text-mf-muted',               tab: 'border-b-mf-muted bg-mf-muted/5',               borderL: 'border-l-mf-muted',        borderB: 'border-b-mf-muted/40' },
 };
 
 const COLUMNS = [
@@ -38,9 +38,9 @@ const TYPE_ICONS = { entree: '🥗', plat: '🍽', dessert: '🍰', boisson: '�
 const TYPE_SORT = { entree: 0, plat: 1, dessert: 2, boisson: 3 };
 
 const NEXT_ACTION = {
-  pending:   { label: 'Commencer →',  bulkLabel: 'Commencer · Toute la commande', cls: 'border-status-orange/30 bg-status-orange/8 text-status-orange hover:bg-status-orange/15', bulkCls: 'bg-status-orange/12 text-status-orange' },
-  preparing: { label: 'Prêt ✓',       bulkLabel: 'Prêt ✓ · Toute la commande',    cls: 'border-mf-vert-olive/30 bg-mf-vert-olive/8 text-mf-vert-olive hover:bg-mf-vert-olive/15', bulkCls: 'bg-mf-vert-olive/12 text-mf-vert-olive' },
-  ready:     { label: 'Livré ✓✓',     bulkLabel: 'Livré ✓✓ · Toute la commande',  cls: 'border-status-green/30 bg-status-green/8 text-status-green hover:bg-status-green/15', bulkCls: 'bg-status-green/12 text-status-green' },
+  pending:   { label: 'Commencer →',  bulkLabel: 'Commencer · Toute la commande', cls: 'border-status-orange/30 bg-status-orange/8 text-status-orange hover:bg-status-orange/15', bulkCls: 'bg-status-orange/12 text-status-orange', itemCls: 'bg-status-orange/10 border-status-orange/30 text-status-orange' },
+  preparing: { label: 'Prêt ✓',       bulkLabel: 'Prêt ✓ · Toute la commande',    cls: 'border-status-green/30 bg-status-green/8 text-status-green hover:bg-status-green/15',     bulkCls: 'bg-status-green/12 text-status-green',     itemCls: 'bg-status-green/10 border-status-green/30 text-status-green' },
+  ready:     { label: 'Livré ✓✓',     bulkLabel: 'Livré ✓✓ · Toute la commande',  cls: 'border-mf-muted/30 bg-mf-muted/8 text-mf-muted hover:bg-mf-muted/15',                   bulkCls: 'bg-mf-muted/12 text-mf-muted',             itemCls: 'bg-mf-muted/10 border-mf-muted/30 text-mf-muted' },
 };
 
 export default function StaffKitchen() {
@@ -169,6 +169,14 @@ export default function StaffKitchen() {
 
   return (
     <div className="min-h-screen bg-mf-blanc-casse">
+      <style>{`
+        @keyframes kitchenFadeIn {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .kitchen-fade-in { animation: kitchenFadeIn 0.3s ease both; }
+      `}</style>
+
       {/* ═══ DESKTOP HEADER (hidden on mobile) ═══ */}
       <div className="hidden lg:block">
         <StaffHeader role="kitchen" slotFilter={slotFilter} onSlotFilterChange={setSlotFilter} progress={progress}>
@@ -243,8 +251,10 @@ export default function StaffKitchen() {
       {/* ═══ MOBILE ORDER LIST ═══ */}
       <div className="lg:hidden px-3 pt-3 pb-24">
         {tabOrders.length > 0 ? (
-          tabOrders.map((group) => (
-            <MobileOrderCard key={group.key} group={group} onAdvance={advanceGroup} />
+          tabOrders.map((group, i) => (
+            <div key={group.key} className="kitchen-fade-in" style={{ animationDelay: `${i * 50}ms` }}>
+              <MobileOrderCard group={group} onAdvance={advanceGroup} updateStatus={updateStatus} profile={profile} />
+            </div>
           ))
         ) : (
           <div className="text-center py-12">
@@ -303,8 +313,10 @@ export default function StaffKitchen() {
 
               {/* Cards */}
               <div className="flex flex-col gap-2 flex-1">
-                {items.map((group) => (
-                  <DesktopOrderCard key={group.key} group={group} onAdvance={advanceGroup} />
+                {items.map((group, i) => (
+                  <div key={group.key} className="kitchen-fade-in" style={{ animationDelay: `${i * 50}ms` }}>
+                    <DesktopOrderCard group={group} onAdvance={advanceGroup} updateStatus={updateStatus} profile={profile} />
+                  </div>
                 ))}
                 {items.length === 0 && (
                   <div className="text-center py-8 rounded-card border-2 border-dashed border-mf-border">
@@ -333,17 +345,38 @@ export default function StaffKitchen() {
 }
 
 /* ─── Mobile Order Card — expandable, grouped by order ─── */
-function MobileOrderCard({ group, onAdvance }) {
+function MobileOrderCard({ group, onAdvance, updateStatus, profile }) {
   const [expanded, setExpanded] = useState(false);
   const nextAction = NEXT_ACTION[group.status];
   const slotType = group.mealSlot?.slot_type;
+
+  // Collect allergy tags from all items in the group
+  const allergyTags = useMemo(() => {
+    const tags = new Set();
+    group.lines.forEach((line) => {
+      if (Array.isArray(line.menu_item?.tags)) {
+        line.menu_item.tags.forEach((t) => tags.add(t));
+      }
+    });
+    return [...tags];
+  }, [group.lines]);
+
+  const advanceItem = (line) => {
+    const next = NEXT_STATUS[line.prep_status];
+    if (!next) return;
+    updateStatus.mutate({
+      ids: [line.id],
+      prep_status: next,
+      prepared_by: profile?.display_name || profile?.email || 'staff',
+    });
+  };
 
   return (
     <div className="bg-white rounded-[16px] border border-mf-border overflow-hidden mb-2.5">
       {/* Header — tappable */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-3 px-4 py-3.5 bg-transparent border-none cursor-pointer text-left"
+        className="w-full flex items-center gap-3 px-4 py-3.5 bg-transparent border-none cursor-pointer text-left min-h-[48px]"
       >
         {/* Stand badge — big and prominent */}
         <div className="min-w-[52px] h-[52px] rounded-[14px] bg-mf-poudre/25 flex items-center justify-center font-body text-[15px] font-medium text-mf-rose shrink-0">
@@ -369,21 +402,49 @@ function MobileOrderCard({ group, onAdvance }) {
         </span>
       </button>
 
+      {/* Allergy alert */}
+      {allergyTags.length > 0 && (
+        <div className="mx-4 mb-2 px-3 py-2 rounded-lg bg-status-orange/8 border border-status-orange/15 flex items-center gap-2">
+          <span className="text-[14px]">⚠</span>
+          <span className="font-body text-[13px] text-status-orange">
+            Allergies : {allergyTags.join(', ')}
+          </span>
+        </div>
+      )}
+
       {/* Items — collapsible */}
       <div
         className="overflow-hidden transition-all duration-300"
-        style={{ maxHeight: expanded ? 500 : 0 }}
+        style={{ maxHeight: expanded ? 800 : 0 }}
       >
         <div className="px-4 pb-3">
-          {group.lines.map((line) => (
-            <div key={line.id} className="flex items-center gap-2.5 py-2.5 border-b border-mf-blanc-casse last:border-b-0">
-              <span className="text-[20px] w-7 text-center">{TYPE_ICONS[line.menu_item?.type] || '●'}</span>
-              <div className="flex-1 min-w-0">
-                <span className="font-body text-[14px] text-mf-marron-glace">{line.menu_item?.name}</span>
-                {line.quantity > 1 && <span className="font-body text-[13px] text-mf-rose font-medium"> ×{line.quantity}</span>}
+          {group.lines.map((line) => {
+            const lineNext = NEXT_STATUS[line.prep_status];
+            const lineAction = lineNext ? NEXT_ACTION[line.prep_status] : null;
+            return (
+              <div key={line.id} className="flex items-center gap-2.5 py-2.5 border-b border-mf-blanc-casse last:border-b-0">
+                <span className="text-[20px] w-7 text-center">{TYPE_ICONS[line.menu_item?.type] || '●'}</span>
+                <div className="flex-1 min-w-0">
+                  <span className="font-body text-[14px] text-mf-marron-glace">{line.menu_item?.name}</span>
+                  {line.quantity > 1 && <span className="font-body text-[13px] text-mf-rose font-medium"> ×{line.quantity}</span>}
+                </div>
+                {/* Per-item advance button */}
+                {lineAction ? (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); advanceItem(line); }}
+                    className={`shrink-0 w-9 h-9 rounded-full border cursor-pointer transition-all active:scale-90 flex items-center justify-center font-body text-[11px] font-medium ${lineAction.itemCls}`}
+                    title={lineAction.label}
+                  >
+                    ▶
+                  </button>
+                ) : (
+                  <span className="shrink-0 w-9 h-9 rounded-full bg-mf-muted/10 flex items-center justify-center font-body text-[10px] text-mf-muted">
+                    ✓✓
+                  </span>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -401,10 +462,31 @@ function MobileOrderCard({ group, onAdvance }) {
 }
 
 /* ─── Desktop Order Card — kanban ─── */
-function DesktopOrderCard({ group, onAdvance }) {
+function DesktopOrderCard({ group, onAdvance, updateStatus, profile }) {
   const nextAction = NEXT_ACTION[group.status];
   const sc = SC[group.status];
   const slotType = group.mealSlot?.slot_type;
+
+  // Collect allergy tags
+  const allergyTags = useMemo(() => {
+    const tags = new Set();
+    group.lines.forEach((line) => {
+      if (Array.isArray(line.menu_item?.tags)) {
+        line.menu_item.tags.forEach((t) => tags.add(t));
+      }
+    });
+    return [...tags];
+  }, [group.lines]);
+
+  const advanceItem = (line) => {
+    const next = NEXT_STATUS[line.prep_status];
+    if (!next) return;
+    updateStatus.mutate({
+      ids: [line.id],
+      prep_status: next,
+      prepared_by: profile?.display_name || profile?.email || 'staff',
+    });
+  };
 
   return (
     <div className={`bg-mf-white rounded-card border border-mf-border p-3.5 border-l-[3px] ${sc.borderL} transition-all duration-200 hover:border-mf-rose/20`}>
@@ -428,19 +510,46 @@ function DesktopOrderCard({ group, onAdvance }) {
         {group.guestName}
       </div>
 
+      {/* Allergy alert */}
+      {allergyTags.length > 0 && (
+        <div className="mb-2 px-2.5 py-1.5 rounded-lg bg-status-orange/8 border border-status-orange/15 flex items-center gap-1.5">
+          <span className="text-[12px]">⚠</span>
+          <span className="font-body text-[11px] text-status-orange">
+            {allergyTags.join(', ')}
+          </span>
+        </div>
+      )}
+
       {/* Items list */}
       <div className="space-y-1 mb-2">
-        {group.lines.map((line) => (
-          <div key={line.id} className="flex items-center gap-2">
-            <span className="text-[13px] w-5 text-center">{TYPE_ICONS[line.menu_item?.type] || '●'}</span>
-            <span className="font-body text-[12px] text-mf-marron-glace truncate flex-1">
-              {line.menu_item?.name}
-            </span>
-            {line.quantity > 1 && (
-              <span className="font-body text-[11px] text-mf-muted">x{line.quantity}</span>
-            )}
-          </div>
-        ))}
+        {group.lines.map((line) => {
+          const lineNext = NEXT_STATUS[line.prep_status];
+          const lineAction = lineNext ? NEXT_ACTION[line.prep_status] : null;
+          return (
+            <div key={line.id} className="flex items-center gap-2">
+              <span className="text-[13px] w-5 text-center">{TYPE_ICONS[line.menu_item?.type] || '●'}</span>
+              <span className="font-body text-[12px] text-mf-marron-glace truncate flex-1">
+                {line.menu_item?.name}
+              </span>
+              {line.quantity > 1 && (
+                <span className="font-body text-[11px] text-mf-muted">x{line.quantity}</span>
+              )}
+              {lineAction ? (
+                <button
+                  onClick={() => advanceItem(line)}
+                  className={`shrink-0 w-7 h-7 rounded-full border cursor-pointer transition-all active:scale-90 flex items-center justify-center font-body text-[9px] font-medium ${lineAction.itemCls}`}
+                  title={lineAction.label}
+                >
+                  ▶
+                </button>
+              ) : (
+                <span className="shrink-0 w-7 h-7 rounded-full bg-mf-muted/10 flex items-center justify-center font-body text-[9px] text-mf-muted">
+                  ✓✓
+                </span>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* Date */}
@@ -454,7 +563,7 @@ function DesktopOrderCard({ group, onAdvance }) {
       {nextAction && (
         <button
           onClick={() => onAdvance(group)}
-          className={`w-full mt-1 min-h-[48px] py-2 rounded-pill border-2 cursor-pointer transition-all duration-200 active:scale-[0.97] font-body text-[11px] uppercase tracking-wide font-medium flex items-center justify-center gap-1.5 ${nextAction.cls}`}
+          className={`w-full mt-1 min-h-12 py-2 rounded-pill border-2 cursor-pointer transition-all duration-200 active:scale-[0.97] font-body text-[11px] uppercase tracking-wide font-medium flex items-center justify-center gap-1.5 ${nextAction.cls}`}
         >
           {nextAction.label}
         </button>

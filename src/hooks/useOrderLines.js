@@ -10,7 +10,7 @@ export function useOrderLines(eventId) {
         .select(`
           *,
           meal_slot:meal_slots(id, slot_date, slot_type),
-          menu_item:menu_items(id, name, type, price),
+          menu_item:menu_items(id, name, type, price, tags),
           order:orders!inner(id, event_id, customer_first_name, customer_last_name, customer_email, customer_phone, stand, order_number, payment_status)
         `)
         .eq('order.event_id', eventId);
