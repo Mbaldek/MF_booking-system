@@ -30,14 +30,9 @@ export default function AdminSidebar() {
   return (
     <aside className="fixed left-0 top-0 w-[220px] min-h-screen bg-white border-r border-mf-border flex flex-col z-40">
       {/* Logo + Admin badge */}
-      <div className="text-center py-6 px-5 mb-2">
-        <div className="font-body text-[9px] uppercase tracking-[0.3em] text-mf-vieux-rose">
-          Maison
-        </div>
-        <div className="font-serif text-[22px] italic text-mf-rose">
-          Félicien
-        </div>
-        <span className="inline-block mt-1.5 font-body text-[9px] uppercase tracking-[0.1em] text-mf-rose bg-mf-rose/8 rounded-pill px-3 py-1">
+      <div className="flex flex-col items-center py-6 px-5 mb-2">
+        <img src="/brand/Monogramme-Rose.svg" alt="MF" className="h-10 w-auto" />
+        <span className="inline-block mt-2 font-body text-[9px] uppercase tracking-[0.1em] text-mf-rose bg-mf-rose/8 rounded-pill px-3 py-1">
           Admin
         </span>
       </div>
