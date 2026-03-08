@@ -147,28 +147,24 @@ export default function AdminDashboard() {
           value={stats.totalOrders}
           label="Commandes"
           sub={`${orders.filter((o) => o.payment_status === 'paid').length} payées`}
-          trend={{ label: '+12%', up: true }}
         />
         <StatCard
           icon={<TrendingUp className="w-5 h-5 text-mf-vert-olive" />}
           value={`${stats.revenue.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} €`}
           label="Chiffre d'affaires"
           serif
-          trend={{ label: '+8%', up: true }}
         />
         <StatCard
           icon={<ChefHat className="w-5 h-5 text-status-orange" />}
           value={stats.pending + stats.preparing}
           label="Repas à préparer"
           sub={`${stats.preparing} en cours`}
-          trend={{ label: "aujourd'hui", muted: true }}
         />
         <StatCard
           icon={<Calendar className="w-5 h-5 text-status-green" />}
           value={`${stats.deliveryRate}%`}
           label="Taux livraison"
           sub={`${stats.delivered}/${stats.total} livrés`}
-          trend={{ label: '+3%', up: true }}
         />
       </div>
 
@@ -323,26 +319,13 @@ export default function AdminDashboard() {
   );
 }
 
-function StatCard({ icon, value, label, sub, serif: isSerif, trend }) {
+function StatCard({ icon, value, label, sub, serif: isSerif }) {
   return (
     <MfCard className="animate-fade-up">
       <div className="flex items-start justify-between mb-3">
         <div className="w-9 h-9 rounded-xl bg-mf-poudre/25 flex items-center justify-center">
           {icon}
         </div>
-        {trend && (
-          <span
-            className={`font-body text-[11px] rounded-full px-2 py-0.5 ${
-              trend.muted
-                ? 'bg-mf-blanc-casse text-mf-muted'
-                : trend.up
-                  ? 'bg-status-green/10 text-status-green'
-                  : 'bg-status-red/10 text-status-red'
-            }`}
-          >
-            {trend.up && '↑ '}{trend.label}
-          </span>
-        )}
       </div>
       <div className={`text-[24px] text-mf-marron-glace ${isSerif ? 'font-serif italic' : 'font-body font-medium'}`}>
         {value}

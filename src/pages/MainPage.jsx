@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -85,6 +85,9 @@ const scopedStyles = `
 
 export default function MainPage() {
   const [openCat, setOpenCat] = useState(null);
+  const [heroLoaded, setHeroLoaded] = useState(false);
+
+  useEffect(() => { setTimeout(() => setHeroLoaded(true), 100); }, []);
 
   /* ─── Data ─── */
   const { data: activeEvents = [] } = useActiveEvents();
@@ -119,7 +122,14 @@ export default function MainPage() {
       <ClientHeader />
 
       {/* ═══ HERO ═══ */}
-      <section className="relative text-center overflow-hidden bg-white pt-[72px] pb-14 px-6">
+      <section
+        className="relative text-center overflow-hidden bg-white pt-[72px] pb-14 px-6"
+        style={{
+          opacity: heroLoaded ? 1 : 0,
+          transform: heroLoaded ? 'translateY(0)' : 'translateY(40px)',
+          transition: 'all 1.4s cubic-bezier(0.22, 1, 0.36, 1)',
+        }}
+      >
         {/* Botanical ornaments */}
         <div className="mf-float mf-pulse absolute top-5 -left-5 text-mf-poudre">
           <Ornament size={100} />
