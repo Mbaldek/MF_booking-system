@@ -9,6 +9,7 @@ import { supabase } from '@/api/supabase';
 import StaffHeader from '@/components/layout/StaffHeader';
 import MfBadge from '@/components/ui/MfBadge';
 import EventSelector from '@/components/admin/EventSelector';
+import { printTicket } from '@/components/staff/printTicket';
 
 /* ─── Static class maps (avoids dynamic Tailwind JIT issues) ─── */
 const SC = {
@@ -344,6 +345,18 @@ export default function StaffKitchen() {
   );
 }
 
+function handlePrintTicket(group) {
+  printTicket({
+    orderId: group.lines[0]?.order_id,
+    orderNumber: group.order?.order_number || '—',
+    stand: group.order?.stand || '—',
+    customerName: group.guestName,
+    slotType: group.mealSlot?.slot_type,
+    slotDate: group.mealSlot?.slot_date,
+    lines: group.lines,
+  });
+}
+
 /* ─── Mobile Order Card — expandable, grouped by order ─── */
 function MobileOrderCard({ group, onAdvance, updateStatus, profile }) {
   const [expanded, setExpanded] = useState(false);
@@ -447,6 +460,16 @@ function MobileOrderCard({ group, onAdvance, updateStatus, profile }) {
           })}
         </div>
       </div>
+
+      {/* Print ticket (ready state) */}
+      {group.status === 'ready' && (
+        <button
+          onClick={() => handlePrintTicket(group)}
+          className="w-full min-h-[48px] border-t border-mf-border border-x-0 border-b-0 cursor-pointer transition-all active:scale-[0.97] font-body text-[13px] font-medium flex items-center justify-center gap-1.5 bg-mf-poudre/15 text-mf-rose"
+        >
+          🖨 Ticket livraison
+        </button>
+      )}
 
       {/* Bulk action */}
       {nextAction && (
@@ -557,6 +580,16 @@ function DesktopOrderCard({ group, onAdvance, updateStatus, profile }) {
         <div className="font-body text-[10px] text-mf-muted mb-2">
           {format(new Date(group.mealSlot.slot_date + 'T00:00:00'), 'EEE d MMM', { locale: fr })}
         </div>
+      )}
+
+      {/* Print ticket (ready state) */}
+      {group.status === 'ready' && (
+        <button
+          onClick={() => handlePrintTicket(group)}
+          className="w-full mt-1 min-h-10 py-1.5 rounded-pill border border-mf-poudre cursor-pointer transition-all duration-200 active:scale-[0.97] font-body text-[11px] font-medium flex items-center justify-center gap-1 bg-mf-poudre/15 text-mf-rose"
+        >
+          🖨 Ticket
+        </button>
       )}
 
       {/* Advance button */}

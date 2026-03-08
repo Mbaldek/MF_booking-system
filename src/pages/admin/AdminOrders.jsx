@@ -13,6 +13,7 @@ import { supabase } from '@/api/supabase';
 import MfBadge from '@/components/ui/MfBadge';
 import MfButton from '@/components/ui/MfButton';
 import MfCard from '@/components/ui/MfCard';
+import { printTicket } from '@/components/staff/printTicket';
 
 /* ───────── helpers ───────── */
 
@@ -654,6 +655,47 @@ function OrderDetailModal({ order, lines, prepStatus, onClose, onStatusUpdate, o
               {PREP_LABELS[prepStatus] || prepStatus}
             </MfBadge>
           </div>
+
+          {/* Delivery photo proof */}
+          {order.delivery_photo_url && (
+            <div className="space-y-2">
+              <div className="font-body text-[10px] uppercase tracking-[0.1em] text-mf-vieux-rose">Preuve de livraison</div>
+              <a href={order.delivery_photo_url} target="_blank" rel="noopener noreferrer">
+                <img
+                  src={order.delivery_photo_url}
+                  alt="Preuve de livraison"
+                  className="w-full max-h-[200px] object-cover rounded-xl border border-mf-border cursor-pointer hover:opacity-90 transition-opacity"
+                />
+              </a>
+              {order.delivered_at && (
+                <p className="font-body text-[11px] text-mf-muted">
+                  Livrée le {format(new Date(order.delivered_at), "dd/MM/yyyy 'à' HH:mm", { locale: fr })}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Print ticket */}
+          {order.payment_status === 'paid' && (
+            <button
+              onClick={() => {
+                const slotTypes = [...new Set(lines.map((l) => l.meal_slot?.slot_type).filter(Boolean))];
+                const slotDates = [...new Set(lines.map((l) => l.meal_slot?.slot_date).filter(Boolean))];
+                printTicket({
+                  orderId: order.id,
+                  orderNumber: order.order_number,
+                  stand: order.stand,
+                  customerName: `${order.customer_first_name || ''} ${order.customer_last_name || ''}`.trim(),
+                  slotType: slotTypes[0],
+                  slotDate: slotDates[0],
+                  lines,
+                });
+              }}
+              className="w-full min-h-[44px] rounded-pill border border-mf-poudre bg-mf-poudre/15 font-body text-[12px] font-medium text-mf-rose cursor-pointer transition-all duration-200 hover:bg-mf-poudre/25 flex items-center justify-center gap-1.5"
+            >
+              🖨 Imprimer ticket livraison
+            </button>
+          )}
 
           {/* Total */}
           <div className="flex items-baseline justify-between pt-4 border-t-2 border-mf-rose">
