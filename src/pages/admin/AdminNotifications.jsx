@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, Component } from 'react';
 import { X, Send } from 'lucide-react';
 import { useNotificationSettings, useUpdateNotificationSetting } from '@/hooks/useNotificationSettings';
 import MfCard from '@/components/ui/MfCard';
@@ -6,20 +6,47 @@ import MfBadge from '@/components/ui/MfBadge';
 import MfButton from '@/components/ui/MfButton';
 import MfInput from '@/components/ui/MfInput';
 
+class NotifErrorBoundary extends Component {
+  state = { error: null };
+  static getDerivedStateFromError(error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="p-6 text-center space-y-2">
+          <p className="font-body text-status-red font-medium">Erreur dans AdminNotifications</p>
+          <pre className="font-body text-xs text-mf-muted bg-mf-blanc-casse p-3 rounded-xl text-left overflow-auto">{this.state.error.message}{'\n'}{this.state.error.stack}</pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const RECIPIENT_BADGE = {
   client: { variant: 'poudre', label: 'Client' },
   admin: { variant: 'olive', label: 'Admin' },
   staff: { variant: 'orange', label: 'Staff' },
 };
 
-export default function AdminNotifications() {
-  const { data: settings = [], isLoading } = useNotificationSettings();
+function AdminNotificationsInner() {
+  const { data: settings = [], isLoading, error: queryError } = useNotificationSettings();
   const updateSetting = useUpdateNotificationSetting();
   const [editingId, setEditingId] = useState(null);
 
   const handleToggle = (setting) => {
     updateSetting.mutate({ id: setting.id, enabled: !setting.enabled });
   };
+
+  console.log('AdminNotifications render — isLoading:', isLoading, 'settings:', settings.length, 'error:', queryError);
+
+  if (queryError) {
+    return (
+      <div className="p-6 text-center space-y-2">
+        <p className="font-body text-status-red font-medium">Erreur de chargement</p>
+        <p className="font-body text-xs text-mf-muted">{queryError.message}</p>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -36,7 +63,7 @@ export default function AdminNotifications() {
     <div className="p-6 lg:p-8 space-y-6 max-w-[900px]">
       {/* Header */}
       <div>
-        <h1 className="font-serif text-[28px] italic text-mf-rose">Notifications</h1>
+        <h1 className="font-display text-[28px] italic text-mf-rose">Notifications</h1>
         <p className="font-body text-[13px] text-mf-muted mt-0.5">
           Gérez les emails automatiques · {settings.length} notification{settings.length !== 1 ? 's' : ''}
         </p>
@@ -114,6 +141,14 @@ export default function AdminNotifications() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function AdminNotifications() {
+  return (
+    <NotifErrorBoundary>
+      <AdminNotificationsInner />
+    </NotifErrorBoundary>
   );
 }
 
