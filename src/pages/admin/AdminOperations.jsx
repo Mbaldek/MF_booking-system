@@ -14,10 +14,10 @@ import EventSelector from '@/components/admin/EventSelector';
 import ConfirmDeleteModal from '@/components/admin/ConfirmDeleteModal';
 
 const prepStatusColors = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  preparing: 'bg-blue-100 text-blue-800',
-  ready: 'bg-green-100 text-green-800',
-  delivered: 'bg-green-100 text-green-800',
+  pending: 'bg-mf-poudre/20 text-mf-vieux-rose',
+  preparing: 'bg-status-orange/15 text-status-orange',
+  ready: 'bg-status-green/15 text-status-green',
+  delivered: 'bg-status-green/15 text-status-green',
 };
 
 const prepStatusLabels = {
@@ -181,7 +181,7 @@ export default function AdminOperations() {
     <div className="p-4 sm:p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+        <h1 className="text-xl font-bold text-mf-marron-glace flex items-center gap-2">
           <ClipboardList className="w-6 h-6" />
           Suivi commandes
         </h1>
@@ -189,19 +189,19 @@ export default function AdminOperations() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-gray-200">
+      <div className="flex border-b border-mf-border">
         <button
           onClick={() => handleTabChange('prep')}
           className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
             activeTab === 'prep'
               ? 'border-[#8B3A43] text-[#8B3A43]'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
+              : 'border-transparent text-mf-muted hover:text-mf-marron-glace'
           }`}
         >
           <ChefHat className="w-4 h-4" />
           Préparation
           {prepStats.pending + prepStats.preparing > 0 && (
-            <span className="ml-1 px-1.5 py-0.5 rounded-full text-xs bg-yellow-100 text-yellow-800">
+            <span className="ml-1 px-1.5 py-0.5 rounded-full text-xs bg-mf-poudre/20 text-mf-vieux-rose">
               {prepStats.pending + prepStats.preparing}
             </span>
           )}
@@ -211,13 +211,13 @@ export default function AdminOperations() {
           className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
             activeTab === 'delivery'
               ? 'border-[#8B3A43] text-[#8B3A43]'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
+              : 'border-transparent text-mf-muted hover:text-mf-marron-glace'
           }`}
         >
           <Truck className="w-4 h-4" />
           Livraison
           {deliveryStats.toDeliver > 0 && (
-            <span className="ml-1 px-1.5 py-0.5 rounded-full text-xs bg-orange-100 text-orange-800">
+            <span className="ml-1 px-1.5 py-0.5 rounded-full text-xs bg-status-orange/15 text-status-orange">
               {deliveryStats.toDeliver}
             </span>
           )}
@@ -227,32 +227,32 @@ export default function AdminOperations() {
       {/* Stats */}
       {activeTab === 'prep' ? (
         <div className="grid grid-cols-3 gap-3">
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-center">
-            <p className="text-2xl font-bold text-yellow-700">{prepStats.pending}</p>
-            <p className="text-xs text-yellow-600">En attente</p>
+          <div className="bg-mf-poudre/15 border border-mf-poudre/30 rounded-lg p-3 text-center">
+            <p className="text-2xl font-bold text-mf-vieux-rose">{prepStats.pending}</p>
+            <p className="text-xs text-mf-vieux-rose">En attente</p>
           </div>
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
-            <p className="text-2xl font-bold text-blue-700">{prepStats.preparing}</p>
-            <p className="text-xs text-blue-600">En préparation</p>
+          <div className="bg-status-orange/10 border border-status-orange/20 rounded-lg p-3 text-center">
+            <p className="text-2xl font-bold text-status-orange">{prepStats.preparing}</p>
+            <p className="text-xs text-status-orange">En préparation</p>
           </div>
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-            <p className="text-2xl font-bold text-green-700">{prepStats.ready}</p>
-            <p className="text-xs text-green-600">Prêts</p>
+          <div className="bg-status-green/10 border border-status-green/20 rounded-lg p-3 text-center">
+            <p className="text-2xl font-bold text-status-green">{prepStats.ready}</p>
+            <p className="text-xs text-status-green">Prêts</p>
           </div>
         </div>
       ) : (
         <div className="grid grid-cols-3 gap-3">
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-center">
-            <p className="text-2xl font-bold text-orange-700">{deliveryStats.toDeliver}</p>
-            <p className="text-xs text-orange-600">À livrer</p>
+          <div className="bg-status-orange/10 border border-status-orange/20 rounded-lg p-3 text-center">
+            <p className="text-2xl font-bold text-status-orange">{deliveryStats.toDeliver}</p>
+            <p className="text-xs text-status-orange">À livrer</p>
           </div>
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-            <p className="text-2xl font-bold text-green-700">{deliveryStats.delivered}</p>
-            <p className="text-xs text-green-600">Livrés</p>
+          <div className="bg-status-green/10 border border-status-green/20 rounded-lg p-3 text-center">
+            <p className="text-2xl font-bold text-status-green">{deliveryStats.delivered}</p>
+            <p className="text-xs text-status-green">Livrés</p>
           </div>
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
-            <p className="text-2xl font-bold text-gray-700">{deliveryStats.total}</p>
-            <p className="text-xs text-gray-600">Total</p>
+          <div className="bg-mf-blanc-casse border border-mf-border rounded-lg p-3 text-center">
+            <p className="text-2xl font-bold text-mf-marron-glace">{deliveryStats.total}</p>
+            <p className="text-xs text-mf-muted">Total</p>
           </div>
         </div>
       )}
@@ -260,20 +260,20 @@ export default function AdminOperations() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-mf-muted" />
           <input
             type="text"
             placeholder="Rechercher nom, stand, commande..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43]"
+            className="w-full pl-9 pr-3 py-2 border border-mf-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-mf-rose/40"
           />
         </div>
         <div className="flex gap-2">
           <select
             value={dateFilter}
             onChange={(e) => setDateFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43]"
+            className="px-3 py-2 border border-mf-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-mf-rose/40"
           >
             <option value="all">Toutes les dates</option>
             {availableDates.map((d) => (
@@ -286,7 +286,7 @@ export default function AdminOperations() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#8B3A43]"
+              className="px-3 py-2 border border-mf-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-mf-rose/40"
             >
               <option value="all">Tous statuts</option>
               <option value="pending">En attente</option>
@@ -304,8 +304,8 @@ export default function AdminOperations() {
         </div>
       ) : cards.length === 0 ? (
         <div className="text-center py-12">
-          <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500">
+          <Package className="w-12 h-12 text-mf-poudre mx-auto mb-3" />
+          <p className="text-mf-muted">
             {activeTab === 'prep' ? 'Aucune commande à préparer' : 'Aucune livraison en cours'}
           </p>
         </div>
@@ -326,17 +326,17 @@ export default function AdminOperations() {
                 key={card.key}
                 className={`bg-white border rounded-xl p-4 space-y-3 ${
                   isCompleted
-                    ? 'border-green-300 bg-green-50/50 opacity-70'
-                    : 'border-gray-200'
+                    ? 'border-status-green/30 bg-status-green/5 opacity-70'
+                    : 'border-mf-border'
                 }`}
               >
                 {/* Card header */}
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="font-semibold text-gray-900">
+                    <p className="font-semibold text-mf-marron-glace">
                       {card.order?.customer_first_name} {card.order?.customer_last_name}
                     </p>
-                    <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500">
+                    <div className="flex items-center gap-2 mt-0.5 text-xs text-mf-muted">
                       <span>Stand {card.order?.stand}</span>
                       <span>&bull;</span>
                       <span className="font-mono">{card.order?.order_number}</span>
@@ -360,7 +360,7 @@ export default function AdminOperations() {
                     <button
                       type="button"
                       onClick={() => setDeleteModal(card)}
-                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      className="p-1.5 text-mf-muted hover:text-status-red hover:bg-status-red/10 rounded-lg transition-colors"
                       title="Supprimer"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -375,14 +375,14 @@ export default function AdminOperations() {
                       <div className="flex items-center gap-2">
                         <span
                           className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium ${
-                            prepStatusColors[line.prep_status] || 'bg-gray-100 text-gray-800'
+                            prepStatusColors[line.prep_status] || 'bg-mf-blanc-casse text-mf-marron-glace'
                           }`}
                         >
                           {prepStatusLabels[line.prep_status] || line.prep_status}
                         </span>
                         <span>{line.menu_item?.name}</span>
                       </div>
-                      <span className="text-xs text-gray-400 capitalize">{line.menu_item?.type}</span>
+                      <span className="text-xs text-mf-muted capitalize">{line.menu_item?.type}</span>
                     </div>
                   ))}
                 </div>
@@ -404,7 +404,7 @@ export default function AdminOperations() {
                       <button
                         onClick={() => handleUndo(card.lines)}
                         disabled={updateStatus.isPending}
-                        className="flex items-center justify-center gap-1.5 px-3 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                        className="flex items-center justify-center gap-1.5 px-3 py-2 border border-mf-border text-mf-marron-glace text-sm font-medium rounded-lg hover:bg-mf-blanc-casse disabled:opacity-50 transition-colors"
                       >
                         <Undo2 className="w-4 h-4" />
                         Annuler
@@ -449,20 +449,20 @@ export default function AdminOperations() {
           <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold">Confirmer la livraison</h3>
-              <button onClick={closeModal} className="p-1 hover:bg-gray-100 rounded-lg">
+              <button onClick={closeModal} className="p-1 hover:bg-mf-blanc-casse rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="text-sm text-gray-600">
-              <p className="font-medium text-gray-900">
+            <div className="text-sm text-mf-muted">
+              <p className="font-medium text-mf-marron-glace">
                 {deliverModal.order?.customer_first_name} {deliverModal.order?.customer_last_name}
               </p>
               <p>
                 Stand {deliverModal.order?.stand} &bull;{' '}
                 {deliverModal.meal_slot?.slot_type?.toUpperCase()}
               </p>
-              <p className="mt-1 text-gray-500">
+              <p className="mt-1 text-mf-muted">
                 {deliverModal.lines.filter((l) => l.prep_status === 'ready').length} article(s) à
                 livrer
               </p>
@@ -490,11 +490,11 @@ export default function AdminOperations() {
               ) : (
                 <button
                   onClick={() => fileRef.current?.click()}
-                  className="w-full border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-[#8B3A43]/40 transition-colors"
+                  className="w-full border-2 border-dashed border-mf-border rounded-lg p-6 text-center hover:border-mf-rose/40 transition-colors"
                 >
-                  <Camera className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-500">Prendre une photo</p>
-                  <p className="text-xs text-gray-400">optionnel</p>
+                  <Camera className="w-8 h-8 text-mf-muted mx-auto mb-2" />
+                  <p className="text-sm text-mf-muted">Prendre une photo</p>
+                  <p className="text-xs text-mf-muted">optionnel</p>
                 </button>
               )}
               <input
