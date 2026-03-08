@@ -54,10 +54,23 @@ serve(async (req) => {
   }
 
   try {
+    // Check notification_settings for both email types
+    const settingsRes = await fetch(
+      `${Deno.env.get('SUPABASE_URL')}/rest/v1/notification_settings?key=in.(daily_admin_recap,daily_client_reminder)&select=*`,
+      { headers: { 'apikey': Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!}` } }
+    )
+    const settings = await settingsRes.json()
+    const adminSetting = settings.find((s: Record<string, unknown>) => s.key === 'daily_admin_recap')
+    const clientSetting = settings.find((s: Record<string, unknown>) => s.key === 'daily_client_reminder')
+
+    if (!adminSetting?.enabled && !clientSetting?.enabled) {
+      return new Response(JSON.stringify({ skipped: true, reason: 'both disabled' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+
     const resendApiKey = Deno.env.get('RESEND_API_KEY')
     if (!resendApiKey) throw new Error('RESEND_API_KEY not configured')
     const emailFrom = Deno.env.get('EMAIL_FROM') || 'Maison Félicien <noreply@maisonfelicien.fr>'
-    const emailAdmin = Deno.env.get('EMAIL_ADMIN') || emailFrom.replace(/.*<(.+)>/, '$1')
+    const emailAdmin = adminSetting?.recipient_override || Deno.env.get('EMAIL_ADMIN') || emailFrom.replace(/.*<(.+)>/, '$1')
 
     // Compute tomorrow's date (UTC)
     const now = new Date()
@@ -226,6 +239,7 @@ serve(async (req) => {
         <p style="color:#E5B7B3;margin:4px 0 0;font-size:13px">Commandes à préparer demain</p>
       </div>
       <div style="background:#ffffff;padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px">
+        <p style="font-size:14px;color:#6b7280;margin:0 0 12px">${adminSetting?.body_intro || 'Voici le récapitulatif pour demain.'}</p>
         <p style="font-size:15px;margin:0 0 20px;color:#374151">
           <strong>${tomorrowLabel}</strong> — ${totalOrders} commande${totalOrders > 1 ? 's' : ''} · ${totalMeals} repas · ${totalRevenue.toFixed(2)}€
         </p>
@@ -244,8 +258,15 @@ serve(async (req) => {
       </div>
     </div>`
 
-    console.log(`Sending admin recap to ${emailAdmin}`)
-    await sendEmail(resendApiKey, emailFrom, [emailAdmin], adminSubject, adminHtml)
+    if (adminSetting?.enabled) {
+      const adminSubjectFinal = (adminSetting.subject_template || adminSubject)
+        .replace('{slot_count}', String(slots.length))
+        .replace('{order_count}', String(totalOrders))
+      console.log(`Sending admin recap to ${emailAdmin}`)
+      await sendEmail(resendApiKey, emailFrom, [emailAdmin], adminSubjectFinal, adminHtml)
+    } else {
+      console.log('Admin recap disabled, skipping')
+    }
 
     // ═══════════════════════════════════════════
     // E4 — Client reminder emails (one per client)
@@ -287,7 +308,11 @@ serve(async (req) => {
 
     let clientEmailsSent = 0
 
-    for (const [, { order, slotMenus }] of clientOrders) {
+    if (!clientSetting?.enabled) {
+      console.log('Client reminders disabled, skipping')
+    }
+
+    for (const [, { order, slotMenus }] of clientSetting?.enabled ? clientOrders : []) {
       const firstName = (order.customer_first_name as string) || 'Client'
       const email = order.customer_email as string
       const stand = order.stand as string
@@ -315,7 +340,9 @@ serve(async (req) => {
         <div style="background:#ffffff;padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px">
           <p style="font-size:15px;margin:0 0 16px">Bonjour <strong>${firstName}</strong>,</p>
           <p style="font-size:14px;color:#6b7280;margin:0 0 20px">
-            Votre commande sera livrée demain ${slotLabel} à votre stand <strong style="color:#111827">${stand}</strong>.
+            ${(clientSetting?.body_intro || 'Votre commande sera livrée demain {slot_label} à votre stand {stand}.')
+              .replace('{slot_label}', slotLabel)
+              .replace('{stand}', stand)}
           </p>
 
           <div style="background:#f8fafc;border-radius:8px;padding:16px;margin-bottom:20px">
@@ -335,11 +362,13 @@ serve(async (req) => {
         </div>
       </div>`
 
+      const clientRecipient = clientSetting?.recipient_override || email
+      const clientSubject = clientSetting?.subject_template || 'Demain — votre repas vous attend !'
       const sent = await sendEmail(
         resendApiKey,
         emailFrom,
-        [email],
-        'Demain — votre repas vous attend !',
+        [clientRecipient],
+        clientSubject,
         clientHtml
       )
       if (sent) clientEmailsSent++

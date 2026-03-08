@@ -24,6 +24,16 @@ serve(async (req) => {
   }
 
   try {
+    // Check notification_settings
+    const settingRes = await fetch(
+      `${Deno.env.get('SUPABASE_URL')}/rest/v1/notification_settings?key=eq.order_confirmation&select=*`,
+      { headers: { 'apikey': Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!}` } }
+    )
+    const [setting] = await settingRes.json()
+    if (!setting?.enabled) {
+      return new Response(JSON.stringify({ skipped: true, reason: 'disabled' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+
     const resendApiKey = Deno.env.get('RESEND_API_KEY')
     if (!resendApiKey) throw new Error('RESEND_API_KEY not configured')
 
@@ -81,8 +91,9 @@ serve(async (req) => {
       <div style="background:#ffffff;padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px">
         <p style="font-size:15px;margin:0 0 16px">Bonjour <strong>${order.customer_first_name}</strong>,</p>
         <p style="font-size:14px;color:#6b7280;margin:0 0 20px">
-          Votre commande <strong style="color:#111827">${order.order_number}</strong> pour
-          <strong style="color:#111827">${order.event?.name || ''}</strong> a bien été enregistrée.
+          ${(setting.body_intro || 'Votre commande {order_number} pour {event_name} a bien été enregistrée.')
+            .replace('{order_number}', order.order_number)
+            .replace('{event_name}', order.event?.name || '')}
         </p>
 
         <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
@@ -117,6 +128,10 @@ serve(async (req) => {
 
     // Send via Resend
     const emailFrom = Deno.env.get('EMAIL_FROM') || 'Maison Félicien <noreply@maisonfelicien.fr>'
+    const recipient = setting.recipient_override || order.customer_email
+    const subject = (setting.subject_template || 'Commande confirmée — Maison Félicien')
+      .replace('{order_number}', order.order_number)
+      .replace('{event_name}', order.event?.name || 'Maison Félicien')
 
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -126,8 +141,8 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         from: emailFrom,
-        to: [order.customer_email],
-        subject: `Commande ${order.order_number} confirmée — ${order.event?.name || 'Maison Félicien'}`,
+        to: [recipient],
+        subject,
         html,
       }),
     })

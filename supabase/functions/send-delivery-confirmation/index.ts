@@ -23,6 +23,16 @@ serve(async (req) => {
   }
 
   try {
+    // Check notification_settings
+    const settingRes = await fetch(
+      `${Deno.env.get('SUPABASE_URL')}/rest/v1/notification_settings?key=eq.delivery_confirmation&select=*`,
+      { headers: { 'apikey': Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!}` } }
+    )
+    const [setting] = await settingRes.json()
+    if (!setting?.enabled) {
+      return new Response(JSON.stringify({ skipped: true, reason: 'disabled' }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+
     const resendApiKey = Deno.env.get('RESEND_API_KEY')
     if (!resendApiKey) throw new Error('RESEND_API_KEY not configured')
     const emailFrom = Deno.env.get('EMAIL_FROM') || 'Maison Félicien <noreply@maisonfelicien.fr>'
@@ -81,7 +91,7 @@ serve(async (req) => {
       <div style="background:#ffffff;padding:24px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px">
         <p style="font-size:15px;margin:0 0 16px">Bonjour <strong>${order.customer_first_name}</strong>,</p>
         <p style="font-size:14px;color:#6b7280;margin:0 0 20px">
-          Votre repas vient d'être livré au stand <strong style="color:#111827">${order.stand}</strong>. Bon appétit !
+          ${(setting.body_intro || 'Votre repas vient d\'être livré.').replace('{stand}', order.stand)}
         </p>
 
         <div style="background:#f8fafc;border-radius:8px;padding:16px;margin-bottom:20px">
@@ -112,8 +122,8 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         from: emailFrom,
-        to: [order.customer_email],
-        subject: 'Bon appétit ! Votre repas a été livré',
+        to: [setting.recipient_override || order.customer_email],
+        subject: setting.subject_template || 'Bon appétit ! Votre repas a été livré',
         html,
       }),
     })
