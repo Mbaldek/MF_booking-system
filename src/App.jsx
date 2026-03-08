@@ -40,6 +40,9 @@ const AdminNotifications = lazy(() => import('@/pages/admin/AdminNotifications')
 const StaffKitchen = lazy(() => import('@/pages/staff/StaffKitchen'));
 const StaffDelivery = lazy(() => import('@/pages/staff/StaffDelivery'));
 
+// Public delivery confirmation (scanned QR — no auth required)
+const DeliverPage = lazy(() => import('@/pages/DeliverPage'));
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -98,6 +101,9 @@ export default function App() {
               <Route path="/home-old" element={<HomePage />} />
               <Route path="/order-old" element={<OrderFunnelTest />} />
               <Route path="/order-legacy" element={<OrderPageLegacy />} />
+
+              {/* Delivery QR scan — no auth required */}
+              <Route path="/staff/deliver/:orderId" element={<DeliverPage />} />
 
               {/* Admin */}
               <Route
