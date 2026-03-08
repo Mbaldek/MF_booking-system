@@ -234,7 +234,7 @@ export default function AdminUsers() {
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-6">
+    <div className="bg-slate-50 min-h-screen p-4 sm:p-6 space-y-6">
       <PageTour page="users" />
       {/* Header */}
       <div className="flex items-start justify-between gap-4">

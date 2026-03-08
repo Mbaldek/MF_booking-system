@@ -60,7 +60,7 @@ function AdminNotificationsInner() {
   }
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 max-w-[900px]">
+    <div className="bg-slate-50 min-h-screen p-6 lg:p-8 space-y-6 max-w-[900px]">
       {/* Header */}
       <div>
         <h1 className="font-display text-[28px] italic text-mf-rose">Notifications</h1>

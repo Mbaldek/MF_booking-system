@@ -34,22 +34,26 @@ export default function AdminDashboard() {
 
   const isLoading = ordersLoading || linesLoading;
 
-  // ─── Computed stats ───
+  // ─── Computed stats (exclude test orders) ───
+  const realOrders = useMemo(() => orders.filter((o) => !o.is_test), [orders]);
+  const realOrderIds = useMemo(() => new Set(realOrders.map((o) => o.id)), [realOrders]);
+  const realLines = useMemo(() => allLines.filter((l) => realOrderIds.has(l.order_id)), [allLines, realOrderIds]);
+
   const stats = useMemo(() => {
-    const paidOrders = orders.filter((o) => o.payment_status === 'paid');
+    const paidOrders = realOrders.filter((o) => o.payment_status === 'paid');
     const revenue = paidOrders.reduce((s, o) => s + Number(o.total_amount || 0), 0);
 
-    const pending = allLines.filter((l) => l.prep_status === 'pending').length;
-    const preparing = allLines.filter((l) => l.prep_status === 'preparing').length;
-    const ready = allLines.filter((l) => l.prep_status === 'ready').length;
-    const delivered = allLines.filter((l) => l.prep_status === 'delivered').length;
-    const total = allLines.length;
+    const pending = realLines.filter((l) => l.prep_status === 'pending').length;
+    const preparing = realLines.filter((l) => l.prep_status === 'preparing').length;
+    const ready = realLines.filter((l) => l.prep_status === 'ready').length;
+    const delivered = realLines.filter((l) => l.prep_status === 'delivered').length;
+    const total = realLines.length;
     const deliveryRate = total > 0 ? Math.round((delivered / total) * 100) : 0;
 
-    return { totalOrders: orders.length, revenue, pending, preparing, ready, delivered, total, deliveryRate };
-  }, [orders, allLines]);
+    return { totalOrders: realOrders.length, revenue, pending, preparing, ready, delivered, total, deliveryRate };
+  }, [realOrders, realLines]);
 
-  const recentOrders = useMemo(() => orders.slice(0, 5), [orders]);
+  const recentOrders = useMemo(() => realOrders.slice(0, 5), [realOrders]);
 
   const pipeline = useMemo(() => [
     { label: 'En attente', count: stats.pending, textClass: 'text-mf-muted', bgClass: 'bg-mf-muted' },
@@ -61,25 +65,25 @@ export default function AdminDashboard() {
   // Count lines per order for "Articles" column
   const lineCountByOrder = useMemo(() => {
     const counts = {};
-    for (const line of allLines) {
+    for (const line of realLines) {
       counts[line.order_id] = (counts[line.order_id] || 0) + 1;
     }
     return counts;
-  }, [allLines]);
+  }, [realLines]);
 
   // Revenue grouped by day, split midi/soir via order_lines meal_slot
   const revenueChart = useMemo(() => {
     // Build per-order slot-type revenue using DISTINCT (meal_slot_id, guest_name) like the DB trigger
-    const paidIds = new Set(orders.filter((o) => o.payment_status === 'paid').map((o) => o.id));
+    const paidIds = new Set(realOrders.filter((o) => o.payment_status === 'paid').map((o) => o.id));
     const orderDateMap = {};
-    for (const o of orders) {
+    for (const o of realOrders) {
       if (paidIds.has(o.id)) orderDateMap[o.id] = o.created_at?.slice(0, 10);
     }
 
     const byDate = {};
     // Track unique (order, meal_slot, guest_name) combos to avoid double-counting
     const seen = new Set();
-    for (const line of allLines) {
+    for (const line of realLines) {
       if (!paidIds.has(line.order_id)) continue;
       const d = orderDateMap[line.order_id];
       if (!d) continue;
@@ -98,7 +102,7 @@ export default function AdminDashboard() {
       .map(([date, { midi, soir }]) => ({ date, midi, soir, total: midi + soir }));
     const max = Math.max(...entries.map((e) => e.total), 1);
     return { entries, max };
-  }, [orders, allLines]);
+  }, [realOrders, realLines]);
 
   if (isLoading) {
     return (
@@ -151,7 +155,7 @@ export default function AdminDashboard() {
           icon={<ShoppingBag className="w-5 h-5 text-mf-rose" />}
           value={stats.totalOrders}
           label="Commandes"
-          sub={`${orders.filter((o) => o.payment_status === 'paid').length} payées`}
+          sub={`${realOrders.filter((o) => o.payment_status === 'paid').length} payées`}
         />
         <StatCard
           icon={<TrendingUp className="w-5 h-5 text-mf-vert-olive" />}

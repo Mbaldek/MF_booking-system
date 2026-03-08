@@ -465,7 +465,7 @@ export default function AdminEvent() {
   }
 
   return (
-    <div className="px-3 py-4 sm:px-4 sm:py-8">
+    <div className="bg-slate-50 min-h-screen px-3 py-4 sm:px-4 sm:py-8">
       <PageTour page="events" />
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center justify-between">

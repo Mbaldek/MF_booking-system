@@ -141,7 +141,7 @@ export default function AdminMenu() {
   }
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 max-w-[1000px]">
+    <div className="bg-slate-50 min-h-screen p-6 lg:p-8 space-y-6 max-w-[1000px]">
       <PageTour page="menu" />
       {/* ─── Header ─── */}
       <div className="flex items-start justify-between flex-wrap gap-4">

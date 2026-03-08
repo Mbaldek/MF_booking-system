@@ -161,8 +161,13 @@ export default function AdminStats() {
 
   /* ── Compute stats ── */
   const stats = useMemo(() => {
+    // Exclude test orders
+    const realOrders = orders.filter((o) => !o.is_test);
+    const realOrderIds = new Set(realOrders.map((o) => o.id));
+    const realLines = lines.filter((l) => realOrderIds.has(l.order?.id || l.order_id));
+
     // Filter lines by slot + period (using meal_slot date)
-    const filteredLines = lines.filter((l) => {
+    const filteredLines = realLines.filter((l) => {
       if (slotFilter !== 'all' && l.meal_slot?.slot_type !== slotFilter) return false;
       if (!matchesPeriod(l.meal_slot?.slot_date)) return false;
       return true;
@@ -173,8 +178,8 @@ export default function AdminStats() {
 
     // Filter orders
     const filteredOrders = slotFilter === 'all' && periodFilter === 'all'
-      ? orders
-      : orders.filter((o) => filteredOrderIds.has(o.id));
+      ? realOrders
+      : realOrders.filter((o) => filteredOrderIds.has(o.id));
 
     const paid = filteredOrders.filter((o) => o.payment_status === 'paid');
     const pending = filteredOrders.filter((o) => o.payment_status === 'pending');
@@ -245,7 +250,7 @@ export default function AdminStats() {
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-6">
+    <div className="bg-slate-50 min-h-screen p-4 sm:p-6 space-y-6">
       {/* ── Header + Live indicator ── */}
       <div className="flex items-center justify-between">
         <div>

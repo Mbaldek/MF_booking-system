@@ -102,7 +102,7 @@ export default function AdminEmailReminders() {
   const sentCount = filtered.filter((r) => sent[r.order.id]).length;
 
   return (
-    <div className="p-4 sm:p-6 space-y-6">
+    <div className="bg-slate-50 min-h-screen p-4 sm:p-6 space-y-6">
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-mf-marron-glace">Rappels email</h1>

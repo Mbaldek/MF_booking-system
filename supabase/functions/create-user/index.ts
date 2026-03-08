@@ -51,15 +51,21 @@ serve(async (req) => {
       throw new Error('role must be admin or staff')
     }
 
-    // 3. Check if email already exists via profiles table (faster than listing all auth users)
-    const existingRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/profiles?email=eq.${encodeURIComponent(email)}&select=id`,
+    // 3. Check if email already exists via Auth Admin API (covers users without profiles row)
+    const listRes = await fetch(
+      `${SUPABASE_URL}/auth/v1/admin/users?page=1&per_page=50`,
       { headers: authHeaders }
     )
-    if (existingRes.ok) {
-      const existing = await existingRes.json()
-      if (Array.isArray(existing) && existing.length > 0) {
-        throw new Error('Cet email est déjà utilisé')
+    if (listRes.ok) {
+      const listBody = await listRes.json()
+      const users = listBody?.users || []
+      const emailLower = email.toLowerCase()
+      const exists = users.some((u: any) => u.email?.toLowerCase() === emailLower)
+      if (exists) {
+        return new Response(
+          JSON.stringify({ error: 'Cet email est déjà utilisé' }),
+          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
       }
     }
 
@@ -79,7 +85,10 @@ serve(async (req) => {
       const errBody = await createRes.json()
       const msg = errBody?.msg || errBody?.message || errBody?.error || JSON.stringify(errBody)
       if (msg.toLowerCase().includes('already') || msg.toLowerCase().includes('exist')) {
-        throw new Error('Cet email est déjà utilisé')
+        return new Response(
+          JSON.stringify({ error: 'Cet email est déjà utilisé' }),
+          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
       }
       throw new Error(msg)
     }

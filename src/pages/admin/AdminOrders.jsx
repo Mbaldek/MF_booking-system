@@ -85,6 +85,7 @@ function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
   const [statusFilter, setStatusFilter] = useState('all');
   const [prepFilter, setPrepFilter] = useState('all');
   const [slotFilter, setSlotFilter] = useState('all');
+  const [hideTests, setHideTests] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [confirmModal, setConfirmModal] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -140,6 +141,7 @@ function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
   /* filtered */
   const filteredAll = useMemo(() => {
     let result = orders ?? [];
+    if (hideTests) result = result.filter((o) => !o.is_test);
     if (statusFilter !== 'all') result = result.filter((o) => o.payment_status === statusFilter);
     if (prepFilter !== 'all') result = result.filter((o) => prepStatusByOrder[o.id] === prepFilter);
     if (slotFilter !== 'all') {
@@ -162,7 +164,7 @@ function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
       });
     }
     return result;
-  }, [orders, statusFilter, prepFilter, slotFilter, search, slotTypesByOrder, prepStatusByOrder]);
+  }, [orders, statusFilter, prepFilter, slotFilter, hideTests, search, slotTypesByOrder, prepStatusByOrder]);
 
   const totalRevenue = useMemo(
     () => filteredAll.filter((o) => o.payment_status === 'paid').reduce((s, o) => s + Number(o.total_amount || 0), 0),
@@ -274,7 +276,7 @@ function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
         </div>
 
         {/* Slot toggle */}
-        <div className="inline-flex rounded-pill border border-mf-border overflow-hidden ml-auto shrink-0">
+        <div className="inline-flex rounded-pill border border-mf-border overflow-hidden shrink-0">
           {[
             { key: 'all', label: 'Tous' },
             { key: 'midi', label: '☀' },
@@ -293,6 +295,18 @@ function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
             </button>
           ))}
         </div>
+
+        {/* Hide tests toggle */}
+        <button
+          onClick={() => { setHideTests(!hideTests); setPage(0); }}
+          className={`ml-auto px-3.5 py-2 rounded-pill font-body text-[11px] border transition-all duration-200 cursor-pointer shrink-0 ${
+            hideTests
+              ? 'bg-mf-marron-glace/10 border-mf-marron-glace/20 text-mf-marron-glace'
+              : 'bg-white border-mf-border text-mf-muted hover:border-mf-rose/40'
+          }`}
+        >
+          🧪 {hideTests ? 'Tests masqués' : 'Tests visibles'}
+        </button>
       </div>
 
       {/* ─── Subtitle ─── */}
@@ -333,7 +347,12 @@ function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
                   >
                     {/* N° Commande */}
                     <td className="px-4 py-3">
-                      <span className="font-body text-[13px] text-mf-rose font-medium">{order.order_number}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-body text-[13px] text-mf-rose font-medium">{order.order_number}</span>
+                        {order.is_test && (
+                          <span className="font-body text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-pill bg-mf-marron-glace/10 text-mf-muted">TEST</span>
+                        )}
+                      </div>
                       <div className="font-body text-[10px] text-mf-muted">
                         {order.created_at && format(new Date(order.created_at), 'dd/MM · HH:mm', { locale: fr })}
                       </div>
@@ -449,6 +468,10 @@ function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
           onCancel={(order) => setConfirmModal({ order, action: 'cancel' })}
           onDelete={setDeleteModal}
           updatePending={updateOrder.isPending}
+          onToggleTest={(order) => {
+            updateOrder.mutate({ id: order.id, is_test: !order.is_test });
+            setSelectedOrder({ ...order, is_test: !order.is_test });
+          }}
         />
       )}
 
@@ -527,7 +550,7 @@ function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
    ORDER DETAIL MODAL
    ═══════════════════════════════════════════════════ */
 
-function OrderDetailModal({ order, lines, prepStatus, onClose, onStatusUpdate, onCancel, onDelete, updatePending }) {
+function OrderDetailModal({ order, lines, prepStatus, onClose, onStatusUpdate, onCancel, onDelete, updatePending, onToggleTest }) {
   const grouped = groupOrderLines(lines);
   const slots = sortedSlotEntries(grouped);
   const next = nextPaymentStatus(order.payment_status);
@@ -548,7 +571,12 @@ function OrderDetailModal({ order, lines, prepStatus, onClose, onStatusUpdate, o
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-mf-border">
           <div>
-            <h2 className="font-serif text-[24px] italic text-mf-rose">{order.order_number}</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="font-display text-[24px] italic text-mf-rose">{order.order_number}</h2>
+              {order.is_test && (
+                <span className="font-body text-[9px] uppercase tracking-wider px-2 py-0.5 rounded-pill bg-mf-marron-glace/10 text-mf-muted">TEST</span>
+              )}
+            </div>
             <MfBadge variant={PAYMENT_BADGE_VARIANT[order.payment_status] || 'rose'} className="mt-1">
               {PAYMENT_LABELS[order.payment_status] || order.payment_status}
             </MfBadge>
@@ -719,6 +747,18 @@ function OrderDetailModal({ order, lines, prepStatus, onClose, onStatusUpdate, o
               {Number(order.total_amount ?? 0).toFixed(2)} €
             </span>
           </div>
+
+          {/* Test toggle */}
+          <button
+            onClick={() => onToggleTest(order)}
+            className={`w-full min-h-[36px] rounded-pill font-body text-[11px] border transition-all duration-200 cursor-pointer ${
+              order.is_test
+                ? 'bg-mf-marron-glace/10 border-mf-marron-glace/20 text-mf-marron-glace'
+                : 'bg-white border-mf-border text-mf-muted hover:border-mf-rose/40'
+            }`}
+          >
+            🧪 {order.is_test ? 'Retirer le tag test' : 'Marquer comme test'}
+          </button>
 
           {/* Actions */}
           <div className="flex gap-2 pt-2">
@@ -915,7 +955,7 @@ export default function AdminOrders() {
   const isLoading = eventLoading || ordersLoading || linesLoading;
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 max-w-[1200px]">
+    <div className="bg-slate-50 min-h-screen p-6 lg:p-8 space-y-6 max-w-[1200px]">
       <PageTour page="orders" />
       {/* ─── Header ─── */}
       <div className="flex items-start justify-between flex-wrap gap-4">
