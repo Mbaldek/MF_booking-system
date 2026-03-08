@@ -347,21 +347,111 @@ function SupplementsConfig({ catalog, linkedMap }) {
   );
 }
 
+/* ── Same menu for all slots — unified checkbox list ── */
+function SameMenuForAllSlots({ slots, catalog, linkedMap }) {
+  const setAllMut = useSetSlotMenuItems();
+  // Use first slot as reference
+  const refSlotId = slots[0]?.id;
+  const { data: refLinks = [] } = useSlotMenuItems(refSlotId);
+  const refLinkedIds = new Set(refLinks.map((sl) => sl.menu_item_id));
+  const eventItemIds = new Set(Object.keys(linkedMap));
+  const availableCatalog = catalog.filter((i) => eventItemIds.has(i.id));
+
+  const handleToggle = (item) => {
+    const newIds = refLinkedIds.has(item.id)
+      ? [...refLinkedIds].filter((id) => id !== item.id)
+      : [...refLinkedIds, item.id];
+    // Apply to ALL slots
+    slots.forEach((slot) => {
+      setAllMut.mutate({ slotId: slot.id, menuItemIds: newIds });
+    });
+  };
+
+  const handleCheckAll = () => {
+    const allIds = availableCatalog.map((i) => i.id);
+    slots.forEach((slot) => {
+      setAllMut.mutate({ slotId: slot.id, menuItemIds: allIds });
+    });
+  };
+
+  const handleUncheckAll = () => {
+    slots.forEach((slot) => {
+      setAllMut.mutate({ slotId: slot.id, menuItemIds: [] });
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-mf-muted">Les changements s'appliquent à tous les créneaux ({slots.length}).</p>
+      <div className="flex items-center gap-2">
+        <button type="button" onClick={handleCheckAll}
+          className="px-3 py-1 text-xs font-medium text-mf-rose bg-mf-poudre/20 rounded-full hover:bg-mf-poudre/40 transition-colors">
+          Tout cocher
+        </button>
+        <button type="button" onClick={handleUncheckAll}
+          className="px-3 py-1 text-xs font-medium text-mf-muted bg-mf-blanc-casse rounded-full hover:bg-mf-poudre/20 transition-colors">
+          Tout décocher
+        </button>
+      </div>
+
+      {TYPE_ORDER.map((type) => {
+        const items = availableCatalog.filter((i) => i.type === type);
+        if (items.length === 0) return null;
+        return (
+          <div key={type}>
+            <h4 className="text-xs font-semibold text-mf-muted uppercase tracking-wide mb-2">{TYPE_LABELS[type]}</h4>
+            <div className="space-y-1.5">
+              {items.map((item) => {
+                const isLinked = refLinkedIds.has(item.id);
+                return (
+                  <div key={item.id} className={`flex items-center gap-3 p-2.5 rounded-lg border transition-colors ${isLinked ? 'border-mf-rose/30 bg-mf-poudre/10' : 'border-mf-border bg-white'}`}>
+                    <button type="button" onClick={() => handleToggle(item)}
+                      className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${isLinked ? 'bg-mf-rose border-mf-rose' : 'border-mf-border'}`}>
+                      {isLinked && (
+                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-medium text-mf-marron-glace">{item.name}</span>
+                      <span className="text-xs text-mf-muted ml-2">{Number(item.price).toFixed(2)}€</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+
+      {availableCatalog.length === 0 && (
+        <p className="text-sm text-mf-muted text-center py-4">Aucun article dans le catalogue de l'événement.</p>
+      )}
+    </div>
+  );
+}
+
 /* ── Main menu config with slot tabs ── */
 function EventMenuConfig({ eventId }) {
   const { data: catalog = [] } = useMenuCatalog();
   const { data: linked = [] } = useAllEventMenuItems(eventId);
   const { data: slots = [] } = useMealSlots(eventId);
   const copySlotMenu = useCopySlotMenu();
+  const setAllMut = useSetSlotMenuItems();
 
   const [activeSlotId, setActiveSlotId] = useState(null);
   const [copyDropdownOpen, setCopyDropdownOpen] = useState(false);
+  const [sameMenuMode, setSameMenuMode] = useState(null); // null = auto-detect
 
   // Auto-select first slot
   const selectedSlotId = activeSlotId || (slots.length > 0 ? slots[0].id : null);
 
   const linkedMap = {};
   linked.forEach((emi) => { linkedMap[emi.menu_item_id] = emi; });
+
+  // Detect if all slots share the same menu (auto-detect on first render)
+  const isSameMenu = sameMenuMode ?? true; // default to "same menu" mode
 
   const formatSlotLabel = (slot) => {
     const icon = slot.slot_type === 'midi' ? '☀' : '☽';
@@ -392,59 +482,82 @@ function EventMenuConfig({ eventId }) {
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <h3 className="text-sm font-semibold text-mf-marron-glace">Menu par créneau (formule)</h3>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setCopyDropdownOpen(!copyDropdownOpen)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-mf-muted bg-mf-blanc-casse rounded-full hover:bg-mf-poudre/20 transition-colors"
-              >
-                <CopyPlus className="w-3.5 h-3.5" />
-                Copier depuis…
-              </button>
-              {copyDropdownOpen && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setCopyDropdownOpen(false)} />
-                  <div className="absolute right-0 top-full mt-1 z-20 bg-white rounded-lg shadow-lg border border-mf-border py-1 min-w-[180px]">
-                    {slots.filter((s) => s.id !== selectedSlotId).map((s) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={() => handleCopyFrom(s.id)}
-                        className="w-full text-left px-3 py-2 text-xs text-mf-marron-glace hover:bg-mf-poudre/10 transition-colors"
-                      >
-                        {formatSlotLabel(s)}
-                      </button>
-                    ))}
-                    {slots.filter((s) => s.id !== selectedSlotId).length === 0 && (
-                      <p className="px-3 py-2 text-xs text-mf-muted">Aucun autre créneau</p>
-                    )}
-                  </div>
-                </>
+            {!isSameMenu && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setCopyDropdownOpen(!copyDropdownOpen)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-mf-muted bg-mf-blanc-casse rounded-full hover:bg-mf-poudre/20 transition-colors"
+                >
+                  <CopyPlus className="w-3.5 h-3.5" />
+                  Copier depuis…
+                </button>
+                {copyDropdownOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setCopyDropdownOpen(false)} />
+                    <div className="absolute right-0 top-full mt-1 z-20 bg-white rounded-lg shadow-lg border border-mf-border py-1 min-w-[180px]">
+                      {slots.filter((s) => s.id !== selectedSlotId).map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => handleCopyFrom(s.id)}
+                          className="w-full text-left px-3 py-2 text-xs text-mf-marron-glace hover:bg-mf-poudre/10 transition-colors"
+                        >
+                          {formatSlotLabel(s)}
+                        </button>
+                      ))}
+                      {slots.filter((s) => s.id !== selectedSlotId).length === 0 && (
+                        <p className="px-3 py-2 text-xs text-mf-muted">Aucun autre créneau</p>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Same menu toggle */}
+          <div className="flex items-center gap-3 p-3 rounded-xl bg-mf-blanc-casse">
+            <button
+              type="button"
+              onClick={() => setSameMenuMode(!isSameMenu)}
+              className={`relative w-10 h-5 rounded-full transition-colors ${isSameMenu ? 'bg-mf-rose' : 'bg-mf-border'}`}
+            >
+              <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${isSameMenu ? 'translate-x-5' : 'translate-x-0.5'}`} />
+            </button>
+            <span className="text-xs font-medium text-mf-marron-glace">
+              {isSameMenu ? 'Même menu pour tous les créneaux' : 'Menu différent par créneau'}
+            </span>
+          </div>
+
+          {isSameMenu ? (
+            /* Unified menu — applies to all slots */
+            <SameMenuForAllSlots slots={slots} catalog={catalog} linkedMap={linkedMap} />
+          ) : (
+            <>
+              {/* Slot pill tabs */}
+              <div className="flex flex-wrap gap-2">
+                {slots.map((slot) => (
+                  <button
+                    key={slot.id}
+                    type="button"
+                    onClick={() => setActiveSlotId(slot.id)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                      selectedSlotId === slot.id
+                        ? 'bg-mf-rose text-white'
+                        : 'bg-mf-blanc-casse text-mf-muted hover:bg-mf-poudre/20'
+                    }`}
+                  >
+                    {formatSlotLabel(slot)}
+                  </button>
+                ))}
+              </div>
+
+              {/* Active slot panel */}
+              {selectedSlotId && (
+                <SlotMenuPanel slotId={selectedSlotId} catalog={catalog} linkedMap={linkedMap} />
               )}
-            </div>
-          </div>
-
-          {/* Slot pill tabs */}
-          <div className="flex flex-wrap gap-2">
-            {slots.map((slot) => (
-              <button
-                key={slot.id}
-                type="button"
-                onClick={() => setActiveSlotId(slot.id)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
-                  selectedSlotId === slot.id
-                    ? 'bg-mf-rose text-white'
-                    : 'bg-mf-blanc-casse text-mf-muted hover:bg-mf-poudre/20'
-                }`}
-              >
-                {formatSlotLabel(slot)}
-              </button>
-            ))}
-          </div>
-
-          {/* Active slot panel */}
-          {selectedSlotId && (
-            <SlotMenuPanel slotId={selectedSlotId} catalog={catalog} linkedMap={linkedMap} />
+            </>
           )}
         </div>
       ) : (

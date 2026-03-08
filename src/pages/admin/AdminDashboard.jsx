@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import {
   Calendar, ShoppingBag, TrendingUp, ChefHat,
-  Download, UtensilsCrossed, Mail,
+  Download, UtensilsCrossed, Mail, X,
 } from 'lucide-react';
 import { useEvents, useActiveEvent } from '@/hooks/useEvents';
 import { useOrders } from '@/hooks/useOrders';
@@ -25,6 +25,7 @@ export default function AdminDashboard() {
   const { data: events = [] } = useEvents();
   const { data: activeEvent } = useActiveEvent();
   const [selectedEventId, setSelectedEventId] = useState(null);
+  const [selectedOrder, setSelectedOrder] = useState(null);
 
   const eventId = selectedEventId ?? activeEvent?.id;
   const currentEvent = events.find((e) => e.id === eventId) || activeEvent;
@@ -205,9 +206,12 @@ export default function AdminDashboard() {
               return (
                 <div
                   key={o.id}
+                  onClick={() => setSelectedOrder(o)}
                   className="grid grid-cols-[90px_1fr_60px_70px_80px_80px] gap-2 px-5 py-3 border-b border-mf-blanc-casse hover:bg-mf-poudre/8 transition-colors cursor-pointer"
                 >
-                  <span className="font-body text-[12px] text-mf-rose font-medium truncate">{o.order_number}</span>
+                  <span className="font-mono text-[11px] text-mf-rose font-medium truncate" title={o.order_number}>
+                    {o.order_number ? `CMD-…${o.order_number.slice(-4)}` : '—'}
+                  </span>
                   <div className="min-w-0">
                     <div className="font-body text-[13px] text-mf-marron-glace truncate">
                       {o.customer_first_name} {o.customer_last_name}
@@ -322,6 +326,141 @@ export default function AdminDashboard() {
               ))}
             </div>
           </MfCard>
+        </div>
+      </div>
+
+      {/* ─── Order Detail Modal ─── */}
+      {selectedOrder && (
+        <DashboardOrderModal
+          order={selectedOrder}
+          lines={realLines.filter((l) => l.order_id === selectedOrder.id)}
+          onClose={() => setSelectedOrder(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ── Dashboard order detail modal ── */
+function DashboardOrderModal({ order, lines, onClose }) {
+  const st = STATUS_MAP[order.payment_status] || STATUS_MAP.pending;
+
+  // Group lines by slot
+  const slotGroups = useMemo(() => {
+    const groups = {};
+    lines.forEach((l) => {
+      const key = l.meal_slot_id || 'unknown';
+      if (!groups[key]) groups[key] = { slot: l.meal_slot, lines: [] };
+      groups[key].lines.push(l);
+    });
+    return Object.values(groups);
+  }, [lines]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <style>{`
+        @keyframes mf-backdrop-in { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes mf-modal-in { from { opacity: 0; transform: scale(0.92) translateY(16px) } to { opacity: 1; transform: scale(1) translateY(0) } }
+      `}</style>
+      <div onClick={onClose} className="absolute inset-0 bg-mf-marron-glace/30 backdrop-blur-sm" style={{ animation: 'mf-backdrop-in 0.3s ease' }} />
+      <div
+        className="relative bg-white rounded-card w-full max-w-lg max-h-[85vh] overflow-y-auto shadow-xl"
+        style={{ animation: 'mf-modal-in 0.4s ease both' }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-5 border-b border-mf-border">
+          <div>
+            <h2 className="font-display text-[24px] italic text-mf-rose">{order.order_number}</h2>
+            <MfBadge variant={st.variant} className="mt-1">{st.label}</MfBadge>
+          </div>
+          <button onClick={onClose} className="p-1.5 text-mf-muted hover:text-mf-rose rounded-lg transition-colors cursor-pointer bg-transparent border-none">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-5">
+          {/* Client info */}
+          <div className="rounded-2xl bg-mf-blanc-casse p-4">
+            <div className="font-body text-[10px] uppercase tracking-[0.1em] text-mf-vieux-rose mb-2">Client</div>
+            <div className="font-body text-[16px] text-mf-marron-glace font-medium">
+              {order.customer_first_name} {order.customer_last_name}
+            </div>
+            {order.company_name && (
+              <div className="font-body text-[13px] text-mf-muted">{order.company_name}</div>
+            )}
+            <div className="flex flex-wrap gap-x-5 gap-y-1 mt-2">
+              {order.stand && (
+                <div>
+                  <span className="font-body text-[10px] text-mf-muted">Stand </span>
+                  <span className="font-body text-[12px] text-mf-marron-glace font-medium">{order.stand}</span>
+                </div>
+              )}
+              {order.customer_email && (
+                <div>
+                  <span className="font-body text-[10px] text-mf-muted">Email </span>
+                  <span className="font-body text-[12px] text-mf-marron-glace">{order.customer_email}</span>
+                </div>
+              )}
+              {order.customer_phone && (
+                <div>
+                  <span className="font-body text-[10px] text-mf-muted">Tél. </span>
+                  <span className="font-body text-[12px] text-mf-marron-glace">{order.customer_phone}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Info grid */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Date', value: order.created_at ? format(new Date(order.created_at), 'dd/MM/yyyy', { locale: fr }) : '—' },
+              { label: 'Total', value: `${Number(order.total_amount || 0).toFixed(2)} €` },
+              { label: 'Articles', value: lines.length },
+            ].map((d) => (
+              <div key={d.label} className="rounded-xl bg-mf-blanc-casse p-3 text-center">
+                <div className="font-body text-[9px] uppercase tracking-[0.08em] text-mf-muted">{d.label}</div>
+                <div className="font-body text-[13px] text-mf-marron-glace font-medium mt-1">{d.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Lines by slot */}
+          {slotGroups.length > 0 && (
+            <div className="space-y-3">
+              <div className="font-body text-[10px] uppercase tracking-[0.1em] text-mf-vieux-rose">Détail</div>
+              {slotGroups.map((group, gi) => (
+                <div key={gi} className="rounded-xl border border-mf-border p-3">
+                  {group.slot && (
+                    <p className="font-body text-[11px] text-mf-muted mb-2">
+                      {group.slot.slot_type === 'midi' ? '☀' : '☽'}{' '}
+                      {group.slot.slot_date && format(new Date(group.slot.slot_date + 'T00:00:00'), 'EEE d MMM', { locale: fr })}{' '}
+                      {group.slot.slot_type === 'midi' ? 'Midi' : 'Soir'}
+                    </p>
+                  )}
+                  <ul className="space-y-1">
+                    {group.lines.map((l) => (
+                      <li key={l.id} className="flex items-center justify-between">
+                        <div>
+                          <span className="font-body text-[13px] text-mf-marron-glace">{l.menu_item?.name || '—'}</span>
+                          {l.guest_name && <span className="font-body text-[10px] text-mf-muted ml-2">({l.guest_name})</span>}
+                          {l.quantity > 1 && <span className="font-body text-[10px] text-mf-muted ml-1">×{l.quantity}</span>}
+                        </div>
+                        <span className="font-body text-[10px] text-mf-muted">{l.prep_status}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Link to full orders page */}
+          <Link
+            to="/admin/orders"
+            className="block text-center font-body text-[11px] uppercase tracking-widest text-mf-rose hover:text-mf-vieux-rose transition-colors"
+          >
+            Voir dans Commandes →
+          </Link>
         </div>
       </div>
     </div>

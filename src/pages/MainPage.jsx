@@ -78,9 +78,11 @@ const scopedStyles = `
   @keyframes mf-float { 0%, 100% { transform: translateY(0px) rotate(0deg); } 50% { transform: translateY(-8px) rotate(2deg); } }
   @keyframes mf-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.55; } }
   @keyframes mf-fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes mf-dot-glow { 0%, 100% { box-shadow: 0 0 4px rgba(150,138,66,0.3); transform: scale(1); } 50% { box-shadow: 0 0 10px rgba(150,138,66,0.6); transform: scale(1.3); } }
   .mf-float { animation: mf-float 6s ease-in-out infinite; }
   .mf-pulse { animation: mf-pulse 4s ease-in-out infinite; }
   .mf-fade-in-up { animation: mf-fadeInUp 0.5s ease-out both; }
+  .mf-dot-pulse { animation: mf-dot-glow 2s ease-in-out infinite; }
 `;
 
 /* ─── 3D Carousel ─── */
@@ -172,7 +174,7 @@ function EventCarousel({ events, activeIdx, onChangeIdx }) {
 
       {/* Dots */}
       {events.length > 1 && (
-        <div className="flex justify-center gap-2 mt-4">
+        <div className="flex justify-center gap-2" style={{ marginTop: 20 }}>
           {events.map((_, i) => (
             <button
               key={i}
@@ -227,17 +229,17 @@ function EventCard({ ev, isActive, cardWidth }) {
           </div>
         </div>
 
-        {/* Status badge */}
-        <div className="absolute -bottom-[12px] left-1/2 -translate-x-1/2 z-[1]">
+        {/* Status badge — top-right */}
+        <div className="absolute top-2.5 right-2.5 z-[1]">
           {ev.is_active ? (
-            <div className="bg-white border-[1.5px] border-mf-border rounded-full px-3.5 py-1 flex items-center gap-1.5 shadow-[0_2px_8px_rgba(57,45,49,0.06)]">
-              <div className="w-1.5 h-1.5 rounded-full bg-mf-vert-olive shadow-[0_0_6px_rgba(150,138,66,0.4)]" />
+            <div className="bg-white/90 backdrop-blur-[6px] rounded-full px-2.5 py-1 flex items-center gap-1.5 shadow-[0_2px_8px_rgba(57,45,49,0.06)]">
+              <div className={`w-1.5 h-1.5 rounded-full bg-mf-vert-olive ${isActive ? 'mf-dot-pulse' : ''}`} />
               <span className="font-body text-[9px] uppercase tracking-[0.08em] text-mf-vert-olive whitespace-nowrap">
                 Commandes ouvertes
               </span>
             </div>
           ) : (
-            <div className="bg-mf-blanc-casse border border-mf-border rounded-full px-3.5 py-1">
+            <div className="bg-white/90 backdrop-blur-[6px] rounded-full px-2.5 py-1">
               <span className="font-body text-[9px] uppercase tracking-[0.08em] text-mf-muted whitespace-nowrap">
                 Prochainement
               </span>
@@ -247,7 +249,7 @@ function EventCard({ ev, isActive, cardWidth }) {
       </div>
 
       {/* Content */}
-      <div className="px-5 pt-5 pb-5">
+      <div className="px-5 pt-4 pb-5">
         <h3 className="font-display text-[20px] italic font-normal text-mf-rose leading-snug mb-1">
           {ev.name}
         </h3>
