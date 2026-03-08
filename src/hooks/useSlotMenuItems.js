@@ -2,6 +2,51 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/api/supabase';
 
 /**
+ * Charge les menu_items disponibles pour un event entier via slot_menu_items
+ * Retourne l'union dédupliquée de tous les items de tous les slots de l'event
+ */
+export function useEventSlotMenuItems(eventId) {
+  return useQuery({
+    queryKey: ['slot_menu_items', 'event', eventId],
+    enabled: !!eventId,
+    queryFn: async () => {
+      // Get all meal_slots for this event
+      const { data: slots, error: slotErr } = await supabase
+        .from('meal_slots')
+        .select('id')
+        .eq('event_id', eventId);
+      if (slotErr) throw slotErr;
+      if (!slots || slots.length === 0) return [];
+
+      const slotIds = slots.map((s) => s.id);
+      const { data, error } = await supabase
+        .from('slot_menu_items')
+        .select(`
+          menu_item_id,
+          menu_items (
+            id, name, type, price, unit_price, is_supplement,
+            description, image_url, available, tags
+          )
+        `)
+        .in('meal_slot_id', slotIds);
+
+      if (error) throw error;
+
+      // Deduplicate by menu_item_id
+      const seen = new Set();
+      return (data || [])
+        .filter((row) => row.menu_items)
+        .map((row) => row.menu_items)
+        .filter((item) => {
+          if (seen.has(item.id)) return false;
+          seen.add(item.id);
+          return true;
+        });
+    },
+  });
+}
+
+/**
  * Charge les menu_items disponibles pour un créneau via slot_menu_items
  */
 export function useSlotMenuItems(slotId) {

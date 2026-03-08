@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -8,6 +8,7 @@ import MfButton from '@/components/ui/MfButton';
 import { useActiveEvents } from '@/hooks/useEvents';
 import { useMealSlots } from '@/hooks/useMealSlots';
 import { useEventMenuItems } from '@/hooks/useMenuItems';
+import { useEventSlotMenuItems } from '@/hooks/useSlotMenuItems';
 
 /* ─── Decorative SVG Components ─── */
 
@@ -70,51 +71,314 @@ const Fleuron = () => (
 
 /* ─── Labels ─── */
 const TYPE_LABELS = { entree: 'Entrées', plat: 'Plats', dessert: 'Desserts', boisson: 'Boissons' };
+const TYPE_ORDER = ['entree', 'plat', 'dessert', 'boisson'];
 
 /* ─── Animations (scoped) ─── */
 const scopedStyles = `
   @keyframes mf-float { 0%, 100% { transform: translateY(0px) rotate(0deg); } 50% { transform: translateY(-8px) rotate(2deg); } }
   @keyframes mf-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.55; } }
+  @keyframes mf-fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
   .mf-float { animation: mf-float 6s ease-in-out infinite; }
   .mf-pulse { animation: mf-pulse 4s ease-in-out infinite; }
+  .mf-fade-in-up { animation: mf-fadeInUp 0.5s ease-out both; }
 `;
+
+/* ─── 3D Carousel ─── */
+function EventCarousel({ events, activeIdx, onChangeIdx }) {
+  const touchRef = useRef(null);
+
+  const handleKey = useCallback((e) => {
+    if (e.key === 'ArrowLeft') onChangeIdx((activeIdx - 1 + events.length) % events.length);
+    if (e.key === 'ArrowRight') onChangeIdx((activeIdx + 1) % events.length);
+  }, [activeIdx, events.length, onChangeIdx]);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [handleKey]);
+
+  const handleTouchStart = (e) => { touchRef.current = e.touches[0].clientX; };
+  const handleTouchEnd = (e) => {
+    if (touchRef.current === null) return;
+    const diff = e.changedTouches[0].clientX - touchRef.current;
+    if (Math.abs(diff) > 40) {
+      onChangeIdx(diff > 0
+        ? (activeIdx - 1 + events.length) % events.length
+        : (activeIdx + 1) % events.length
+      );
+    }
+    touchRef.current = null;
+  };
+
+  const handleClick = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    if (x < rect.width / 2) {
+      onChangeIdx((activeIdx - 1 + events.length) % events.length);
+    } else {
+      onChangeIdx((activeIdx + 1) % events.length);
+    }
+  };
+
+  // Card width responsive
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 480;
+  const CARD_W = isMobile ? 260 : 300;
+  const SPREAD_X = isMobile ? 180 : 220;
+
+  return (
+    <div className="relative">
+      <div
+        className="relative mx-auto cursor-pointer select-none"
+        style={{ perspective: '1000px', height: 300 }}
+        onClick={handleClick}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        {events.map((ev, i) => {
+          const offset = ((i - activeIdx + events.length) % events.length);
+          const norm = offset > events.length / 2 ? offset - events.length : offset;
+          const isActive = norm === 0;
+          const absNorm = Math.abs(norm);
+
+          const tx = norm * SPREAD_X;
+          const tz = -absNorm * 150;
+          const ty = absNorm * 12;
+          const ry = norm * -12;
+          const scale = isActive ? 1 : Math.max(0.75, 1 - absNorm * 0.15);
+          const opacity = isActive ? 1 : Math.max(0.4, 1 - absNorm * 0.35);
+          const zIndex = events.length - absNorm;
+          const blur = isActive ? 0 : Math.min(absNorm * 2, 4);
+
+          return (
+            <div
+              key={ev.id}
+              className="absolute left-1/2 top-0"
+              style={{
+                width: CARD_W,
+                marginLeft: -CARD_W / 2,
+                transform: `translateX(${tx}px) translateY(${ty}px) translateZ(${tz}px) rotateY(${ry}deg) scale(${scale})`,
+                opacity,
+                zIndex,
+                filter: blur > 0 ? `blur(${blur}px)` : 'none',
+                transition: 'all 0.75s cubic-bezier(0.22, 1, 0.36, 1)',
+                pointerEvents: isActive ? 'auto' : 'none',
+              }}
+            >
+              <EventCard ev={ev} isActive={isActive} cardWidth={CARD_W} />
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Dots */}
+      {events.length > 1 && (
+        <div className="flex justify-center gap-2 mt-4">
+          {events.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onChangeIdx(i); }}
+              className={`rounded-full transition-all duration-300 ${
+                i === activeIdx
+                  ? 'w-6 h-2 bg-mf-rose'
+                  : 'w-2 h-2 bg-mf-poudre hover:bg-mf-vieux-rose'
+              }`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Event Card ─── */
+function EventCard({ ev, isActive, cardWidth }) {
+  const imgH = isActive ? 150 : 120;
+  const eventDates = `${format(new Date(ev.start_date + 'T00:00:00'), 'd', { locale: fr })} — ${format(new Date(ev.end_date + 'T00:00:00'), 'd MMM yyyy', { locale: fr })}`;
+
+  return (
+    <div
+      className={`bg-white rounded-[20px] border overflow-hidden transition-shadow duration-500 ${
+        isActive
+          ? 'border-mf-border shadow-[0_16px_48px_rgba(57,45,49,0.12)]'
+          : 'border-mf-border/50 shadow-[0_4px_16px_rgba(57,45,49,0.04)]'
+      }`}
+    >
+      {/* Image zone */}
+      <div className="relative overflow-hidden transition-all duration-500" style={{ height: imgH }}>
+        {ev.image_url ? (
+          <img src={ev.image_url} alt={ev.name} className="w-full h-full object-cover" />
+        ) : (
+          <div
+            className="w-full h-full flex items-center justify-center"
+            style={{ background: 'linear-gradient(150deg, rgba(229,183,179,0.4), #F0F0E6, rgba(229,183,179,0.25))' }}
+          >
+            <img src="/brand/Symbole-Rose.svg" alt="" className="h-16 w-auto opacity-10" />
+          </div>
+        )}
+
+        {/* Date badge */}
+        <div className="absolute top-2.5 left-2.5 bg-white/80 backdrop-blur-[6px] rounded-[10px] px-2.5 py-1 text-center">
+          <div className="font-display text-[16px] font-bold text-mf-rose leading-none">
+            {format(new Date(ev.start_date + 'T00:00:00'), 'd', { locale: fr })}
+          </div>
+          <div className="font-body text-[8px] uppercase tracking-[0.1em] text-mf-muted">
+            {format(new Date(ev.start_date + 'T00:00:00'), 'MMM', { locale: fr })}
+          </div>
+        </div>
+
+        {/* Status badge */}
+        <div className="absolute -bottom-[12px] left-1/2 -translate-x-1/2 z-[1]">
+          {ev.is_active ? (
+            <div className="bg-white border-[1.5px] border-mf-border rounded-full px-3.5 py-1 flex items-center gap-1.5 shadow-[0_2px_8px_rgba(57,45,49,0.06)]">
+              <div className="w-1.5 h-1.5 rounded-full bg-mf-vert-olive shadow-[0_0_6px_rgba(150,138,66,0.4)]" />
+              <span className="font-body text-[9px] uppercase tracking-[0.08em] text-mf-vert-olive whitespace-nowrap">
+                Commandes ouvertes
+              </span>
+            </div>
+          ) : (
+            <div className="bg-mf-blanc-casse border border-mf-border rounded-full px-3.5 py-1">
+              <span className="font-body text-[9px] uppercase tracking-[0.08em] text-mf-muted whitespace-nowrap">
+                Prochainement
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="px-5 pt-5 pb-5">
+        <h3 className="font-display text-[20px] italic font-normal text-mf-rose leading-snug mb-1">
+          {ev.name}
+        </h3>
+        <p className="font-body text-[12px] text-mf-muted mb-4">
+          {eventDates}
+        </p>
+
+        {isActive && ev.is_active && (
+          <Link to="/order" onClick={(e) => e.stopPropagation()}>
+            <MfButton fullWidth size="sm">
+              Réserver mes repas →
+            </MfButton>
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Dynamic Menu Section ─── */
+function DynamicMenu({ eventId, eventName }) {
+  const [openCat, setOpenCat] = useState(null);
+  const { data: slotItems = [] } = useEventSlotMenuItems(eventId);
+  const { data: eventItems = [] } = useEventMenuItems(eventId);
+
+  // Use slot items if configured, fallback to event items
+  const displayItems = slotItems.length > 0 ? slotItems : eventItems;
+
+  const menuByCategory = useMemo(() => {
+    const groups = {};
+    displayItems.forEach((item) => {
+      if (!groups[item.type]) groups[item.type] = [];
+      groups[item.type].push(item);
+    });
+    return TYPE_ORDER
+      .filter((t) => groups[t])
+      .map((t) => [t, groups[t]]);
+  }, [displayItems]);
+
+  // Reset open category when event changes
+  useEffect(() => { setOpenCat(null); }, [eventId]);
+
+  if (menuByCategory.length === 0) return null;
+
+  return (
+    <section className="px-5 pb-10 max-w-[520px] mx-auto">
+      <div className="text-center mb-7 mf-fade-in-up" key={eventId}>
+        <span className="font-body text-[10px] tracking-[0.2em] uppercase text-mf-vert-olive">
+          La carte
+        </span>
+        <h2 className="font-serif text-[28px] italic font-normal text-mf-rose mt-1.5">
+          Notre menu
+        </h2>
+        {eventName && (
+          <p className="font-body text-[11px] text-mf-muted mt-1">{eventName}</p>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-1 mf-fade-in-up" key={`menu-${eventId}`}>
+        {menuByCategory.map(([type, items], ci) => {
+          const isOpen = openCat === ci;
+          return (
+            <div
+              key={type}
+              onClick={() => setOpenCat(isOpen ? null : ci)}
+              className={`px-[22px] py-5 cursor-pointer transition-all duration-300 ${
+                isOpen
+                  ? 'bg-white rounded-2xl border border-mf-border'
+                  : 'border border-transparent'
+              }`}
+            >
+              <div className={`flex justify-between items-center ${isOpen ? 'mb-2.5' : ''}`}>
+                <h3 className="font-body text-[11px] tracking-[0.16em] uppercase text-mf-rose">
+                  {TYPE_LABELS[type] || type}
+                </h3>
+                <span
+                  className={`font-body text-[11px] text-mf-muted inline-block transition-transform duration-300 ${
+                    isOpen ? 'rotate-90' : ''
+                  }`}
+                >
+                  →
+                </span>
+              </div>
+              <div
+                className="overflow-hidden transition-all duration-400"
+                style={{
+                  maxHeight: isOpen ? items.length * 40 : 0,
+                  opacity: isOpen ? 1 : 0,
+                }}
+              >
+                {items.map((item) => (
+                  <div
+                    key={item.id}
+                    className="font-body text-[14px] text-mf-marron-glace py-1.5 border-b border-mf-blanc-casse"
+                  >
+                    {item.name}
+                    {item.description && (
+                      <span className="text-[12px] text-mf-muted ml-2">— {item.description}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {ci < menuByCategory.length - 1 && !isOpen && (
+                <div className="mt-5 border-b border-mf-border" />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="font-body text-[10px] text-mf-muted text-center mt-5 italic">
+        Le menu peut varier selon les créneaux. Détails lors de la réservation.
+      </p>
+    </section>
+  );
+}
 
 /* ═══════════════════════════════════════════════════════
    MainPage
    ═══════════════════════════════════════════════════════ */
 
 export default function MainPage() {
-  const [openCat, setOpenCat] = useState(null);
   const [heroLoaded, setHeroLoaded] = useState(false);
+  const [activeEventIdx, setActiveEventIdx] = useState(0);
 
   useEffect(() => { setTimeout(() => setHeroLoaded(true), 100); }, []);
 
   /* ─── Data ─── */
   const { data: activeEvents = [] } = useActiveEvents();
-  const ev = activeEvents[0] ?? null;
+  const ev = activeEvents[activeEventIdx] ?? null;
   const eventId = ev?.id;
-  const { data: mealSlots = [] } = useMealSlots(eventId);
-  const { data: menuItems = [] } = useEventMenuItems(eventId);
-
-  const eventDates = ev
-    ? `${format(new Date(ev.start_date + 'T00:00:00'), 'd', { locale: fr })} — ${format(new Date(ev.end_date + 'T00:00:00'), 'd MMM yyyy', { locale: fr })}`
-    : '';
-
-  const hasCapacity = mealSlots.some((s) => s.max_orders != null);
-
-  const menuByCategory = useMemo(() => {
-    const categories = ev?.menu_categories || ['entree', 'plat', 'dessert', 'boisson'];
-    const groups = {};
-    menuItems.forEach((item) => {
-      if (!categories.includes(item.type)) return;
-      if (!groups[item.type]) groups[item.type] = [];
-      groups[item.type].push(item);
-    });
-    return Object.entries(groups).sort(([a], [b]) => {
-      const order = ['entree', 'plat', 'dessert', 'boisson'];
-      return order.indexOf(a) - order.indexOf(b);
-    });
-  }, [menuItems, ev]);
 
   return (
     <div className="min-h-screen bg-mf-blanc-casse overflow-hidden">
@@ -179,76 +443,29 @@ export default function MainPage() {
         </div>
       </section>
 
-      {/* ═══ EVENT CARD ═══ */}
-      {ev && (
+      {/* ═══ EVENTS ═══ */}
+      {activeEvents.length === 0 ? (
+        <section className="px-5 py-16 text-center">
+          <p className="font-serif text-[22px] italic text-mf-rose">
+            Aucun événement en cours.
+          </p>
+          <p className="font-body text-[14px] text-mf-muted mt-2">Revenez bientôt !</p>
+        </section>
+      ) : activeEvents.length === 1 ? (
+        /* Single event — no carousel */
         <section className="px-5 max-w-[520px] mx-auto -mt-6 relative z-[2]">
-          <div
-            className="bg-white rounded-[20px] border border-mf-border overflow-hidden animate-fade-up transition-all duration-[400ms] hover:-translate-y-[3px] hover:shadow-[0_16px_48px_rgba(57,45,49,0.07)]"
-            style={{ animationDelay: '0.3s' }}
-          >
-            {/* Image zone */}
-            <div className="relative h-[200px] overflow-hidden">
-              {ev.image_url ? (
-                <img src={ev.image_url} alt={ev.name} className="w-full h-full object-cover" />
-              ) : (
-                <div
-                  className="w-full h-full flex items-center justify-center"
-                  style={{ background: 'linear-gradient(150deg, rgba(229,183,179,0.4), #F0F0E6, rgba(229,183,179,0.25))' }}
-                >
-                  <img src="/brand/Symbole-Rose.svg" alt="" className="h-20 w-auto opacity-10" />
-                </div>
-              )}
-
-              {/* Date badge — top left */}
-              <div className="absolute top-3 left-3 bg-white/80 backdrop-blur-[6px] rounded-[10px] px-3 py-1.5 text-center">
-                <div className="font-display text-[18px] font-bold text-mf-rose leading-none">
-                  {format(new Date(ev.start_date + 'T00:00:00'), 'd', { locale: fr })}
-                </div>
-                <div className="font-body text-[9px] uppercase tracking-[0.1em] text-mf-muted">
-                  {format(new Date(ev.start_date + 'T00:00:00'), 'MMM', { locale: fr })}
-                </div>
-              </div>
-
-              {/* "Commandes ouvertes" badge — bottom center overlap */}
-              {hasCapacity && (
-                <div className="absolute -bottom-[13px] left-1/2 -translate-x-1/2 bg-white border-[1.5px] border-mf-border rounded-full px-4 py-1.5 flex items-center gap-2 shadow-[0_2px_8px_rgba(57,45,49,0.06)]">
-                  <div className="w-1.5 h-1.5 rounded-full bg-mf-vert-olive shadow-[0_0_6px_rgba(150,138,66,0.4)]" />
-                  <span className="font-body text-[10px] uppercase tracking-[0.1em] text-mf-vert-olive whitespace-nowrap">
-                    Commandes ouvertes
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Content zone */}
-            <div className="px-6 pt-6 pb-6">
-              <h2 className="font-display text-[24px] italic font-normal text-mf-rose leading-snug mb-2">
-                {ev.name}
-              </h2>
-              <p className="font-body text-[13px] text-mf-muted mb-5">
-                {eventDates}
-              </p>
-
-              <div className="border-t border-mf-border/80 mb-5" />
-
-              <Link to="/order">
-                <MfButton fullWidth>
-                  Réserver mes repas →
-                </MfButton>
-              </Link>
-
-              {ev.slug && (
-                <div className="text-center mt-3">
-                  <a
-                    href={`/reservation/${ev.id}`}
-                    className="font-body text-[11px] text-mf-muted hover:text-mf-rose transition-colors"
-                  >
-                    Voir l'événement →
-                  </a>
-                </div>
-              )}
-            </div>
+          <div style={{ animationDelay: '0.3s' }} className="animate-fade-up">
+            <EventCard ev={activeEvents[0]} isActive={true} cardWidth={300} />
           </div>
+        </section>
+      ) : (
+        /* Multi-event carousel */
+        <section className="max-w-[700px] mx-auto -mt-6 relative z-[2] px-2">
+          <EventCarousel
+            events={activeEvents}
+            activeIdx={activeEventIdx}
+            onChangeIdx={setActiveEventIdx}
+          />
         </section>
       )}
 
@@ -256,69 +473,11 @@ export default function MainPage() {
       <FleuronDivider />
 
       {/* ═══ MENU PREVIEW ═══ */}
-      {menuByCategory.length > 0 && (
-        <section className="px-5 pb-10 max-w-[520px] mx-auto">
-          <div className="text-center mb-7">
-            <span className="font-body text-[10px] tracking-[0.2em] uppercase text-mf-vert-olive">
-              La carte
-            </span>
-            <h2 className="font-serif text-[28px] italic font-normal text-mf-rose mt-1.5">
-              Notre menu
-            </h2>
-          </div>
-
-          <div className="flex flex-col gap-1">
-            {menuByCategory.map(([type, items], ci) => {
-              const isOpen = openCat === ci;
-              return (
-                <div
-                  key={type}
-                  onClick={() => setOpenCat(isOpen ? null : ci)}
-                  className={`px-[22px] py-5 cursor-pointer transition-all duration-300 ${
-                    isOpen
-                      ? 'bg-white rounded-2xl border border-mf-border'
-                      : 'border border-transparent'
-                  }`}
-                >
-                  <div className={`flex justify-between items-center ${isOpen ? 'mb-2.5' : ''}`}>
-                    <h3 className="font-body text-[11px] tracking-[0.16em] uppercase text-mf-rose">
-                      {TYPE_LABELS[type] || type}
-                    </h3>
-                    <span
-                      className={`font-body text-[11px] text-mf-muted inline-block transition-transform duration-300 ${
-                        isOpen ? 'rotate-90' : ''
-                      }`}
-                    >
-                      →
-                    </span>
-                  </div>
-                  <div
-                    className="overflow-hidden transition-all duration-400"
-                    style={{
-                      maxHeight: isOpen ? items.length * 40 : 0,
-                      opacity: isOpen ? 1 : 0,
-                    }}
-                  >
-                    {items.map((item) => (
-                      <div
-                        key={item.id}
-                        className="font-body text-[14px] text-mf-marron-glace py-1.5 border-b border-mf-blanc-casse"
-                      >
-                        {item.name}
-                        {item.description && (
-                          <span className="text-[12px] text-mf-muted ml-2">— {item.description}</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  {ci < menuByCategory.length - 1 && !isOpen && (
-                    <div className="mt-5 border-b border-mf-border" />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </section>
+      {ev && (
+        <DynamicMenu
+          eventId={eventId}
+          eventName={activeEvents.length > 1 ? ev.name : null}
+        />
       )}
 
       {/* ═══ HOW IT WORKS ═══ */}
