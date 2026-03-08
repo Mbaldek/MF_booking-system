@@ -27,6 +27,7 @@ const navItems = [
   { path: '/admin/reminders', label: 'Rappels email', icon: Mail },
   { path: '/admin/users', label: 'Accès & droits', icon: Users },
   { path: '/admin/notifications', label: 'Notifications', icon: Bell },
+  { path: '/admin/guide', label: "Mode d'emploi", icon: BookOpen },
 ];
 
 export default function AdminSidebar() {

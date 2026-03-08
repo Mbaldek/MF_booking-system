@@ -35,6 +35,7 @@ const AdminEmailReminders = lazy(() => import('@/pages/admin/AdminEmailReminders
 const AdminOperations = lazy(() => import('@/pages/admin/AdminOperations'));
 const AdminRestaurant = lazy(() => import('@/pages/admin/AdminRestaurant'));
 const AdminNotifications = lazy(() => import('@/pages/admin/AdminNotifications'));
+const AdminGuide = lazy(() => import('@/pages/admin/AdminGuide'));
 
 // Lazy-loaded staff pages
 const StaffKitchen = lazy(() => import('@/pages/staff/StaffKitchen'));
@@ -124,6 +125,7 @@ export default function App() {
                 <Route path="users" element={<AdminUsers />} />
                 <Route path="notifications" element={<AdminNotifications />} />
                 <Route path="restaurant" element={<AdminRestaurant />} />
+                <Route path="guide" element={<AdminGuide />} />
               </Route>
 
               {/* Staff */}
