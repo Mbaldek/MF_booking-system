@@ -1,10 +1,11 @@
 import { useState, useRef } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Plus, Pencil, Trash2, X, Check, Calendar, Image, UtensilsCrossed, ChevronDown, Copy } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Check, Calendar, Image, UtensilsCrossed, ChevronDown, Copy, CopyPlus } from 'lucide-react';
 import { useEvents, useCreateEvent, useUpdateEvent, useDeleteEvent } from '@/hooks/useEvents';
-import { useMenuCatalog, useAllEventMenuItems, useLinkMenuToEvent, useUnlinkMenuFromEvent, useUpdateEventMenuItem } from '@/hooks/useMenuItems';
+import { useMenuCatalog, useAllEventMenuItems, useLinkMenuToEvent, useUnlinkMenuFromEvent, useUpdateEventMenuItem, useUpdateMenuItem } from '@/hooks/useMenuItems';
 import { useMealSlots, useUpdateSlotCapacity } from '@/hooks/useMealSlots';
+import { useSlotMenuItems, useLinkMenuToSlot, useUnlinkMenuFromSlot, useCopySlotMenu, useSetSlotMenuItems } from '@/hooks/useSlotMenuItems';
 import { supabase } from '@/api/supabase';
 import ConfirmDeleteModal from '@/components/admin/ConfirmDeleteModal';
 import PageTour from '@/components/onboarding/PageTour';
@@ -206,15 +207,263 @@ function EventForm({ initialData, onSubmit, onCancel, isPending }) {
   );
 }
 
+/* ── Slot menu tab panel (items for one slot) ── */
+function SlotMenuPanel({ slotId, catalog, linkedMap }) {
+  const { data: slotLinks = [] } = useSlotMenuItems(slotId);
+  const linkMut = useLinkMenuToSlot();
+  const unlinkMut = useUnlinkMenuFromSlot();
+  const setAllMut = useSetSlotMenuItems();
+
+  const slotLinkedIds = new Set(slotLinks.map((sl) => sl.menu_item_id));
+  // Only show items that are in the event catalog
+  const eventItemIds = new Set(Object.keys(linkedMap));
+  const availableCatalog = catalog.filter((i) => eventItemIds.has(i.id));
+
+  const handleToggle = (item) => {
+    if (slotLinkedIds.has(item.id)) {
+      unlinkMut.mutate({ slotId, menuItemId: item.id });
+    } else {
+      linkMut.mutate({ slotId, menuItemId: item.id });
+    }
+  };
+
+  const handleCheckAll = () => {
+    const allIds = availableCatalog.map((i) => i.id);
+    setAllMut.mutate({ slotId, menuItemIds: allIds });
+  };
+
+  const handleUncheckAll = () => {
+    setAllMut.mutate({ slotId, menuItemIds: [] });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <button type="button" onClick={handleCheckAll}
+          className="px-3 py-1 text-xs font-medium text-mf-rose bg-mf-poudre/20 rounded-full hover:bg-mf-poudre/40 transition-colors">
+          Tout cocher
+        </button>
+        <button type="button" onClick={handleUncheckAll}
+          className="px-3 py-1 text-xs font-medium text-mf-muted bg-mf-blanc-casse rounded-full hover:bg-mf-poudre/20 transition-colors">
+          Tout décocher
+        </button>
+      </div>
+
+      {TYPE_ORDER.map((type) => {
+        const items = availableCatalog.filter((i) => i.type === type);
+        if (items.length === 0) return null;
+        return (
+          <div key={type}>
+            <h4 className="text-xs font-semibold text-mf-muted uppercase tracking-wide mb-2">{TYPE_LABELS[type]}</h4>
+            <div className="space-y-1.5">
+              {items.map((item) => {
+                const isLinked = slotLinkedIds.has(item.id);
+                return (
+                  <div key={item.id} className={`flex items-center gap-3 p-2.5 rounded-lg border transition-colors ${isLinked ? 'border-mf-rose/30 bg-mf-poudre/10' : 'border-mf-border bg-white'}`}>
+                    <button type="button" onClick={() => handleToggle(item)}
+                      className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${isLinked ? 'bg-mf-rose border-mf-rose' : 'border-mf-border'}`}>
+                      {isLinked && (
+                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-medium text-mf-marron-glace">{item.name}</span>
+                      <span className="text-xs text-mf-muted ml-2">{Number(item.price).toFixed(2)}€</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+
+      {availableCatalog.length === 0 && (
+        <p className="text-sm text-mf-muted text-center py-4">Aucun article dans le catalogue de l'événement. Cochez des articles ci-dessus d'abord.</p>
+      )}
+    </div>
+  );
+}
+
+/* ── Supplements section ── */
+function SupplementsConfig({ catalog, linkedMap }) {
+  const updateItem = useUpdateMenuItem();
+  // Only event catalog items
+  const eventItemIds = new Set(Object.keys(linkedMap));
+  const items = catalog.filter((i) => eventItemIds.has(i.id));
+
+  const handleToggleSupplement = (item) => {
+    updateItem.mutate({ id: item.id, is_supplement: !item.is_supplement });
+  };
+
+  const handleUnitPriceChange = (item, value) => {
+    const unitPrice = value === '' ? null : parseFloat(value);
+    updateItem.mutate({ id: item.id, unit_price: unitPrice });
+  };
+
+  if (items.length === 0) return null;
+
+  return (
+    <div className="space-y-3">
+      <h3 className="text-sm font-semibold text-mf-marron-glace">Suppléments à la carte</h3>
+      <p className="text-xs text-mf-muted">Activez les articles disponibles en supplément hors formule, avec leur prix unitaire.</p>
+      <div className="space-y-1.5">
+        {items.map((item) => (
+          <div key={item.id} className={`flex items-center gap-3 p-2.5 rounded-lg border transition-colors ${item.is_supplement ? 'border-mf-vert-olive/30 bg-mf-vert-olive/5' : 'border-mf-border bg-white'}`}>
+            <button type="button" onClick={() => handleToggleSupplement(item)}
+              className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${item.is_supplement ? 'bg-mf-vert-olive border-mf-vert-olive' : 'border-mf-border'}`}>
+              {item.is_supplement && (
+                <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+            </button>
+            <div className="flex-1 min-w-0">
+              <span className="text-sm font-medium text-mf-marron-glace">{item.name}</span>
+              <span className="text-xs text-mf-muted ml-2">{TYPE_LABELS[item.type]}</span>
+            </div>
+            {item.is_supplement && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-mf-muted">Prix :</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder={Number(item.price).toFixed(2)}
+                  defaultValue={item.unit_price ?? ''}
+                  onBlur={(e) => handleUnitPriceChange(item, e.target.value)}
+                  className="w-20 px-2 py-1 border border-mf-border rounded text-xs text-right focus:outline-none focus:ring-1 focus:ring-mf-vert-olive"
+                  title="Prix supplément (vide = prix catalogue)"
+                />
+                <span className="text-xs text-mf-muted">€</span>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── Main menu config with slot tabs ── */
 function EventMenuConfig({ eventId }) {
   const { data: catalog = [] } = useMenuCatalog();
   const { data: linked = [] } = useAllEventMenuItems(eventId);
-  const linkMutation = useLinkMenuToEvent();
-  const unlinkMutation = useUnlinkMenuFromEvent();
-  const updateEmi = useUpdateEventMenuItem();
+  const { data: slots = [] } = useMealSlots(eventId);
+  const copySlotMenu = useCopySlotMenu();
+
+  const [activeSlotId, setActiveSlotId] = useState(null);
+  const [copyDropdownOpen, setCopyDropdownOpen] = useState(false);
+
+  // Auto-select first slot
+  const selectedSlotId = activeSlotId || (slots.length > 0 ? slots[0].id : null);
 
   const linkedMap = {};
   linked.forEach((emi) => { linkedMap[emi.menu_item_id] = emi; });
+
+  const formatSlotLabel = (slot) => {
+    const icon = slot.slot_type === 'midi' ? '☀' : '☽';
+    const day = format(new Date(slot.slot_date + 'T00:00:00'), 'EEE d', { locale: fr });
+    const type = slot.slot_type === 'midi' ? 'Midi' : 'Soir';
+    return `${icon} ${day} ${type}`;
+  };
+
+  const handleCopyFrom = (sourceSlotId) => {
+    if (!selectedSlotId || sourceSlotId === selectedSlotId) return;
+    copySlotMenu.mutate({ sourceSlotId, targetSlotId: selectedSlotId });
+    setCopyDropdownOpen(false);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Catalogue global (event_menu_items) — kept for compatibility */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-mf-marron-glace">Catalogue de l'événement</h3>
+        <p className="text-xs text-mf-muted">Sélectionnez les articles disponibles pour cet événement. Ensuite configurez chaque créneau ci-dessous.</p>
+        <EventCatalogConfig eventId={eventId} catalog={catalog} linked={linked} linkedMap={linkedMap} />
+      </div>
+
+      <div className="border-t border-mf-border" />
+
+      {/* Slot tabs */}
+      {slots.length > 0 ? (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <h3 className="text-sm font-semibold text-mf-marron-glace">Menu par créneau (formule)</h3>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setCopyDropdownOpen(!copyDropdownOpen)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-mf-muted bg-mf-blanc-casse rounded-full hover:bg-mf-poudre/20 transition-colors"
+              >
+                <CopyPlus className="w-3.5 h-3.5" />
+                Copier depuis…
+              </button>
+              {copyDropdownOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setCopyDropdownOpen(false)} />
+                  <div className="absolute right-0 top-full mt-1 z-20 bg-white rounded-lg shadow-lg border border-mf-border py-1 min-w-[180px]">
+                    {slots.filter((s) => s.id !== selectedSlotId).map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => handleCopyFrom(s.id)}
+                        className="w-full text-left px-3 py-2 text-xs text-mf-marron-glace hover:bg-mf-poudre/10 transition-colors"
+                      >
+                        {formatSlotLabel(s)}
+                      </button>
+                    ))}
+                    {slots.filter((s) => s.id !== selectedSlotId).length === 0 && (
+                      <p className="px-3 py-2 text-xs text-mf-muted">Aucun autre créneau</p>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Slot pill tabs */}
+          <div className="flex flex-wrap gap-2">
+            {slots.map((slot) => (
+              <button
+                key={slot.id}
+                type="button"
+                onClick={() => setActiveSlotId(slot.id)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                  selectedSlotId === slot.id
+                    ? 'bg-mf-rose text-white'
+                    : 'bg-mf-blanc-casse text-mf-muted hover:bg-mf-poudre/20'
+                }`}
+              >
+                {formatSlotLabel(slot)}
+              </button>
+            ))}
+          </div>
+
+          {/* Active slot panel */}
+          {selectedSlotId && (
+            <SlotMenuPanel slotId={selectedSlotId} catalog={catalog} linkedMap={linkedMap} />
+          )}
+        </div>
+      ) : (
+        <p className="text-sm text-mf-muted text-center py-4">Aucun créneau pour cet événement.</p>
+      )}
+
+      <div className="border-t border-mf-border" />
+
+      {/* Supplements section */}
+      <SupplementsConfig catalog={catalog} linkedMap={linkedMap} />
+    </div>
+  );
+}
+
+/* ── Event catalog checkboxes (event_menu_items — global) ── */
+function EventCatalogConfig({ eventId, catalog, linked, linkedMap }) {
+  const linkMutation = useLinkMenuToEvent();
+  const unlinkMutation = useUnlinkMenuFromEvent();
+  const updateEmi = useUpdateEventMenuItem();
 
   const handleToggle = (item) => {
     if (linkedMap[item.id]) {

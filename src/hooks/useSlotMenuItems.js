@@ -71,3 +71,77 @@ export function useUnlinkMenuFromSlot() {
     },
   });
 }
+
+/**
+ * Copie les associations d'un créneau source vers un créneau cible
+ * (supprime d'abord les associations existantes du créneau cible)
+ */
+export function useCopySlotMenu() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ sourceSlotId, targetSlotId }) => {
+      // Load source associations
+      const { data: sourceItems, error: fetchErr } = await supabase
+        .from('slot_menu_items')
+        .select('menu_item_id')
+        .eq('meal_slot_id', sourceSlotId);
+      if (fetchErr) throw fetchErr;
+
+      // Clear target
+      const { error: delErr } = await supabase
+        .from('slot_menu_items')
+        .delete()
+        .eq('meal_slot_id', targetSlotId);
+      if (delErr) throw delErr;
+
+      // Insert copies
+      if (sourceItems.length > 0) {
+        const rows = sourceItems.map((si) => ({
+          meal_slot_id: targetSlotId,
+          menu_item_id: si.menu_item_id,
+        }));
+        const { error: insertErr } = await supabase
+          .from('slot_menu_items')
+          .insert(rows);
+        if (insertErr) throw insertErr;
+      }
+    },
+    onSuccess: (_, { targetSlotId }) => {
+      queryClient.invalidateQueries({ queryKey: ['slot_menu_items', targetSlotId] });
+    },
+  });
+}
+
+/**
+ * Bulk link/unlink: remplace toutes les associations d'un créneau
+ */
+export function useSetSlotMenuItems() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ slotId, menuItemIds }) => {
+      // Clear existing
+      const { error: delErr } = await supabase
+        .from('slot_menu_items')
+        .delete()
+        .eq('meal_slot_id', slotId);
+      if (delErr) throw delErr;
+
+      // Insert new set
+      if (menuItemIds.length > 0) {
+        const rows = menuItemIds.map((mid) => ({
+          meal_slot_id: slotId,
+          menu_item_id: mid,
+        }));
+        const { error: insertErr } = await supabase
+          .from('slot_menu_items')
+          .insert(rows);
+        if (insertErr) throw insertErr;
+      }
+    },
+    onSuccess: (_, { slotId }) => {
+      queryClient.invalidateQueries({ queryKey: ['slot_menu_items', slotId] });
+    },
+  });
+}
