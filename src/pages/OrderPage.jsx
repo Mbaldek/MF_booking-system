@@ -420,8 +420,6 @@ export default function OrderPage() {
     [activeSlots, ev, isSlotDone, slotConvives]
   );
 
-  const menuTotal = formuleTotal + supplementTotal;
-
   const setMenuChoice = useCallback((catKey, itemId) => {
     if (!currentSlot) return;
     const slotId = currentSlot.id;
@@ -463,6 +461,8 @@ export default function OrderPage() {
     });
     return total;
   }, [supplementQty, supplementItems]);
+
+  const menuTotal = formuleTotal + supplementTotal;
 
   const handleMenuToggle = useCallback((val) => {
     if (!val && sameForAll && currentSlot) {
