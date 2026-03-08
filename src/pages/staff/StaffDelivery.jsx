@@ -15,6 +15,7 @@ const TYPE_ICONS = { entree: '🥗', plat: '🍽', dessert: '🍰', boisson: '�
 export default function StaffDelivery() {
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [view, setView] = useState('active'); // active | done
+  const [inTransitKeys, setInTransitKeys] = useState(new Set()); // local-only "in_transit" state
 
   const queryClient = useQueryClient();
   const { profile } = useAuth();
@@ -79,14 +80,31 @@ export default function StaffDelivery() {
     return [...new Set(stands)].sort();
   }, [activeCards]);
 
+  const transitCount = activeCards.filter((c) => inTransitKeys.has(c.key)).length;
+
+  const startTransit = (key) => {
+    setInTransitKeys((prev) => new Set(prev).add(key));
+  };
+
+  const startAllTransit = () => {
+    setInTransitKeys((prev) => {
+      const next = new Set(prev);
+      activeCards.forEach((c) => next.add(c.key));
+      return next;
+    });
+  };
+
   const handleDeliver = (card, photo) => {
     const readyIds = card.lines.filter((l) => l.prep_status === 'ready').map((l) => l.id);
     if (readyIds.length === 0) return;
     const deliveredBy = profile?.display_name || profile?.email || 'staff';
+    const onSuccess = () => {
+      setInTransitKeys((prev) => { const next = new Set(prev); next.delete(card.key); return next; });
+    };
     if (photo) {
-      deliverMutation.mutate({ lineIds: readyIds, photo, delivered_by: deliveredBy });
+      deliverMutation.mutate({ lineIds: readyIds, photo, delivered_by: deliveredBy }, { onSuccess });
     } else {
-      updateStatus.mutate({ ids: readyIds, prep_status: 'delivered', delivered_by: deliveredBy });
+      updateStatus.mutate({ ids: readyIds, prep_status: 'delivered', delivered_by: deliveredBy }, { onSuccess });
     }
   };
 
@@ -103,17 +121,32 @@ export default function StaffDelivery() {
 
   return (
     <div className="min-h-screen bg-mf-blanc-casse">
+      <style>{`
+        @keyframes deliveryFadeIn {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .delivery-fade-in { animation: deliveryFadeIn 0.3s ease both; }
+      `}</style>
+
       {/* ═══ DESKTOP HEADER ═══ */}
       <div className="hidden lg:block">
         <StaffHeader role="delivery">
           <div className="flex gap-2">
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-pill bg-mf-vert-olive/10">
-              <div className="w-1.5 h-1.5 rounded-full bg-mf-vert-olive" />
-              <span className="font-body text-[11px] font-medium text-mf-vert-olive">{readyCount}</span>
+              <div className="w-2 h-2 rounded-full bg-mf-vert-olive" />
+              <span className="font-body text-[11px] font-medium text-mf-vert-olive">{readyCount - transitCount}</span>
               <span className="font-body text-[10px] text-mf-muted">À livrer</span>
             </div>
+            {transitCount > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-pill bg-status-orange/10">
+                <div className="w-2 h-2 rounded-full bg-status-orange" />
+                <span className="font-body text-[11px] font-medium text-status-orange">{transitCount}</span>
+                <span className="font-body text-[10px] text-mf-muted">En cours</span>
+              </div>
+            )}
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-pill bg-status-green/10">
-              <div className="w-1.5 h-1.5 rounded-full bg-status-green" />
+              <div className="w-2 h-2 rounded-full bg-status-green" />
               <span className="font-body text-[11px] font-medium text-status-green">{doneCount}</span>
               <span className="font-body text-[10px] text-mf-muted">Livrés</span>
             </div>
@@ -128,11 +161,17 @@ export default function StaffDelivery() {
         <div className="flex items-center justify-between px-4 py-2.5">
           <div className="flex gap-2">
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-pill bg-mf-vert-olive/10">
-              <div className="w-1.5 h-1.5 rounded-full bg-mf-vert-olive" />
-              <span className="font-body text-[13px] font-medium text-mf-vert-olive">{readyCount}</span>
+              <div className="w-2 h-2 rounded-full bg-mf-vert-olive" />
+              <span className="font-body text-[13px] font-medium text-mf-vert-olive">{readyCount - transitCount}</span>
             </div>
+            {transitCount > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-pill bg-status-orange/10">
+                <div className="w-2 h-2 rounded-full bg-status-orange" />
+                <span className="font-body text-[13px] font-medium text-status-orange">{transitCount}</span>
+              </div>
+            )}
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-pill bg-status-green/10">
-              <div className="w-1.5 h-1.5 rounded-full bg-status-green" />
+              <div className="w-2 h-2 rounded-full bg-status-green" />
               <span className="font-body text-[13px] font-medium text-status-green">{doneCount}</span>
             </div>
           </div>
@@ -191,19 +230,28 @@ export default function StaffDelivery() {
                 {sortedRoute.join('  →  ')}
               </div>
             </div>
+            <button
+              onClick={startAllTransit}
+              className="shrink-0 px-3.5 py-2 rounded-pill bg-mf-vert-olive/15 border-none cursor-pointer font-body text-[10px] uppercase tracking-[0.06em] font-medium text-mf-vert-olive transition-all active:scale-95 hover:bg-mf-vert-olive/25"
+            >
+              Tout livrer →
+            </button>
           </div>
         )}
 
         {/* Cards */}
         {displayed.length > 0 ? (
           <div className="flex flex-col gap-2.5">
-            {displayed.map((card) => (
-              <DeliveryCard
-                key={card.key}
-                card={card}
-                onDeliver={handleDeliver}
-                isPending={deliverMutation.isPending || updateStatus.isPending}
-              />
+            {displayed.map((card, i) => (
+              <div key={card.key} className="delivery-fade-in" style={{ animationDelay: `${i * 50}ms` }}>
+                <DeliveryCard
+                  card={card}
+                  isInTransit={inTransitKeys.has(card.key)}
+                  onStartTransit={() => startTransit(card.key)}
+                  onDeliver={handleDeliver}
+                  isPending={deliverMutation.isPending || updateStatus.isPending}
+                />
+              </div>
             ))}
           </div>
         ) : (
@@ -221,9 +269,8 @@ export default function StaffDelivery() {
   );
 }
 
-/* ─── Delivery Card — inline confirmation, no modal ─── */
-function DeliveryCard({ card, onDeliver, isPending }) {
-  const [confirming, setConfirming] = useState(false);
+/* ─── Delivery Card — 2-step: "Partir livrer" → inline photo + "Confirmer" ─── */
+function DeliveryCard({ card, isInTransit, onStartTransit, onDeliver, isPending }) {
   const [photo, setPhoto] = useState(null);
   const [preview, setPreview] = useState(null);
   const fileRef = useRef(null);
@@ -241,13 +288,6 @@ function DeliveryCard({ card, onDeliver, isPending }) {
 
   const handleConfirm = () => {
     onDeliver(card, photo);
-    setConfirming(false);
-    setPhoto(null);
-    setPreview(null);
-  };
-
-  const handleCancel = () => {
-    setConfirming(false);
     setPhoto(null);
     setPreview(null);
   };
@@ -255,15 +295,16 @@ function DeliveryCard({ card, onDeliver, isPending }) {
   return (
     <div className={`bg-white rounded-[16px] border border-mf-border overflow-hidden transition-all ${allDelivered ? 'opacity-55' : ''}`}>
       {/* Card body */}
-      <div className="p-4">
+      <div className={`p-4 ${isInTransit ? 'bg-status-orange/4' : ''}`}>
         <div className="flex gap-3.5 items-start">
           {/* Stand badge — 64px, big and prominent */}
           <div className={`min-w-[64px] h-[64px] rounded-[16px] flex flex-col items-center justify-center shrink-0 ${
-            allDelivered ? 'bg-status-green/12' : 'bg-mf-poudre/30'
+            allDelivered ? 'bg-status-green/12' : isInTransit ? 'bg-status-orange/12' : 'bg-mf-poudre/30'
           }`}>
-            <span className={`font-body text-[20px] font-medium ${allDelivered ? 'text-status-green' : 'text-mf-rose'}`}>
+            <span className={`font-body text-[20px] font-medium ${allDelivered ? 'text-status-green' : isInTransit ? 'text-status-orange' : 'text-mf-rose'}`}>
               {card.order?.stand || '—'}
             </span>
+            {isInTransit && <span className="text-[10px]">🚚</span>}
             {allDelivered && <span className="text-[10px]">✓✓</span>}
           </div>
 
@@ -320,24 +361,24 @@ function DeliveryCard({ card, onDeliver, isPending }) {
         )}
       </div>
 
-      {/* ═══ Action: Livrer button ═══ */}
-      {hasReady && !confirming && (
+      {/* ═══ Step 1: "Partir livrer" button ═══ */}
+      {hasReady && !isInTransit && !allDelivered && (
         <button
-          onClick={() => setConfirming(true)}
-          className="w-full min-h-[54px] border-t border-mf-border border-x-0 border-b-0 cursor-pointer transition-all active:scale-[0.97] font-body text-[14px] uppercase tracking-[0.08em] font-medium flex items-center justify-center gap-2 bg-status-green/10 text-status-green"
+          onClick={onStartTransit}
+          className="w-full min-h-12 border-t border-mf-border border-x-0 border-b-0 cursor-pointer transition-all active:scale-[0.97] font-body text-[14px] uppercase tracking-[0.08em] font-medium flex items-center justify-center gap-2 bg-status-orange/10 text-status-orange"
         >
-          ✓ Confirmer la livraison
+          🚚 Partir livrer
         </button>
       )}
 
-      {/* ═══ Inline confirmation panel ═══ */}
-      {confirming && (
+      {/* ═══ Step 2: Inline photo + confirm ═══ */}
+      {isInTransit && hasReady && (
         <div className="p-4 border-t border-mf-border bg-status-green/5">
           <div className="font-body text-[13px] text-mf-marron-glace mb-2.5">
             Livré au stand <strong>{card.order?.stand}</strong> ?
           </div>
 
-          {/* Photo capture */}
+          {/* Inline photo capture */}
           <div className="mb-3">
             <input
               ref={fileRef}
@@ -349,10 +390,10 @@ function DeliveryCard({ card, onDeliver, isPending }) {
             />
             {preview ? (
               <div className="relative">
-                <img src={preview} alt="Photo livraison" className="w-full h-32 object-cover rounded-xl border border-mf-border" />
+                <img src={preview} alt="Photo livraison" className="w-full h-20 object-cover rounded-lg border border-mf-border" />
                 <button
                   onClick={() => { setPhoto(null); setPreview(null); }}
-                  className="absolute top-2 right-2 w-6 h-6 rounded-full bg-white border border-mf-border flex items-center justify-center font-body text-[11px] text-mf-muted cursor-pointer"
+                  className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-white border border-mf-border flex items-center justify-center font-body text-[11px] text-mf-muted cursor-pointer"
                 >
                   ×
                 </button>
@@ -360,29 +401,21 @@ function DeliveryCard({ card, onDeliver, isPending }) {
             ) : (
               <button
                 onClick={() => fileRef.current?.click()}
-                className="w-full min-h-[52px] rounded-xl border-2 border-dashed border-mf-border bg-white cursor-pointer hover:border-mf-rose/30 transition-colors flex items-center justify-center gap-2 font-body text-[13px] text-mf-muted"
+                className="w-full h-20 rounded-lg border-2 border-dashed border-mf-border bg-white cursor-pointer hover:border-mf-rose/30 transition-colors flex items-center justify-center gap-2 font-body text-[13px] text-mf-muted"
               >
                 📷 Photo (optionnel)
               </button>
             )}
           </div>
 
-          {/* Confirm / Cancel */}
-          <div className="flex gap-2">
-            <button
-              onClick={handleCancel}
-              className="flex-1 min-h-[46px] rounded-pill border border-mf-border bg-white cursor-pointer font-body text-[12px] text-mf-marron-glace transition-all active:scale-[0.97]"
-            >
-              Annuler
-            </button>
-            <button
-              onClick={handleConfirm}
-              disabled={isPending}
-              className="flex-[2] min-h-[46px] rounded-pill border-none bg-status-green cursor-pointer font-body text-[13px] uppercase tracking-[0.08em] font-medium text-mf-blanc-casse transition-all active:scale-[0.97] disabled:opacity-50"
-            >
-              {isPending ? 'En cours...' : "✓✓ C'est livré"}
-            </button>
-          </div>
+          {/* Confirm */}
+          <button
+            onClick={handleConfirm}
+            disabled={isPending}
+            className="w-full min-h-12 rounded-pill border-none bg-status-green cursor-pointer font-body text-[13px] uppercase tracking-[0.08em] font-medium text-mf-blanc-casse transition-all active:scale-[0.97] disabled:opacity-50"
+          >
+            {isPending ? 'En cours...' : "✓✓ C'est livré"}
+          </button>
         </div>
       )}
     </div>
