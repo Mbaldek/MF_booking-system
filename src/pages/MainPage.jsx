@@ -5,9 +5,8 @@ import { fr } from 'date-fns/locale';
 import { ExternalLink } from 'lucide-react';
 import ClientHeader from '@/components/layout/ClientHeader';
 import MfButton from '@/components/ui/MfButton';
-import MfBadge from '@/components/ui/MfBadge';
 import { useActiveEvents } from '@/hooks/useEvents';
-import { useMealSlots, useSlotMenuCounts } from '@/hooks/useMealSlots';
+import { useMealSlots } from '@/hooks/useMealSlots';
 import { useEventMenuItems } from '@/hooks/useMenuItems';
 
 /* ─── Decorative SVG Components ─── */
@@ -92,30 +91,11 @@ export default function MainPage() {
   const ev = activeEvents[0] ?? null;
   const eventId = ev?.id;
   const { data: mealSlots = [] } = useMealSlots(eventId);
-  const { data: slotCounts = {} } = useSlotMenuCounts(eventId);
   const { data: menuItems = [] } = useEventMenuItems(eventId);
 
   const eventDates = ev
     ? `${format(new Date(ev.start_date + 'T00:00:00'), 'd', { locale: fr })} — ${format(new Date(ev.end_date + 'T00:00:00'), 'd MMM yyyy', { locale: fr })}`
     : '';
-
-  const serviceLabel =
-    !ev?.meal_service || ev.meal_service === 'both'
-      ? 'Midi & Soir'
-      : ev.meal_service === 'midi'
-        ? 'Midi'
-        : 'Soir';
-
-  const totalRemaining = useMemo(() => {
-    let total = 0;
-    mealSlots.forEach((s) => {
-      if (s.max_orders != null) {
-        const used = slotCounts[s.id] || 0;
-        total += Math.max(0, s.max_orders - used);
-      }
-    });
-    return total;
-  }, [mealSlots, slotCounts]);
 
   const hasCapacity = mealSlots.some((s) => s.max_orders != null);
 
@@ -175,94 +155,87 @@ export default function MainPage() {
             Commandez pour votre équipe, nous nous occupons du reste.
           </p>
 
-          <div className="flex flex-col items-center gap-3">
-            <Link to="/order">
-              <MfButton size="lg" className="px-10">
-                Commander maintenant
-              </MfButton>
-            </Link>
-            <a
-              href="https://maisonfelicien.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 font-body text-[11px] tracking-[0.1em] uppercase text-mf-vieux-rose"
-            >
-              Découvrir la boutique <ExternalLink className="w-3 h-3" />
-            </a>
-          </div>
+          <a
+            href="https://maisonfelicien.com"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <MfButton size="lg" className="px-10">
+              Découvrir la boutique
+            </MfButton>
+          </a>
         </div>
       </section>
 
       {/* ═══ EVENT CARD ═══ */}
       {ev && (
         <section className="px-5 max-w-[520px] mx-auto -mt-6 relative z-[2]">
-          <div className="bg-white rounded-card border border-mf-border p-7 shadow-[0_8px_40px_rgba(57,45,49,0.06)] animate-fade-up" style={{ animationDelay: '0.3s' }}>
-            {/* Badge + title */}
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <MfBadge variant="olive" className="mb-2">
-                  Prochain événement
-                </MfBadge>
-                <h2 className="font-serif text-[24px] italic font-normal text-mf-rose leading-snug">
-                  {ev.name}
-                </h2>
-                {ev.description && (
-                  <p className="font-body text-[13px] text-mf-muted mt-1">
-                    {ev.description}
-                  </p>
-                )}
-              </div>
-              {/* Mini floral ornament */}
-              <div className="mt-1 opacity-40 text-mf-rose">
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                  <path d="M16 4 C16 4, 21 10, 21 15 C21 18, 19 20, 16 20 C13 20, 11 18, 11 15 C11 10, 16 4, 16 4Z" fill="currentColor" />
-                  <line x1="16" y1="20" x2="16" y2="28" stroke="currentColor" strokeWidth="1" />
-                  <path d="M16 23 C18 21.5, 21 22, 21 22" stroke="currentColor" strokeWidth="0.8" fill="none" />
-                  <path d="M16 25.5 C14 24, 11 24.5, 11 24.5" stroke="currentColor" strokeWidth="0.8" fill="none" />
-                </svg>
-              </div>
-            </div>
-
-            {/* Details grid */}
-            <div className="grid grid-cols-3 gap-3 py-4 mb-5 border-t border-b border-mf-border">
-              {[
-                { label: 'Dates', value: eventDates, icon: '◷' },
-                { label: 'Services', value: serviceLabel, icon: '☀ ☽' },
-                { label: 'Plats', value: `${menuItems.length} choix`, icon: '❋' },
-              ].map((d) => (
-                <div key={d.label} className="text-center">
-                  <div className="text-base mb-1 text-mf-poudre">{d.icon}</div>
-                  <div className="font-body text-[9px] tracking-[0.12em] uppercase text-mf-muted mb-0.5">
-                    {d.label}
-                  </div>
-                  <div className="font-body text-[13px] font-medium text-mf-marron-glace">
-                    {d.value}
-                  </div>
+          <div
+            className="bg-white rounded-[20px] border border-mf-border overflow-hidden animate-fade-up transition-all duration-[400ms] hover:-translate-y-[3px] hover:shadow-[0_16px_48px_rgba(57,45,49,0.07)]"
+            style={{ animationDelay: '0.3s' }}
+          >
+            {/* Image zone */}
+            <div className="relative h-[200px] overflow-hidden">
+              {ev.image_url ? (
+                <img src={ev.image_url} alt={ev.name} className="w-full h-full object-cover" />
+              ) : (
+                <div
+                  className="w-full h-full flex items-center justify-center"
+                  style={{ background: 'linear-gradient(150deg, rgba(229,183,179,0.4), #F0F0E6, rgba(229,183,179,0.25))' }}
+                >
+                  <img src="/brand/Symbole-Rose.svg" alt="" className="h-20 w-auto opacity-10" />
                 </div>
-              ))}
-            </div>
+              )}
 
-            {/* Remaining spots */}
-            {hasCapacity && (
-              <div className="flex items-center justify-between mb-5 rounded-xl p-3 bg-mf-poudre/10">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-mf-vert-olive shadow-[0_0_6px_rgba(150,138,66,0.4)]" />
-                  <span className="font-body text-[13px] text-mf-marron-glace">
+              {/* Date badge — top left */}
+              <div className="absolute top-3 left-3 bg-white/80 backdrop-blur-[6px] rounded-[10px] px-3 py-1.5 text-center">
+                <div className="font-display text-[18px] font-bold text-mf-rose leading-none">
+                  {format(new Date(ev.start_date + 'T00:00:00'), 'd', { locale: fr })}
+                </div>
+                <div className="font-body text-[9px] uppercase tracking-[0.1em] text-mf-muted">
+                  {format(new Date(ev.start_date + 'T00:00:00'), 'MMM', { locale: fr })}
+                </div>
+              </div>
+
+              {/* "Commandes ouvertes" badge — bottom center overlap */}
+              {hasCapacity && (
+                <div className="absolute -bottom-[13px] left-1/2 -translate-x-1/2 bg-white border-[1.5px] border-mf-border rounded-full px-4 py-1.5 flex items-center gap-2 shadow-[0_2px_8px_rgba(57,45,49,0.06)]">
+                  <div className="w-1.5 h-1.5 rounded-full bg-mf-vert-olive shadow-[0_0_6px_rgba(150,138,66,0.4)]" />
+                  <span className="font-body text-[10px] uppercase tracking-[0.1em] text-mf-vert-olive whitespace-nowrap">
                     Commandes ouvertes
                   </span>
                 </div>
-                <span className="font-body text-[12px] text-mf-vieux-rose font-medium">
-                  {totalRemaining} places restantes
-                </span>
-              </div>
-            )}
+              )}
+            </div>
 
-            {/* CTA */}
-            <Link to="/order">
-              <MfButton fullWidth>
-                Réserver mes repas →
-              </MfButton>
-            </Link>
+            {/* Content zone */}
+            <div className="px-6 pt-6 pb-6">
+              <h2 className="font-display text-[24px] italic font-normal text-mf-rose leading-snug mb-2">
+                {ev.name}
+              </h2>
+              <p className="font-body text-[13px] text-mf-muted mb-5">
+                {eventDates}
+              </p>
+
+              <div className="border-t border-mf-border/80 mb-5" />
+
+              <Link to="/order">
+                <MfButton fullWidth>
+                  Réserver mes repas →
+                </MfButton>
+              </Link>
+
+              {ev.slug && (
+                <div className="text-center mt-3">
+                  <a
+                    href={`/reservation/${ev.id}`}
+                    className="font-body text-[11px] text-mf-muted hover:text-mf-rose transition-colors"
+                  >
+                    Voir l'événement →
+                  </a>
+                </div>
+              )}
+            </div>
           </div>
         </section>
       )}
