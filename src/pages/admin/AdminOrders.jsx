@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Search, ChevronDown, ChevronUp, X, AlertTriangle, Trash2, Download, Plus } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useActiveEvent } from '@/hooks/useEvents';
 import EventSelector from '@/components/admin/EventSelector';
-import { useOrders, useUpdateOrder, useDeleteOrder } from '@/hooks/useOrders';
+import { useOrders, useUpdateOrder, useDeleteOrder, useMarkOrdersSeen } from '@/hooks/useOrders';
 import ConfirmDeleteModal from '@/components/admin/ConfirmDeleteModal';
 import { useOrderLines } from '@/hooks/useOrderLines';
 import { groupOrderLines, sortedSlotEntries } from '@/lib/groupOrderLines';
@@ -80,6 +81,7 @@ const PAGE_SIZE = 20;
 function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [prepFilter, setPrepFilter] = useState('all');
   const [slotFilter, setSlotFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [confirmModal, setConfirmModal] = useState(null);
@@ -109,14 +111,16 @@ function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
     return map;
   }, [orderLines]);
 
-  /* prep progress per order */
-  const prepProgressByOrder = useMemo(() => {
+  /* aggregate prep status per order: pending|preparing|ready|delivered */
+  const prepStatusByOrder = useMemo(() => {
     const map = {};
     for (const [orderId, lines] of Object.entries(linesByOrder)) {
-      const total = lines.length;
-      if (total === 0) { map[orderId] = 0; continue; }
-      const done = lines.filter((l) => l.prep_status === 'delivered' || l.prep_status === 'ready').length;
-      map[orderId] = Math.round((done / total) * 100);
+      if (lines.length === 0) { map[orderId] = 'pending'; continue; }
+      const statuses = new Set(lines.map((l) => l.prep_status));
+      if (statuses.size === 1 && statuses.has('delivered')) { map[orderId] = 'delivered'; }
+      else if ([...statuses].every((s) => s === 'ready' || s === 'delivered')) { map[orderId] = 'ready'; }
+      else if (statuses.has('preparing') || statuses.has('ready') || statuses.has('delivered')) { map[orderId] = 'preparing'; }
+      else { map[orderId] = 'pending'; }
     }
     return map;
   }, [linesByOrder]);
@@ -135,6 +139,7 @@ function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
   const filteredAll = useMemo(() => {
     let result = orders ?? [];
     if (statusFilter !== 'all') result = result.filter((o) => o.payment_status === statusFilter);
+    if (prepFilter !== 'all') result = result.filter((o) => prepStatusByOrder[o.id] === prepFilter);
     if (slotFilter !== 'all') {
       result = result.filter((o) => {
         const types = slotTypesByOrder[o.id];
@@ -155,7 +160,7 @@ function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
       });
     }
     return result;
-  }, [orders, statusFilter, slotFilter, search, slotTypesByOrder]);
+  }, [orders, statusFilter, prepFilter, slotFilter, search, slotTypesByOrder, prepStatusByOrder]);
 
   const totalRevenue = useMemo(
     () => filteredAll.filter((o) => o.payment_status === 'paid').reduce((s, o) => s + Number(o.total_amount || 0), 0),
@@ -244,6 +249,28 @@ function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
           ))}
         </div>
 
+        {/* Prep status pills */}
+        <div className="flex gap-1.5 flex-wrap">
+          {[
+            { key: 'all', label: 'Tous' },
+            { key: 'preparing', label: 'En préparation' },
+            { key: 'ready', label: 'Prêt' },
+            { key: 'delivered', label: 'Livré' },
+          ].map((f) => (
+            <button
+              key={f.key}
+              onClick={() => { setPrepFilter(f.key); setPage(0); }}
+              className={`px-3.5 py-2 rounded-pill font-body text-[11px] border transition-all duration-200 cursor-pointer ${
+                prepFilter === f.key
+                  ? 'bg-mf-vert-olive border-mf-vert-olive text-white'
+                  : 'bg-white border-mf-border text-mf-marron-glace hover:border-mf-vert-olive/40'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
         {/* Slot toggle */}
         <div className="inline-flex rounded-pill border border-mf-border overflow-hidden ml-auto shrink-0">
           {[
@@ -294,7 +321,7 @@ function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
                 const slotTypes = slotTypesByOrder[order.id];
                 const hasMidday = slotTypes?.has('midi');
                 const hasSoir = slotTypes?.has('soir');
-                const prepPct = prepProgressByOrder[order.id] ?? 0;
+                const prepStatus = prepStatusByOrder[order.id] ?? 'pending';
 
                 return (
                   <tr
@@ -367,21 +394,9 @@ function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
 
                     {/* Préparation */}
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-12 h-1.5 rounded-full bg-mf-blanc-casse">
-                          <div
-                            className={`h-full rounded-full transition-all duration-500 ${
-                              prepPct === 100 ? 'bg-status-green' : prepPct > 0 ? 'bg-status-orange' : 'bg-mf-muted/40'
-                            }`}
-                            style={{ width: `${prepPct}%` }}
-                          />
-                        </div>
-                        <span className={`font-body text-[10px] ${
-                          prepPct === 100 ? 'text-status-green' : 'text-mf-muted'
-                        }`}>
-                          {prepPct}%
-                        </span>
-                      </div>
+                      <MfBadge variant={PREP_BADGE_VARIANT[prepStatus] || 'rose'}>
+                        {PREP_LABELS[prepStatus] || prepStatus}
+                      </MfBadge>
                     </td>
                   </tr>
                 );
@@ -426,7 +441,7 @@ function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
         <OrderDetailModal
           order={selectedOrder}
           lines={linesByOrder[selectedOrder.id] ?? []}
-          prepProgress={prepProgressByOrder[selectedOrder.id] ?? 0}
+          prepStatus={prepStatusByOrder[selectedOrder.id] ?? 'pending'}
           onClose={() => setSelectedOrder(null)}
           onStatusUpdate={handleStatusUpdate}
           onCancel={(order) => setConfirmModal({ order, action: 'cancel' })}
@@ -510,7 +525,7 @@ function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
    ORDER DETAIL MODAL
    ═══════════════════════════════════════════════════ */
 
-function OrderDetailModal({ order, lines, prepProgress, onClose, onStatusUpdate, onCancel, onDelete, updatePending }) {
+function OrderDetailModal({ order, lines, prepStatus, onClose, onStatusUpdate, onCancel, onDelete, updatePending }) {
   const grouped = groupOrderLines(lines);
   const slots = sortedSlotEntries(grouped);
   const next = nextPaymentStatus(order.payment_status);
@@ -632,24 +647,12 @@ function OrderDetailModal({ order, lines, prepProgress, onClose, onStatusUpdate,
             </div>
           )}
 
-          {/* Prep progress */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="font-body text-[12px] text-mf-marron-glace">Préparation</span>
-              <span className={`font-body text-[12px] font-medium ${
-                prepProgress === 100 ? 'text-status-green' : 'text-status-orange'
-              }`}>
-                {prepProgress}%
-              </span>
-            </div>
-            <div className="h-1.5 rounded-full bg-mf-blanc-casse">
-              <div
-                className={`h-full rounded-full transition-all duration-500 ${
-                  prepProgress === 100 ? 'bg-status-green' : 'bg-status-orange'
-                }`}
-                style={{ width: `${prepProgress}%` }}
-              />
-            </div>
+          {/* Prep status */}
+          <div className="flex items-center justify-between">
+            <span className="font-body text-[12px] text-mf-marron-glace">Préparation</span>
+            <MfBadge variant={PREP_BADGE_VARIANT[prepStatus] || 'rose'}>
+              {PREP_LABELS[prepStatus] || prepStatus}
+            </MfBadge>
           </div>
 
           {/* Total */}
@@ -817,6 +820,7 @@ const TABS = [
 export default function AdminOrders() {
   const [activeTab, setActiveTab] = useState('financial');
   const [selectedEventId, setSelectedEventId] = useState(null);
+  const qc = useQueryClient();
 
   const { data: activeEvent, isLoading: eventLoading } = useActiveEvent();
   const eventId = selectedEventId ?? activeEvent?.id;
@@ -825,6 +829,26 @@ export default function AdminOrders() {
   const { data: orderLines, isLoading: linesLoading } = useOrderLines(eventId);
   const updateOrder = useUpdateOrder();
   const deleteOrder = useDeleteOrder();
+  const markSeen = useMarkOrdersSeen();
+
+  /* Mark orders as seen when page loads with data */
+  useEffect(() => {
+    if (eventId && orders?.length) {
+      markSeen.mutate(eventId);
+    }
+  }, [eventId, orders?.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* Realtime: refresh order_lines when staff changes prep_status */
+  useEffect(() => {
+    if (!eventId) return;
+    const channel = supabase
+      .channel('admin-order-lines')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'order_lines' }, () => {
+        qc.invalidateQueries({ queryKey: ['order_lines', eventId] });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [eventId, qc]);
 
   const isLoading = eventLoading || ordersLoading || linesLoading;
 

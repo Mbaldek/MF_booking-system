@@ -151,6 +151,40 @@ export function useUpdateOrder() {
   });
 }
 
+export function useUnseenOrderCount() {
+  return useQuery({
+    queryKey: ['orders', 'unseen_count'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('payment_status', 'paid')
+        .eq('admin_seen', false);
+      if (error) throw error;
+      return count ?? 0;
+    },
+    refetchInterval: 30000,
+  });
+}
+
+export function useMarkOrdersSeen() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (eventId) => {
+      const { error } = await supabase
+        .from('orders')
+        .update({ admin_seen: true })
+        .eq('event_id', eventId)
+        .eq('admin_seen', false)
+        .eq('payment_status', 'paid');
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['orders', 'unseen_count'] });
+    },
+  });
+}
+
 export function useLookupOrders() {
   return useMutation({
     mutationFn: async ({ email, orderNumber }) => {

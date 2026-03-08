@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
+import { useUnseenOrderCount } from '@/hooks/useOrders';
 import {
   TrendingUp, Calendar, UtensilsCrossed, ShoppingBag,
   ClipboardList, BarChart3, Mail, Users, Home, LogOut, ChefHat, BookOpen, Bell,
@@ -21,6 +22,7 @@ const navItems = [
 export default function AdminSidebar() {
   const { profile, signOut } = useAuth();
   const location = useLocation();
+  const { data: unseenCount } = useUnseenOrderCount();
 
   function isActive(item) {
     if (item.end) return location.pathname === item.path;
@@ -71,6 +73,11 @@ export default function AdminSidebar() {
             >
               <Icon className="w-4 h-4" />
               {item.label}
+              {item.path === '/admin/orders' && unseenCount > 0 && (
+                <span className="ml-auto inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-mf-rose text-white font-body text-[10px] font-medium">
+                  {unseenCount}
+                </span>
+              )}
             </Link>
           );
         })}

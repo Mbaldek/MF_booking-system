@@ -74,7 +74,7 @@ export default function StaffLayout() {
       </header>
 
       {/* Desktop: full width — pages use StaffHeader themselves */}
-      <main>
+      <main className="bg-mf-blanc-casse min-h-screen">
         <Outlet />
       </main>
     </div>

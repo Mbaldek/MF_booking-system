@@ -104,7 +104,7 @@ export default function AdminLayout() {
       </div>
 
       {/* Main Content */}
-      <main className="lg:ml-[220px]">
+      <main className="lg:ml-[220px] bg-mf-blanc-casse min-h-screen">
         <Outlet />
       </main>
     </div>
