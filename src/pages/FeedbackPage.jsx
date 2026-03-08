@@ -4,10 +4,10 @@ import { supabase } from '@/api/supabase';
 import MfButton from '@/components/ui/MfButton';
 
 const RATINGS = [
-  { value: 1, emoji: '😍', label: 'Excellent' },
-  { value: 2, emoji: '😊', label: 'Bien' },
-  { value: 3, emoji: '😐', label: 'Moyen' },
-  { value: 4, emoji: '😞', label: 'Décevant' },
+  { value: 4, emoji: '😍', label: 'Excellent' },
+  { value: 3, emoji: '😊', label: 'Bien' },
+  { value: 2, emoji: '😐', label: 'Moyen' },
+  { value: 1, emoji: '😞', label: 'Décevant' },
 ];
 
 export default function FeedbackPage() {
@@ -17,8 +17,9 @@ export default function FeedbackPage() {
 
   const [rating, setRating] = useState(initialRating);
   const [comment, setComment] = useState('');
-  const [status, setStatus] = useState('idle'); // idle | saving | saved | duplicate | error
+  const [status, setStatus] = useState('idle'); // idle | saving | saved | duplicate | error | invalid
   const [autoSaved, setAutoSaved] = useState(false);
+  const [errorDetail, setErrorDetail] = useState(null);
 
   // Auto-submit rating from URL on mount
   useEffect(() => {
@@ -37,8 +38,14 @@ export default function FeedbackPage() {
     if (error) {
       if (error.code === '23505') {
         setStatus('duplicate');
+      } else if (error.code === '23503') {
+        // FK violation — order_id doesn't exist
+        console.error('Feedback error: order not found', error);
+        setErrorDetail('Commande introuvable. Le lien est peut-être expiré.');
+        setStatus('invalid');
       } else {
-        console.error(error);
+        console.error('Feedback error:', error.code, error.message, error.details, error.hint);
+        setErrorDetail(error.message);
         setStatus('error');
       }
     } else {
@@ -150,7 +157,16 @@ export default function FeedbackPage() {
             )}
 
             {status === 'error' && (
-              <p className="font-body text-sm text-red-500">Une erreur est survenue. Réessayez.</p>
+              <div className="space-y-1">
+                <p className="font-body text-sm text-red-500">Une erreur est survenue. Réessayez.</p>
+                {errorDetail && <p className="font-body text-xs text-mf-muted">{errorDetail}</p>}
+              </div>
+            )}
+
+            {status === 'invalid' && (
+              <div className="space-y-2">
+                <p className="font-body text-sm text-red-500">{errorDetail || 'Lien invalide.'}</p>
+              </div>
             )}
 
             {status === 'idle' && (

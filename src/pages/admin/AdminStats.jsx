@@ -19,10 +19,10 @@ const PERIOD_PILLS = [
   { key: 'all', label: 'Tout' },
 ];
 const RATINGS = [
-  { value: 1, emoji: '😍' },
-  { value: 2, emoji: '😊' },
-  { value: 3, emoji: '😐' },
-  { value: 4, emoji: '😞' },
+  { value: 4, emoji: '😍' },
+  { value: 3, emoji: '😊' },
+  { value: 2, emoji: '😐' },
+  { value: 1, emoji: '😞' },
 ];
 const BAR_COLORS = [
   'bg-mf-rose', 'bg-mf-poudre', 'bg-mf-vert-olive', 'bg-mf-vieux-rose', 'bg-mf-marron-glace/40',
