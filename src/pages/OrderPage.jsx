@@ -6,6 +6,7 @@ import { X } from 'lucide-react';
 import { useActiveEvents } from '@/hooks/useEvents';
 import { useMealSlots } from '@/hooks/useMealSlots';
 import { useEventMenuItems } from '@/hooks/useMenuItems';
+import { useSlotMenuItems } from '@/hooks/useSlotMenuItems';
 import { useCreateOrder } from '@/hooks/useOrders';
 import { supabase } from '@/api/supabase';
 import MfButton from '@/components/ui/MfButton';
@@ -94,6 +95,128 @@ function CollapsibleCategory({ catKey, catLabel, catEmoji, items, selectedId, on
   );
 }
 
+/* ─── SlotFormuleContent: loads per-slot items with fallback ─── */
+function SlotFormuleContent({ slotId, fallbackItems, categories, curSel, onSelect, slotKey }) {
+  const { data: slotLinks = [] } = useSlotMenuItems(slotId);
+
+  // Flatten slot_menu_items → menu_items, fallback to event items
+  const items = useMemo(() => {
+    if (slotLinks.length > 0) {
+      return slotLinks
+        .filter((sl) => sl.menu_items)
+        .map((sl) => sl.menu_items);
+    }
+    return fallbackItems;
+  }, [slotLinks, fallbackItems]);
+
+  const CAT_CONFIG = [
+    { key: 'entree', label: 'Entrée', emoji: '🥗' },
+    { key: 'plat', label: 'Plat', emoji: '🍽' },
+    { key: 'dessert', label: 'Dessert', emoji: '🍰' },
+    { key: 'boisson', label: 'Boisson', emoji: '🥤' },
+  ];
+
+  return (
+    <>
+      {CAT_CONFIG.filter((c) => categories.includes(c.key)).map((cat) => {
+        const catItems = items.filter((i) => i.type === cat.key);
+        return (
+          <CollapsibleCategory
+            key={cat.key + slotId + slotKey}
+            catKey={cat.key}
+            catLabel={cat.label}
+            catEmoji={cat.emoji}
+            items={catItems}
+            selectedId={curSel[cat.key]}
+            onSelect={(id) => onSelect(cat.key, id)}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+/* ─── SupplementPicker: quantity selector for supplements ─── */
+function SupplementPicker({ items, slotId, getQty, setQty }) {
+  const TYPE_LABELS = { entree: 'Entrées', plat: 'Plats', dessert: 'Desserts', boisson: 'Boissons' };
+  const TYPE_EMOJIS = { entree: '🥗', plat: '🍽', dessert: '🍰', boisson: '🥤' };
+  const TYPE_ORDER = ['entree', 'plat', 'dessert', 'boisson'];
+
+  if (items.length === 0) {
+    return (
+      <div className="text-center py-6">
+        <p className="font-body text-[13px] text-mf-muted">Aucun supplément disponible pour cet événement.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {TYPE_ORDER.map((type) => {
+        const typeItems = items.filter((i) => i.type === type);
+        if (typeItems.length === 0) return null;
+        return (
+          <div key={type}>
+            <div className="font-body text-[10px] uppercase tracking-[0.1em] font-medium text-mf-vert-olive mb-1.5">
+              {TYPE_EMOJIS[type]} {TYPE_LABELS[type]}
+            </div>
+            <div className="space-y-1.5">
+              {typeItems.map((item) => {
+                const qty = getQty(slotId, item.id);
+                const unitPrice = Number(item.unit_price ?? item.price);
+                return (
+                  <div
+                    key={item.id}
+                    className={`flex items-center gap-2.5 p-2.5 rounded-[12px] border-[1.5px] transition-colors ${
+                      qty > 0
+                        ? 'border-mf-vert-olive/30 bg-mf-poudre/12'
+                        : 'border-mf-border bg-white'
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="font-body text-[13px] text-mf-marron-glace">{item.name}</div>
+                      {item.description && (
+                        <div className="font-body text-[11px] text-mf-muted">{item.description}</div>
+                      )}
+                    </div>
+                    <span className="font-body text-[13px] font-semibold text-mf-rose shrink-0">
+                      {unitPrice.toFixed(2)}€
+                    </span>
+                    <div className="flex items-center gap-0 rounded-full border border-mf-border overflow-hidden shrink-0">
+                      <button
+                        type="button"
+                        disabled={qty === 0}
+                        onClick={() => setQty(slotId, item.id, qty - 1)}
+                        className="w-[30px] h-[30px] flex items-center justify-center font-body text-[15px] text-mf-muted bg-white hover:bg-mf-blanc-casse disabled:opacity-30 transition-colors border-none cursor-pointer"
+                      >
+                        −
+                      </button>
+                      <span className={`w-[28px] text-center font-body text-[13px] font-medium ${qty > 0 ? 'text-mf-rose' : 'text-mf-muted'}`}>
+                        {qty}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setQty(slotId, item.id, qty + 1)}
+                        className={`w-[30px] h-[30px] flex items-center justify-center font-body text-[15px] border-none cursor-pointer transition-colors ${
+                          qty > 0
+                            ? 'bg-mf-rose text-white hover:opacity-90'
+                            : 'bg-white text-mf-muted hover:bg-mf-blanc-casse'
+                        }`}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /* ═══════════════════════════════════════════════════════
    OrderPage — Tunnel de commande 4 étapes
    ═══════════════════════════════════════════════════════ */
@@ -120,6 +243,8 @@ export default function OrderPage() {
   const [activeConvive, setActiveConvive] = useState(0);
   const [autoFillDone, setAutoFillDone] = useState(false);
   const [showAutoFill, setShowAutoFill] = useState(false);
+  const [menuSection, setMenuSection] = useState('formule'); // 'formule' | 'supplements'
+  const [supplementQty, setSupplementQty] = useState({}); // { [slotId]: { [itemId]: qty } }
 
   // ─── Browser history for steps (fix back button) ───
   const goToStep = useCallback((n) => {
@@ -146,6 +271,12 @@ export default function OrderPage() {
   const eventId = ev?.id;
   const { data: allMealSlots = [] } = useMealSlots(eventId);
   const { data: menuItems = [] } = useEventMenuItems(eventId);
+
+  // Supplement items from event catalog
+  const supplementItems = useMemo(
+    () => menuItems.filter((i) => i.is_supplement),
+    [menuItems]
+  );
 
   const mealSlots = useMemo(() => {
     if (!ev?.meal_service || ev.meal_service === 'both') return allMealSlots;
@@ -281,13 +412,15 @@ export default function OrderPage() {
   const isLastSlot = menuSlotIdx === activeSlots.length - 1;
   const allConvThisSlot = sameForAll ? isMenuComplete : currentConv.every((n) => isConvDone(currentSlot?.id, n));
 
-  const menuTotal = useMemo(
+  const formuleTotal = useMemo(
     () => activeSlots.reduce((sum, s) => {
       const price = Number(s.slot_type === 'soir' ? ev?.menu_price_soir : ev?.menu_price_midi) || 0;
       return sum + (isSlotDone(s.id) ? price * (slotConvives[s.id]?.length || 0) : 0);
     }, 0),
     [activeSlots, ev, isSlotDone, slotConvives]
   );
+
+  const menuTotal = formuleTotal + supplementTotal;
 
   const setMenuChoice = useCallback((catKey, itemId) => {
     if (!currentSlot) return;
@@ -305,6 +438,31 @@ export default function OrderPage() {
       },
     }));
   }, [currentSlot, sameForAll, currentConv, activeConvive]);
+
+  const getSupQty = useCallback((slotId, itemId) => supplementQty[slotId]?.[itemId] || 0, [supplementQty]);
+
+  const setSupQty = useCallback((slotId, itemId, qty) => {
+    setSupplementQty((prev) => ({
+      ...prev,
+      [slotId]: {
+        ...(prev[slotId] || {}),
+        [itemId]: Math.max(0, qty),
+      },
+    }));
+  }, []);
+
+  const supplementTotal = useMemo(() => {
+    let total = 0;
+    Object.entries(supplementQty).forEach(([, items]) => {
+      Object.entries(items).forEach(([itemId, qty]) => {
+        if (qty > 0) {
+          const item = supplementItems.find((i) => i.id === itemId);
+          if (item) total += qty * Number(item.unit_price ?? item.price);
+        }
+      });
+    });
+    return total;
+  }, [supplementQty, supplementItems]);
 
   const handleMenuToggle = useCallback((val) => {
     if (!val && sameForAll && currentSlot) {
@@ -330,6 +488,7 @@ export default function OrderPage() {
       setMenuSlotIdx((i) => i + 1);
       setSameForAll(true);
       setActiveConvive(0);
+      setMenuSection('formule');
     }
   }, [menuSlotIdx, autoFillDone, activeSlots.length, isLastSlot]);
 
@@ -360,8 +519,8 @@ export default function OrderPage() {
     () => activeSlots.reduce((sum, s) => {
       const price = Number(s.slot_type === 'soir' ? ev?.menu_price_soir : ev?.menu_price_midi) || 0;
       return sum + price * (slotConvives[s.id]?.length || 0);
-    }, 0),
-    [activeSlots, ev, slotConvives]
+    }, 0) + supplementTotal,
+    [activeSlots, ev, slotConvives, supplementTotal]
   );
 
   // Submit — builds order + order_lines from V4 matrix + menuSelections
@@ -394,9 +553,31 @@ export default function OrderPage() {
               unit_price: menuPrice,
               guest_name: conviveName,
               menu_unit_price: menuPrice,
+              is_supplement: false,
             });
           }
         });
+      });
+
+      // Supplement lines for this slot
+      const slotSups = supplementQty[slot.id] || {};
+      Object.entries(slotSups).forEach(([itemId, qty]) => {
+        if (qty > 0) {
+          const item = supplementItems.find((i) => i.id === itemId);
+          if (item) {
+            const supPrice = Number(item.unit_price ?? item.price);
+            totalAmount += qty * supPrice;
+            orderLines.push({
+              meal_slot_id: slot.id,
+              menu_item_id: itemId,
+              quantity: qty,
+              unit_price: supPrice,
+              guest_name: cv[0] || convives[0] || '',
+              menu_unit_price: supPrice,
+              is_supplement: true,
+            });
+          }
+        }
       });
     });
 
@@ -734,7 +915,7 @@ export default function OrderPage() {
                   <button
                     key={s.id}
                     type="button"
-                    onClick={() => { setMenuSlotIdx(i); setSameForAll(true); setActiveConvive(0); }}
+                    onClick={() => { setMenuSlotIdx(i); setSameForAll(true); setActiveConvive(0); setMenuSection('formule'); }}
                     className={`whitespace-nowrap font-body text-[11px] px-3 py-1.5 rounded-pill flex items-center gap-1 border-[1.5px] cursor-pointer transition-all ${
                       isActive
                         ? 'bg-mf-rose border-mf-rose text-mf-blanc-casse'
@@ -876,24 +1057,83 @@ export default function OrderPage() {
               )}
 
               {/* C5. Pre-filled banner */}
-              {curSel._pf && (
+              {curSel._pf && menuSection === 'formule' && (
                 <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] mb-2 bg-mf-vert-olive/8 border border-mf-vert-olive/18 font-body text-[11px] text-mf-vert-olive">
                   ⚡ Pré-rempli. Modifiez si besoin.
                 </div>
               )}
 
-              {/* C6. Collapsible categories */}
-              {catConfig.map((cat) => (
-                <CollapsibleCategory
-                  key={cat.key + currentSlot.id + (sameForAll ? '__all__' : currentConv[activeConvive])}
-                  catKey={cat.key}
-                  catLabel={cat.label}
-                  catEmoji={cat.emoji}
-                  items={cat.items}
-                  selectedId={curSel[cat.key]}
-                  onSelect={(id) => setMenuChoice(cat.key, id)}
+              {/* C5b. Section toggle: Formule / Suppléments */}
+              {supplementItems.length > 0 && (
+                <div className="flex gap-2 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => setMenuSection('formule')}
+                    className={`flex-1 py-2 px-3 rounded-full font-body text-[12px] font-medium border-[1.5px] transition-all ${
+                      menuSection === 'formule'
+                        ? 'bg-mf-rose border-mf-rose text-white'
+                        : 'bg-white border-mf-border text-mf-muted hover:border-mf-rose/30'
+                    }`}
+                  >
+                    🍽 Formule {(Number(currentSlot.slot_type === 'soir' ? ev.menu_price_soir : ev.menu_price_midi) || 0)}€
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMenuSection('supplements')}
+                    className={`flex-1 py-2 px-3 rounded-full font-body text-[12px] font-medium border-[1.5px] transition-all ${
+                      menuSection === 'supplements'
+                        ? 'bg-mf-vert-olive border-mf-vert-olive text-white'
+                        : 'bg-white border-mf-border text-mf-muted hover:border-mf-vert-olive/30'
+                    }`}
+                  >
+                    ＋ Suppléments
+                    {(() => {
+                      const slotSupTotal = Object.entries(supplementQty[currentSlot.id] || {})
+                        .reduce((s, [iid, q]) => {
+                          const it = supplementItems.find((i) => i.id === iid);
+                          return s + (it ? q * Number(it.unit_price ?? it.price) : 0);
+                        }, 0);
+                      return slotSupTotal > 0 ? ` (${slotSupTotal.toFixed(2)}€)` : '';
+                    })()}
+                  </button>
+                </div>
+              )}
+
+              {/* C6. Formule: Collapsible categories (per-slot items) */}
+              {menuSection === 'formule' && (
+                <>
+                  <SlotFormuleContent
+                    slotId={currentSlot.id}
+                    fallbackItems={menuItems}
+                    categories={categories}
+                    curSel={curSel}
+                    onSelect={(catKey, id) => setMenuChoice(catKey, id)}
+                    slotKey={sameForAll ? '__all__' : currentConv[activeConvive]}
+                  />
+
+                  {/* Formule complete — suggest supplements */}
+                  {isMenuComplete && supplementItems.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setMenuSection('supplements')}
+                      className="w-full mt-2 py-2.5 px-4 rounded-full border-[1.5px] border-mf-vert-olive/40 bg-mf-vert-olive/5 font-body text-[12px] font-medium text-mf-vert-olive hover:bg-mf-vert-olive/10 transition-colors text-center"
+                    >
+                      ＋ Ajouter des suppléments
+                      <span className="block font-normal text-[10px] text-mf-muted mt-0.5">Optionnel — passez directement au créneau suivant</span>
+                    </button>
+                  )}
+                </>
+              )}
+
+              {/* C6b. Supplements: quantity picker */}
+              {menuSection === 'supplements' && (
+                <SupplementPicker
+                  items={supplementItems}
+                  slotId={currentSlot.id}
+                  getQty={getSupQty}
+                  setQty={setSupQty}
                 />
-              ))}
+              )}
 
               {/* C7. Validate CTA */}
               {isLastSlot ? (
@@ -960,6 +1200,7 @@ export default function OrderPage() {
             <div>
               <div className="font-body text-[10px] uppercase tracking-[0.06em] text-mf-muted">
                 {doneSlots}/{activeSlots.length} créneaux
+                {supplementTotal > 0 && <span className="text-mf-vert-olive"> + suppl.</span>}
               </div>
               <div className="font-serif text-[20px] italic text-mf-rose">
                 {menuTotal.toFixed(2)} €
@@ -1047,6 +1288,30 @@ export default function OrderPage() {
                         );
                       })}
 
+                      {/* Slot supplements */}
+                      {(() => {
+                        const slotSups = supplementQty[slot.id] || {};
+                        const supEntries = Object.entries(slotSups).filter(([, q]) => q > 0);
+                        if (supEntries.length === 0) return null;
+                        return (
+                          <div className="p-2 px-2.5 rounded-[10px] bg-mf-vert-olive/5 mb-1">
+                            <div className="font-body text-[10px] uppercase tracking-[0.08em] text-mf-vert-olive mb-1">Suppléments</div>
+                            <div className="flex flex-wrap gap-1">
+                              {supEntries.map(([itemId, qty]) => {
+                                const item = supplementItems.find((i) => i.id === itemId);
+                                if (!item) return null;
+                                const supPrice = Number(item.unit_price ?? item.price);
+                                return (
+                                  <span key={itemId} className="font-body text-[10px] px-2 py-0.5 rounded-pill bg-white border border-mf-vert-olive/20 text-mf-marron-glace">
+                                    {item.name} ×{qty} ({(qty * supPrice).toFixed(2)}€)
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
                       {/* Separator */}
                       <div className="h-px bg-mf-border mt-2" />
                     </div>
@@ -1058,7 +1323,10 @@ export default function OrderPage() {
               <div className="flex items-baseline justify-between pt-3 mt-3 border-t-2 border-mf-rose">
                 <div>
                   <span className="font-body text-[12px] uppercase tracking-[0.1em] text-mf-rose font-medium">Total</span>
-                  <div className="font-body text-[11px] text-mf-muted">{v4TotalMeals} repas</div>
+                  <div className="font-body text-[11px] text-mf-muted">
+                    {v4TotalMeals} repas
+                    {supplementTotal > 0 && <span className="text-mf-vert-olive"> + {supplementTotal.toFixed(2)}€ suppl.</span>}
+                  </div>
                 </div>
                 <span className="font-serif text-[28px] italic text-mf-rose">
                   {v4FinalTotal.toFixed(2)} €

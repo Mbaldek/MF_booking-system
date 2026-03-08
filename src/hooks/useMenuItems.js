@@ -31,7 +31,7 @@ export function useEventMenuItems(eventId) {
           id,
           custom_price,
           available,
-          menu_item:menu_items(id, name, type, price, description, image_url, tags)
+          menu_item:menu_items(id, name, type, price, unit_price, is_supplement, description, image_url, tags)
         `)
         .eq('event_id', eventId)
         .eq('available', true);
@@ -45,6 +45,8 @@ export function useEventMenuItems(eventId) {
           ...emi.menu_item,
           event_menu_item_id: emi.id,
           price: emi.custom_price ?? emi.menu_item.price,
+          unit_price: emi.menu_item.unit_price,
+          is_supplement: emi.menu_item.is_supplement,
           available: emi.available,
         }));
     },
@@ -64,7 +66,7 @@ export function useAllEventMenuItems(eventId) {
           menu_item_id,
           custom_price,
           available,
-          menu_item:menu_items(id, name, type, price, description, image_url, tags)
+          menu_item:menu_items(id, name, type, price, unit_price, is_supplement, description, image_url, tags)
         `)
         .eq('event_id', eventId);
 
