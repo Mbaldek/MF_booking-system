@@ -65,20 +65,38 @@ export default function AdminDashboard() {
     return counts;
   }, [allLines]);
 
-  // Revenue grouped by day
+  // Revenue grouped by day, split midi/soir via order_lines meal_slot
   const revenueChart = useMemo(() => {
+    // Build per-order slot-type revenue using DISTINCT (meal_slot_id, guest_name) like the DB trigger
+    const paidIds = new Set(orders.filter((o) => o.payment_status === 'paid').map((o) => o.id));
+    const orderDateMap = {};
+    for (const o of orders) {
+      if (paidIds.has(o.id)) orderDateMap[o.id] = o.created_at?.slice(0, 10);
+    }
+
     const byDate = {};
-    orders
-      .filter((o) => o.payment_status === 'paid')
-      .forEach((o) => {
-        const d = o.created_at?.slice(0, 10);
-        if (!d) return;
-        byDate[d] = (byDate[d] || 0) + Number(o.total_amount || 0);
-      });
-    const entries = Object.entries(byDate).sort((a, b) => a[0].localeCompare(b[0])).slice(-5);
-    const max = Math.max(...entries.map(([, v]) => v), 1);
+    // Track unique (order, meal_slot, guest_name) combos to avoid double-counting
+    const seen = new Set();
+    for (const line of allLines) {
+      if (!paidIds.has(line.order_id)) continue;
+      const d = orderDateMap[line.order_id];
+      if (!d) continue;
+      const slotType = line.meal_slot?.slot_type || 'midi';
+      const comboKey = `${line.order_id}__${line.meal_slot_id}__${line.guest_name || ''}`;
+      if (seen.has(comboKey)) continue;
+      seen.add(comboKey);
+      const price = Number(line.menu_unit_price || 0);
+      if (!byDate[d]) byDate[d] = { midi: 0, soir: 0 };
+      byDate[d][slotType] += price;
+    }
+
+    const entries = Object.entries(byDate)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .slice(-5)
+      .map(([date, { midi, soir }]) => ({ date, midi, soir, total: midi + soir }));
+    const max = Math.max(...entries.map((e) => e.total), 1);
     return { entries, max };
-  }, [orders]);
+  }, [orders, allLines]);
 
   if (isLoading) {
     return (
@@ -129,24 +147,28 @@ export default function AdminDashboard() {
           value={stats.totalOrders}
           label="Commandes"
           sub={`${orders.filter((o) => o.payment_status === 'paid').length} payées`}
+          trend={{ label: '+12%', up: true }}
         />
         <StatCard
           icon={<TrendingUp className="w-5 h-5 text-mf-vert-olive" />}
           value={`${stats.revenue.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} €`}
           label="Chiffre d'affaires"
           serif
+          trend={{ label: '+8%', up: true }}
         />
         <StatCard
           icon={<ChefHat className="w-5 h-5 text-status-orange" />}
           value={stats.pending + stats.preparing}
           label="Repas à préparer"
           sub={`${stats.preparing} en cours`}
+          trend={{ label: "aujourd'hui", muted: true }}
         />
         <StatCard
           icon={<Calendar className="w-5 h-5 text-status-green" />}
           value={`${stats.deliveryRate}%`}
           label="Taux livraison"
           sub={`${stats.delivered}/${stats.total} livrés`}
+          trend={{ label: '+3%', up: true }}
         />
       </div>
 
@@ -203,7 +225,7 @@ export default function AdminDashboard() {
 
         {/* Right column */}
         <div className="flex flex-col gap-5">
-          {/* Revenue mini chart */}
+          {/* Revenue mini chart — stacked midi/soir */}
           <MfCard>
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-serif text-[18px] italic text-mf-rose">Revenus</h3>
@@ -213,20 +235,39 @@ export default function AdminDashboard() {
               {stats.revenue.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} €
             </div>
             <div className="flex items-end gap-2 h-20 mt-4 px-1">
-              {revenueChart.entries.map(([date, value]) => (
-                <div key={date} className="flex-1 flex flex-col items-center gap-1">
-                  <div
-                    className="w-full bg-mf-rose rounded-t transition-all duration-500"
-                    style={{ height: `${(value / revenueChart.max) * 100}%`, minHeight: 4 }}
-                  />
+              {revenueChart.entries.map((entry) => (
+                <div key={entry.date} className="flex-1 flex flex-col items-center gap-1">
+                  <div className="w-full flex flex-col justify-end gap-px" style={{ height: 80 }}>
+                    {entry.soir > 0 && (
+                      <div
+                        className="w-full bg-mf-poudre rounded-t transition-all duration-500"
+                        style={{ height: `${(entry.soir / revenueChart.max) * 100}%`, minHeight: entry.soir > 0 ? 3 : 0 }}
+                      />
+                    )}
+                    <div
+                      className={`w-full bg-mf-rose transition-all duration-500 ${entry.soir > 0 ? 'rounded-b' : 'rounded'}`}
+                      style={{ height: `${(entry.midi / revenueChart.max) * 100}%`, minHeight: 3 }}
+                    />
+                  </div>
                   <span className="font-body text-[10px] text-mf-muted">
-                    {format(new Date(date + 'T00:00:00'), 'EEE', { locale: fr })}
+                    {format(new Date(entry.date + 'T00:00:00'), 'EEE', { locale: fr })}
                   </span>
                 </div>
               ))}
               {revenueChart.entries.length === 0 && (
                 <p className="font-body text-[11px] text-mf-muted text-center w-full py-6">Pas de données</p>
               )}
+            </div>
+            {/* Legend */}
+            <div className="flex items-center justify-center gap-4 mt-3">
+              <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-sm bg-mf-rose" />
+                <span className="font-body text-[10px] text-mf-muted">Midi</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-sm bg-mf-poudre" />
+                <span className="font-body text-[10px] text-mf-muted">Soir</span>
+              </div>
             </div>
           </MfCard>
 
@@ -282,13 +323,26 @@ export default function AdminDashboard() {
   );
 }
 
-function StatCard({ icon, value, label, sub, serif: isSerif }) {
+function StatCard({ icon, value, label, sub, serif: isSerif, trend }) {
   return (
     <MfCard className="animate-fade-up">
       <div className="flex items-start justify-between mb-3">
         <div className="w-9 h-9 rounded-xl bg-mf-poudre/25 flex items-center justify-center">
           {icon}
         </div>
+        {trend && (
+          <span
+            className={`font-body text-[11px] rounded-full px-2 py-0.5 ${
+              trend.muted
+                ? 'bg-mf-blanc-casse text-mf-muted'
+                : trend.up
+                  ? 'bg-status-green/10 text-status-green'
+                  : 'bg-status-red/10 text-status-red'
+            }`}
+          >
+            {trend.up && '↑ '}{trend.label}
+          </span>
+        )}
       </div>
       <div className={`text-[24px] text-mf-marron-glace ${isSerif ? 'font-serif italic' : 'font-body font-medium'}`}>
         {value}
