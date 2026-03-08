@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect, Component } from 'react';
-import { Send, ChevronDown, ChevronLeft, ChevronRight, Search, Copy, Clock, Mail, ExternalLink } from 'lucide-react';
+import { Send, ChevronDown, ChevronLeft, ChevronRight, Search, Copy, Clock, Mail, ExternalLink, Check, AlertTriangle } from 'lucide-react';
 import { useNotificationSettings, useUpdateNotificationSetting } from '@/hooks/useNotificationSettings';
 import { useEmailLogs } from '@/hooks/useEmailLogs';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/api/supabase';
 import MfCard from '@/components/ui/MfCard';
 import MfBadge from '@/components/ui/MfBadge';
@@ -68,6 +69,7 @@ const NOTIF_LABELS = {
   daily_admin_recap: 'Récap admin quotidien',
   daily_client_reminder: 'Rappel client quotidien',
   delivery_confirmation: 'Confirmation livraison',
+  manual: 'Envoi manuel',
 };
 
 /* ═══════════════════════════════════════════════════
@@ -572,6 +574,7 @@ function DetailRow({ label, value }) {
    ═══════════════════════════════════════════════════ */
 
 function ManualTab() {
+  const qc = useQueryClient();
   const [recipientMode, setRecipientMode] = useState('single');
   const [singleEmail, setSingleEmail] = useState('');
   const [customEmail, setCustomEmail] = useState('');
@@ -580,6 +583,7 @@ function ManualTab() {
   const [message, setMessage] = useState('');
   const [search, setSearch] = useState('');
   const [sending, setSending] = useState(false);
+  const [sendResult, setSendResult] = useState(null);
 
   const [customers, setCustomers] = useState([]);
   const [customersLoaded, setCustomersLoaded] = useState(false);
@@ -646,7 +650,7 @@ function ManualTab() {
     return customEmail || 'Aucun email';
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!subject.trim() || !message.trim()) {
       alert('Veuillez remplir l\'objet et le message');
       return;
@@ -663,7 +667,56 @@ function ManualTab() {
       alert('Veuillez entrer un email');
       return;
     }
-    alert('Envoi simulé — l\'Edge Function sera connectée prochainement');
+
+    setSending(true);
+    setSendResult(null);
+    try {
+      // Build recipient list
+      let to = [];
+      if (recipientMode === 'single') {
+        to = [singleEmail];
+      } else if (recipientMode === 'event') {
+        const { data } = await supabase
+          .from('orders')
+          .select('customer_email')
+          .eq('event_id', selectedEventId)
+          .eq('payment_status', 'paid');
+        if (data) {
+          to = [...new Set(data.map((d) => d.customer_email))];
+        }
+        if (to.length === 0) {
+          alert('Aucun client trouvé pour cet événement');
+          setSending(false);
+          return;
+        }
+      } else {
+        to = [customEmail];
+      }
+
+      const { data, error } = await supabase.functions.invoke('send-manual-email', {
+        body: { to, subject, body: message },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const count = data?.count || to.length;
+      setSendResult({ type: 'success', message: `${count} email${count > 1 ? 's' : ''} envoyé${count > 1 ? 's' : ''}` });
+
+      // Reset form
+      setSubject('');
+      setMessage('');
+      setSingleEmail('');
+      setCustomEmail('');
+      setSearch('');
+
+      // Refresh email_logs
+      qc.invalidateQueries({ queryKey: ['email_logs'] });
+    } catch (err) {
+      setSendResult({ type: 'error', message: err.message });
+    } finally {
+      setSending(false);
+    }
   };
 
   const MODES = [
@@ -796,6 +849,18 @@ function ManualTab() {
             className="rounded-2xl border border-mf-border px-5 py-3 font-body text-[15px] text-mf-marron-glace bg-mf-white placeholder:text-mf-muted-light outline-none focus:border-mf-rose transition-colors resize-none"
           />
         </div>
+
+        {/* Result banner */}
+        {sendResult && (
+          <div className={`flex items-center gap-2 px-4 py-3 rounded-2xl font-body text-[13px] ${
+            sendResult.type === 'success'
+              ? 'bg-status-green/10 text-status-green border border-status-green/20'
+              : 'bg-status-red/10 text-status-red border border-status-red/20'
+          }`}>
+            {sendResult.type === 'success' ? <Check className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
+            {sendResult.message}
+          </div>
+        )}
 
         {/* Send button */}
         <MfButton onClick={handleSend} disabled={sending} fullWidth>
