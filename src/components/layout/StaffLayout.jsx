@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
-import { ChefHat, Truck, Home, Menu, X, LogOut } from 'lucide-react';
+import { ChefHat, Truck, Home, Menu, X, LogOut, Settings } from 'lucide-react';
 
 const navItems = [
   { path: '/staff/kitchen', label: 'Préparation', icon: ChefHat },
@@ -62,6 +62,16 @@ export default function StaffLayout() {
                 </Link>
               );
             })}
+            {profile?.role === 'admin' && (
+              <Link
+                to="/admin"
+                className="flex items-center gap-3 px-5 py-3 border-b border-mf-border text-mf-rose font-body text-[13px] hover:bg-mf-poudre/10"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <Settings className="w-4 h-4" />
+                Espace Admin
+              </Link>
+            )}
             <button
               onClick={() => { signOut(); setMobileMenuOpen(false); }}
               className="flex items-center gap-3 px-5 py-3 w-full text-mf-muted hover:text-mf-rose font-body text-[13px] cursor-pointer bg-transparent border-none"

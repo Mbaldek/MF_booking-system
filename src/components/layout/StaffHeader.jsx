@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom';
+import { Settings } from 'lucide-react';
+import { useAuth } from '@/lib/AuthContext';
 
 export default function StaffHeader({
   role = 'kitchen',
@@ -7,6 +9,8 @@ export default function StaffHeader({
   progress,
   children,
 }) {
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === 'admin';
   const roleConfig = {
     kitchen: { label: '🍳 Cuisine', textCls: 'text-status-orange', bgCls: 'bg-status-orange/8' },
     delivery: { label: '🚚 Livraisons', textCls: 'text-status-green', bgCls: 'bg-status-green/8' },
@@ -80,6 +84,17 @@ export default function StaffHeader({
 
         {/* Extra controls (view toggle, etc.) */}
         {children}
+
+        {/* Admin shortcut */}
+        {isAdmin && (
+          <Link
+            to="/admin"
+            className="w-9 h-9 rounded-full bg-mf-poudre/20 flex items-center justify-center text-mf-rose hover:bg-mf-poudre/40 transition-colors"
+            title="Admin"
+          >
+            <Settings className="w-4 h-4" />
+          </Link>
+        )}
       </div>
     </header>
   );
