@@ -2,11 +2,12 @@ import { useState, useEffect, useMemo } from 'react';
 import { format, isToday, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useQueryClient } from '@tanstack/react-query';
-import { BarChart3, TrendingUp, ShoppingBag, Users, UtensilsCrossed } from 'lucide-react';
+import { BarChart3, TrendingUp, ShoppingBag, Users, UtensilsCrossed, Search, ChevronDown, ChevronUp } from 'lucide-react';
 import { useEvents, useActiveEvent } from '@/hooks/useEvents';
 import { useOrders } from '@/hooks/useOrders';
 import { useOrderLines } from '@/hooks/useOrderLines';
 import { supabase } from '@/api/supabase';
+import MfBadge from '@/components/ui/MfBadge';
 
 const SLOT_PILLS = [
   { key: 'all', label: 'Tous' },
@@ -82,12 +83,39 @@ function ProgressBar({ label, value, max, colorClass = 'bg-mf-rose' }) {
   );
 }
 
+const STATS_TABS = [
+  { key: 'overview', label: '📊 Vue générale' },
+  { key: 'clients', label: '👤 Clients' },
+];
+
+const LOYALTY_BADGE = {
+  new: { variant: 'poudre', label: 'Nouveau' },
+  regular: { variant: 'olive', label: 'Régulier' },
+  loyal: { variant: 'rose', label: 'Fidèle' },
+};
+
+function getLoyalty(count) {
+  if (count >= 4) return 'loyal';
+  if (count >= 2) return 'regular';
+  return 'new';
+}
+
+const PAYMENT_BADGE = {
+  paid: { variant: 'green', label: 'Payée' },
+  refunded: { variant: 'rose', label: 'Remboursée' },
+  cancelled: { variant: 'red', label: 'Annulée' },
+  pending: { variant: 'orange', label: 'En attente' },
+};
+
+const RATING_EMOJIS = { 4: '😍', 3: '😊', 2: '😐', 1: '😞' };
+
 /* ══════════════════════════════════════════ */
 export default function AdminStats() {
   const qc = useQueryClient();
   const { data: activeEvent } = useActiveEvent();
   const { data: allEvents = [] } = useEvents();
 
+  const [activeTab, setActiveTab] = useState('overview');
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [slotFilter, setSlotFilter] = useState('all');
   const [periodFilter, setPeriodFilter] = useState('all');
@@ -267,6 +295,34 @@ export default function AdminStats() {
         )}
       </div>
 
+      {/* ── Tabs ── */}
+      <div className="flex gap-2">
+        {STATS_TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`px-5 py-2.5 rounded-full font-body text-xs border transition-all duration-200 cursor-pointer ${
+              activeTab === tab.key
+                ? 'bg-mf-rose border-mf-rose text-white'
+                : 'bg-white border-mf-border text-mf-marron-glace hover:border-mf-rose/40'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'clients' && (
+        <ClientsTab
+          orders={orders}
+          lines={lines}
+          feedback={feedback}
+          isLoading={isLoading}
+          eventId={eventId}
+        />
+      )}
+
+      {activeTab === 'overview' && <>
       {/* ── Filters (sticky) ── */}
       <div className="sticky top-0 z-10 bg-mf-blanc-casse pb-3 -mt-2 pt-2 space-y-3">
         {/* Event selector */}
@@ -471,6 +527,375 @@ export default function AdminStats() {
           )}
         </>
       )}
+      </>}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   TAB 2 — Clients
+   ═══════════════════════════════════════════════════ */
+
+function ClientsTab({ orders, lines, feedback, isLoading, eventId }) {
+  const [search, setSearch] = useState('');
+  const [sortKey, setSortKey] = useState('revenue');
+  const [sortAsc, setSortAsc] = useState(false);
+  const [expandedEmail, setExpandedEmail] = useState(null);
+
+  const clientData = useMemo(() => {
+    const realOrders = orders.filter((o) => !o.is_test);
+    const paidOrders = realOrders.filter((o) => o.payment_status === 'paid');
+
+    // Group by email
+    const byEmail = {};
+    for (const order of realOrders) {
+      const email = order.customer_email;
+      if (!email) continue;
+      if (!byEmail[email]) {
+        byEmail[email] = {
+          email,
+          name: `${order.customer_last_name || ''} ${order.customer_first_name || ''}`.trim(),
+          firstName: order.customer_first_name || '',
+          lastName: order.customer_last_name || '',
+          orders: [],
+          events: new Set(),
+          revenue: 0,
+          lastDate: null,
+        };
+      }
+      const client = byEmail[email];
+      client.orders.push(order);
+      if (order.event_id) client.events.add(order.event_id);
+      if (order.payment_status === 'paid') {
+        client.revenue += Number(order.total_amount) || 0;
+      }
+      const d = new Date(order.created_at);
+      if (!client.lastDate || d > client.lastDate) client.lastDate = d;
+    }
+
+    // Attach feedback per order
+    const feedbackByOrder = {};
+    for (const f of feedback) {
+      feedbackByOrder[f.order_id] = f;
+    }
+
+    // Attach lines per order
+    const linesByOrder = {};
+    for (const l of lines) {
+      const oid = l.order?.id || l.order_id;
+      if (!oid) continue;
+      if (!linesByOrder[oid]) linesByOrder[oid] = [];
+      linesByOrder[oid].push(l);
+    }
+
+    // Build client list
+    const clients = Object.values(byEmail).map((c) => {
+      const paidCount = c.orders.filter((o) => o.payment_status === 'paid').length;
+      const ratings = c.orders
+        .map((o) => feedbackByOrder[o.id]?.rating)
+        .filter(Boolean);
+      const avgRating = ratings.length > 0
+        ? ratings.reduce((s, r) => s + r, 0) / ratings.length
+        : null;
+
+      return {
+        ...c,
+        orderCount: c.orders.length,
+        paidCount,
+        eventCount: c.events.size,
+        loyalty: getLoyalty(paidCount),
+        avgRating,
+        feedbackByOrder,
+        linesByOrder,
+      };
+    });
+
+    return clients;
+  }, [orders, lines, feedback]);
+
+  // Stats cards
+  const totalClients = clientData.length;
+  const totalRevenue = clientData.reduce((s, c) => s + c.revenue, 0);
+  const avgRevenue = totalClients > 0 ? totalRevenue / totalClients : 0;
+  const totalOrders = clientData.reduce((s, c) => s + c.paidCount, 0);
+  const avgOrders = totalClients > 0 ? totalOrders / totalClients : 0;
+
+  // Filter + sort
+  const filtered = useMemo(() => {
+    let list = clientData;
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter((c) =>
+        c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q)
+      );
+    }
+    list.sort((a, b) => {
+      let va, vb;
+      if (sortKey === 'name') { va = a.name.toLowerCase(); vb = b.name.toLowerCase(); }
+      else if (sortKey === 'orders') { va = a.paidCount; vb = b.paidCount; }
+      else if (sortKey === 'revenue') { va = a.revenue; vb = b.revenue; }
+      else if (sortKey === 'lastDate') { va = a.lastDate?.getTime() || 0; vb = b.lastDate?.getTime() || 0; }
+      else { va = 0; vb = 0; }
+      if (va < vb) return sortAsc ? -1 : 1;
+      if (va > vb) return sortAsc ? 1 : -1;
+      return 0;
+    });
+    return list;
+  }, [clientData, search, sortKey, sortAsc]);
+
+  const toggleSort = (key) => {
+    if (sortKey === key) setSortAsc(!sortAsc);
+    else { setSortKey(key); setSortAsc(false); }
+  };
+
+  const SortIcon = ({ col }) => {
+    if (sortKey !== col) return null;
+    return sortAsc
+      ? <ChevronUp className="w-3 h-3 inline ml-0.5" />
+      : <ChevronDown className="w-3 h-3 inline ml-0.5" />;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-mf-rose" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Stat cards */}
+      <div className="grid grid-cols-3 gap-4">
+        <StatCard icon={Users} label="Clients uniques" value={totalClients} variant="marron" />
+        <StatCard
+          icon={TrendingUp}
+          label="CA moyen / client"
+          value={`${avgRevenue.toFixed(2)} €`}
+          variant="rose"
+        />
+        <StatCard
+          icon={ShoppingBag}
+          label="Commandes / client"
+          value={avgOrders.toFixed(1)}
+          sub="en moyenne"
+          variant="olive"
+        />
+      </div>
+
+      {/* Search */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-mf-muted" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Rechercher un client..."
+          className="w-full rounded-full border border-mf-border pl-10 pr-5 py-2.5 font-body text-sm text-mf-marron-glace bg-white placeholder:text-mf-muted-light outline-none focus:border-mf-rose transition-colors"
+        />
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-2xl border border-mf-border overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b border-mf-border">
+                <SortableHeader label="Client" col="name" onClick={toggleSort} sortKey={sortKey} sortAsc={sortAsc} />
+                <th className="text-left px-4 py-3 font-body text-[10px] uppercase tracking-wider text-mf-muted bg-mf-blanc-casse">Email</th>
+                <SortableHeader label="Commandes" col="orders" onClick={toggleSort} sortKey={sortKey} sortAsc={sortAsc} />
+                <th className="text-left px-4 py-3 font-body text-[10px] uppercase tracking-wider text-mf-muted bg-mf-blanc-casse">Événements</th>
+                <SortableHeader label="CA total" col="revenue" onClick={toggleSort} sortKey={sortKey} sortAsc={sortAsc} />
+                <SortableHeader label="Dernière cmd" col="lastDate" onClick={toggleSort} sortKey={sortKey} sortAsc={sortAsc} />
+                <th className="text-left px-4 py-3 font-body text-[10px] uppercase tracking-wider text-mf-muted bg-mf-blanc-casse">Satisfaction</th>
+                <th className="text-left px-4 py-3 font-body text-[10px] uppercase tracking-wider text-mf-muted bg-mf-blanc-casse">Fidélité</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((client) => (
+                <ClientRow
+                  key={client.email}
+                  client={client}
+                  isExpanded={expandedEmail === client.email}
+                  onToggle={() => setExpandedEmail(expandedEmail === client.email ? null : client.email)}
+                />
+              ))}
+            </tbody>
+          </table>
+
+          {filtered.length === 0 && (
+            <div className="text-center py-12">
+              <Users className="w-8 h-8 text-mf-muted/30 mx-auto mb-2" />
+              <p className="font-body text-sm text-mf-muted">Aucun client trouvé</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <p className="font-body text-xs text-mf-muted text-center">
+        {filtered.length} client{filtered.length !== 1 ? 's' : ''} · hors commandes de test
+      </p>
+    </div>
+  );
+}
+
+function SortableHeader({ label, col, onClick, sortKey, sortAsc }) {
+  return (
+    <th
+      onClick={() => onClick(col)}
+      className="text-left px-4 py-3 font-body text-[10px] uppercase tracking-wider text-mf-muted bg-mf-blanc-casse cursor-pointer hover:text-mf-rose transition-colors select-none"
+    >
+      {label}
+      {sortKey === col && (
+        sortAsc
+          ? <ChevronUp className="w-3 h-3 inline ml-0.5" />
+          : <ChevronDown className="w-3 h-3 inline ml-0.5" />
+      )}
+    </th>
+  );
+}
+
+function ClientRow({ client, isExpanded, onToggle }) {
+  const badge = LOYALTY_BADGE[client.loyalty];
+
+  return (
+    <>
+      <tr
+        onClick={onToggle}
+        className="border-b border-mf-border/50 hover:bg-mf-poudre/10 cursor-pointer transition-colors"
+      >
+        <td className="px-4 py-3 font-body text-sm font-medium text-mf-marron-glace whitespace-nowrap">
+          {client.name || '—'}
+        </td>
+        <td className="px-4 py-3 font-body text-sm text-mf-muted">
+          {client.email}
+        </td>
+        <td className="px-4 py-3 font-body text-sm text-mf-marron-glace text-center">
+          {client.paidCount}
+        </td>
+        <td className="px-4 py-3 font-body text-sm text-mf-muted text-center">
+          {client.eventCount}
+        </td>
+        <td className="px-4 py-3 font-body text-sm font-medium text-mf-rose whitespace-nowrap">
+          {client.revenue.toFixed(2)} €
+        </td>
+        <td className="px-4 py-3 font-body text-sm text-mf-muted whitespace-nowrap">
+          {client.lastDate ? format(client.lastDate, 'd MMM yyyy', { locale: fr }) : '—'}
+        </td>
+        <td className="px-4 py-3 text-center">
+          {client.avgRating != null ? (
+            <span className="font-body text-sm">
+              {RATING_EMOJIS[Math.round(client.avgRating)] || '—'}{' '}
+              <span className="text-mf-muted text-xs">{client.avgRating.toFixed(1)}</span>
+            </span>
+          ) : (
+            <span className="text-mf-muted text-xs">—</span>
+          )}
+        </td>
+        <td className="px-4 py-3">
+          <MfBadge variant={badge.variant}>{badge.label}</MfBadge>
+        </td>
+      </tr>
+
+      {/* Expanded detail */}
+      {isExpanded && (
+        <tr>
+          <td colSpan={8} className="p-0">
+            <ClientDetail client={client} />
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+function ClientDetail({ client }) {
+  const firstOrder = client.orders.reduce((oldest, o) => {
+    const d = new Date(o.created_at);
+    return !oldest || d < oldest ? d : oldest;
+  }, null);
+
+  const sortedOrders = [...client.orders].sort(
+    (a, b) => new Date(b.created_at) - new Date(a.created_at)
+  );
+
+  return (
+    <div className="bg-mf-blanc-casse border-t border-mf-border px-6 py-5 space-y-4">
+      {/* Header */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <h3 className="font-display italic text-lg text-mf-rose">{client.name || client.email}</h3>
+        <MfBadge variant={LOYALTY_BADGE[client.loyalty].variant}>
+          {LOYALTY_BADGE[client.loyalty].label}
+        </MfBadge>
+        <span className="font-body text-xs text-mf-muted ml-auto">
+          {client.email}
+        </span>
+      </div>
+
+      {/* Summary */}
+      <p className="font-body text-sm text-mf-muted">
+        Client depuis{' '}
+        <span className="text-mf-marron-glace font-medium">
+          {firstOrder ? format(firstOrder, 'd MMMM yyyy', { locale: fr }) : '—'}
+        </span>
+        {' · '}{client.paidCount} commande{client.paidCount > 1 ? 's' : ''} sur {client.eventCount} événement{client.eventCount > 1 ? 's' : ''}
+        {' · '}{client.revenue.toFixed(2)} € de CA
+      </p>
+
+      {/* Timeline */}
+      <div className="space-y-0">
+        {sortedOrders.map((order) => {
+          const orderLines = client.linesByOrder[order.id] || [];
+          const fb = client.feedbackByOrder[order.id];
+          const payBadge = PAYMENT_BADGE[order.payment_status] || PAYMENT_BADGE.pending;
+
+          return (
+            <div key={order.id} className="flex gap-4 py-3 border-b border-mf-border/30 last:border-0">
+              {/* Date col */}
+              <div className="w-24 shrink-0">
+                <p className="font-body text-xs font-medium text-mf-marron-glace">
+                  {format(new Date(order.created_at), 'd MMM yyyy', { locale: fr })}
+                </p>
+                <p className="font-body text-[10px] text-mf-muted">
+                  {order.event?.name || ''}
+                </p>
+              </div>
+
+              {/* Details */}
+              <div className="flex-1 min-w-0 space-y-1.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono text-sm font-medium text-mf-rose">
+                    {order.order_number}
+                  </span>
+                  <span className="font-body text-sm text-mf-marron-glace font-medium">
+                    {Number(order.total_amount).toFixed(2)} €
+                  </span>
+                  <MfBadge variant={payBadge.variant}>{payBadge.label}</MfBadge>
+                  {fb && (
+                    <span className="text-sm" title={`Note: ${fb.rating}/4`}>
+                      {RATING_EMOJIS[fb.rating] || ''}
+                    </span>
+                  )}
+                </div>
+
+                {/* Items as pills */}
+                {orderLines.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {orderLines.map((l, i) => (
+                      <span
+                        key={i}
+                        className="inline-block px-2 py-0.5 rounded-full bg-mf-poudre/20 font-body text-[10px] text-mf-rose"
+                      >
+                        {l.menu_item?.name || '?'}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
