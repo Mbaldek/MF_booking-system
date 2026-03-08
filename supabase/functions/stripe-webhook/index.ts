@@ -7,14 +7,14 @@ async function supabaseQuery(path: string, method = 'GET', body?: unknown) {
     'apikey': Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!}`,
     'Content-Type': 'application/json',
-    'Prefer': method === 'PATCH' ? 'return=minimal' : 'return=representation',
+    'Prefer': method === 'PATCH' || method === 'DELETE' ? 'return=minimal' : 'return=representation',
   }
   const res = await fetch(url, {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
   })
-  if (method === 'PATCH') return null
+  if (method === 'PATCH' || method === 'DELETE') return null
   return res.json()
 }
 
@@ -102,6 +102,59 @@ serve(async (req) => {
           // Trigger order confirmation email + admin notification
           await invokeEdgeFunction('send-order-confirmation', { orderId })
           await invokeEdgeFunction('send-admin-notification', { orderId })
+        }
+        break
+      }
+
+      case 'checkout.session.expired': {
+        const session = event.data as { object: Record<string, unknown> }
+        const obj = session.object
+        const orderId = (obj.metadata as Record<string, string>)?.order_id
+
+        if (orderId) {
+          // Load the order to check status
+          const orders = await supabaseQuery(`orders?id=eq.${orderId}&select=id,order_number,payment_status,customer_email,customer_first_name`)
+          const order = Array.isArray(orders) ? orders[0] : null
+
+          if (order && order.payment_status === 'pending') {
+            // Send failure email via Resend (best-effort)
+            try {
+              const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+              const EMAIL_FROM = Deno.env.get('EMAIL_FROM') || 'Maison Félicien <ne-pas-repondre@maisonfelicien.com>'
+              const SITE_URL = Deno.env.get('SITE_URL') || 'https://maisonfelicien.com'
+
+              if (RESEND_API_KEY) {
+                await fetch('https://api.resend.com/emails', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${RESEND_API_KEY}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    from: EMAIL_FROM,
+                    to: [order.customer_email],
+                    subject: "Votre commande n'a pas abouti — Maison Félicien",
+                    html: `
+                      <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px">
+                        <h2 style="color:#8B3A43;font-style:italic">Maison Félicien</h2>
+                        <p>Bonjour ${order.customer_first_name || ''},</p>
+                        <p>Votre commande <strong>${order.order_number}</strong> n'a pas pu être finalisée car le paiement n'a pas abouti.</p>
+                        <p>Si vous souhaitez recommander, rendez-vous sur :<br/>
+                        <a href="${SITE_URL}/order" style="color:#8B3A43">${SITE_URL}/order</a></p>
+                        <p style="color:#9A8A7C;font-size:13px;margin-top:24px">L'équipe Maison Félicien</p>
+                      </div>
+                    `,
+                  }),
+                })
+              }
+            } catch (emailErr) {
+              console.warn('Failed to send expiry email:', emailErr.message)
+            }
+
+            // Delete order_lines then order
+            await supabaseQuery(`order_lines?order_id=eq.${orderId}`, 'DELETE')
+            await supabaseQuery(`orders?id=eq.${orderId}`, 'DELETE')
+          }
         }
         break
       }

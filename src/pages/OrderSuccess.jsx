@@ -1,8 +1,8 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Download, ArrowLeft, Home, CheckCircle2, AlertCircle, CreditCard, User, MapPin, Mail, Phone, CalendarDays, UtensilsCrossed } from 'lucide-react';
+import { Download, ArrowLeft, Home, CheckCircle2, AlertCircle, XCircle, CreditCard, User, MapPin, Mail, Phone, CalendarDays, UtensilsCrossed } from 'lucide-react';
 import { useOrderById } from '@/hooks/useOrders';
 import { useOrderLinesByOrder } from '@/hooks/useOrderLines';
 import { supabase } from '@/api/supabase';
@@ -49,10 +49,27 @@ export default function OrderSuccess() {
   const [downloading, setDownloading] = useState(false);
   const [retrying, setRetrying] = useState(false);
 
+  const [timedOut, setTimedOut] = useState(false);
+
   const isLoading = orderLoading || linesLoading;
   const isCancelled = paymentParam === 'cancelled';
   const isPending = order?.payment_status === 'pending';
   const isPaid = order?.payment_status === 'paid';
+
+  // Poll for payment confirmation, timeout after 30s
+  useEffect(() => {
+    if (!orderId || isPaid || isCancelled || !isPending) return;
+    const start = Date.now();
+    const interval = setInterval(async () => {
+      if (Date.now() - start > 30000) {
+        clearInterval(interval);
+        setTimedOut(true);
+        return;
+      }
+      refetchOrder();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [orderId, isPaid, isCancelled, isPending, refetchOrder]);
 
   const handleRetryPayment = async () => {
     setRetrying(true);
@@ -144,7 +161,25 @@ export default function OrderSuccess() {
       <div className="max-w-2xl mx-auto space-y-6 py-8 px-4">
 
         {/* Header — adapts to payment state */}
-        {(isCancelled || isPending) && !isPaid ? (
+        {timedOut && isPending ? (
+          <div className="bg-[#FDFAF7] rounded-2xl border border-[#E5D9D0] p-8 text-center space-y-4">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto">
+              <XCircle className="w-10 h-10 text-red-500" />
+            </div>
+            <h1 className="text-2xl font-bold text-[#8B3A43]" style={{ fontFamily: "'Georgia', serif", fontStyle: 'italic' }}>
+              Le paiement n'a pas abouti
+            </h1>
+            <p className="text-[#9A8A7C]">
+              Votre commande a été annulée automatiquement.
+            </p>
+            <Link
+              to="/order"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-mf-rose text-mf-blanc-casse font-medium rounded-full hover:opacity-90 transition-all uppercase tracking-[0.12em] text-[13px]"
+            >
+              Nouvelle commande →
+            </Link>
+          </div>
+        ) : (isCancelled || isPending) && !isPaid ? (
           <div className="bg-[#FDFAF7] rounded-2xl border border-[#E5D9D0] p-8 text-center space-y-4">
             <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto">
               <AlertCircle className="w-10 h-10 text-amber-600" />
