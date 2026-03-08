@@ -9,6 +9,15 @@ import { useActiveEvents } from '@/hooks/useEvents';
 import { useEventMenuItems } from '@/hooks/useMenuItems';
 import { useEventSlotMenuItems } from '@/hooks/useSlotMenuItems';
 
+/* ─── Hero video sources ─── */
+const HERO_VIDEOS = [
+  '/brand/Cinematic_Tea_House_Montage.mp4',
+  '/brand/Cinematic_Tea_House_Montage_Generation.mp4',
+  '/brand/Vidéo_Générée_Après_Commande.mp4',
+];
+const VIDEO_MAX_TIME = { 0: 4 }; // video 0: only first 4s
+const VIDEO_CUT_BEFORE_END = 1.5; // others: stop 1.5s before end
+
 /* ─── Decorative SVG Components ─── */
 
 const Ornament = ({ size = 120, className = '' }) => (
@@ -373,8 +382,35 @@ function DynamicMenu({ eventId, eventName }) {
 export default function MainPage() {
   const [heroLoaded, setHeroLoaded] = useState(false);
   const [activeEventIdx, setActiveEventIdx] = useState(0);
+  const [videoIdx, setVideoIdx] = useState(0);
+  const [videoFading, setVideoFading] = useState(false);
+  const videoRef = useRef(null);
 
   useEffect(() => { setTimeout(() => setHeroLoaded(true), 100); }, []);
+
+  /* ─── Hero video rotation ─── */
+  const goNextVideo = useCallback(() => {
+    setVideoFading(true);
+    setTimeout(() => {
+      setVideoIdx((i) => (i + 1) % HERO_VIDEOS.length);
+      setVideoFading(false);
+    }, 600);
+  }, []);
+
+  const handleVideoTimeUpdate = useCallback(() => {
+    const v = videoRef.current;
+    if (!v || !v.duration) return;
+    const maxTime = VIDEO_MAX_TIME[videoIdx];
+    if (maxTime && v.currentTime >= maxTime) { v.pause(); goNextVideo(); }
+    else if (!maxTime && v.currentTime >= v.duration - VIDEO_CUT_BEFORE_END) { v.pause(); goNextVideo(); }
+  }, [goNextVideo, videoIdx]);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.load();
+    v.play().catch(() => {});
+  }, [videoIdx]);
 
   /* ─── Data ─── */
   const { data: activeEvents = [] } = useActiveEvents();
@@ -390,28 +426,52 @@ export default function MainPage() {
 
       {/* ═══ HERO ═══ */}
       <section
-        className="relative text-center overflow-hidden bg-white pt-[72px] pb-14 px-6"
+        className="relative text-center overflow-hidden pt-[72px] pb-14 px-6"
         style={{
           opacity: heroLoaded ? 1 : 0,
           transform: heroLoaded ? 'translateY(0)' : 'translateY(40px)',
           transition: 'all 1.4s cubic-bezier(0.22, 1, 0.36, 1)',
         }}
       >
+        {/* Video background */}
+        <video
+          ref={videoRef}
+          src={HERO_VIDEOS[videoIdx]}
+          autoPlay
+          muted
+          playsInline
+          onTimeUpdate={handleVideoTimeUpdate}
+          onEnded={goNextVideo}
+          className="absolute inset-0 w-full h-full transition-opacity duration-[600ms] ease-in-out"
+          style={{
+            objectFit: 'cover',
+            objectPosition: 'center center',
+            opacity: videoFading ? 0 : 1,
+            filter: 'blur(3px) brightness(0.9)',
+          }}
+        />
+
+        {/* Blanc-cassé overlay — video shows through as subtle watermark */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: 'rgba(240,240,230,0.72)' }}
+        />
+
         {/* Botanical ornaments */}
-        <div className="mf-float mf-pulse absolute top-5 -left-5 text-mf-poudre">
+        <div className="mf-float mf-pulse absolute top-5 -left-5 text-mf-poudre z-[1]">
           <Ornament size={100} />
         </div>
-        <div className="mf-float mf-pulse absolute top-10 -right-4 text-mf-poudre" style={{ animationDelay: '2s' }}>
+        <div className="mf-float mf-pulse absolute top-10 -right-4 text-mf-poudre z-[1]" style={{ animationDelay: '2s' }}>
           <Ornament size={80} />
         </div>
-        <div className="absolute left-2 top-1/2 -translate-y-1/2 text-mf-poudre">
+        <div className="absolute left-2 top-1/2 -translate-y-1/2 text-mf-poudre z-[1]">
           <Vine side="left" />
         </div>
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 text-mf-poudre">
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 text-mf-poudre z-[1]">
           <Vine side="right" />
         </div>
 
-        <div className="relative z-[1] animate-fade-up">
+        <div className="relative z-[2] animate-fade-up">
           <p className="font-body text-[10px] tracking-[0.3em] uppercase text-mf-vert-olive mb-4">
             Traiteur événementiel
           </p>
@@ -441,6 +501,19 @@ export default function MainPage() {
               Découvrir la boutique
             </MfButton>
           </a>
+
+          {/* Video dots */}
+          <div className="flex justify-center gap-2 mt-6">
+            {HERO_VIDEOS.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => { if (i !== videoIdx) { setVideoFading(true); setTimeout(() => { setVideoIdx(i); setVideoFading(false); }, 600); } }}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  i === videoIdx ? 'bg-mf-rose w-5' : 'bg-mf-poudre w-1.5 hover:bg-mf-vieux-rose'
+                }`}
+              />
+            ))}
+          </div>
         </div>
       </section>
 
