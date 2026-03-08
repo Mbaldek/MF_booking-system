@@ -1,39 +1,43 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/lib/AuthContext';
 import RoleGuard from '@/lib/RoleGuard';
 import { supabaseMissing } from '@/api/supabase';
 
-// Layouts
+// Layouts (always loaded — they wrap routes)
 import AdminLayout from '@/components/layout/AdminLayout';
 import StaffLayout from '@/components/layout/StaffLayout';
 
-// Public pages
-import HomePage from '@/pages/HomePage';
-import LoginPage from '@/pages/LoginPage';
-import OrderPageLegacy from '@/pages/Order';
-import OrderSuccess from '@/pages/OrderSuccess';
-import CustomerOrders from '@/pages/CustomerOrders';
-import OrderFunnelTest from '@/pages/OrderFunnelTest';
-import OrderPage from '@/pages/OrderPage';
+// Critical public pages — loaded immediately
 import MainPage from '@/pages/MainPage';
-import MainPageTest from '@/pages/MainPageTest';
-// Admin pages
-import AdminDashboard from '@/pages/admin/AdminDashboard';
-import AdminEvent from '@/pages/admin/AdminEvent';
-import AdminMenu from '@/pages/admin/AdminMenu';
-import AdminOrders from '@/pages/admin/AdminOrders';
-import AdminStats from '@/pages/admin/AdminStats';
-import AdminUsers from '@/pages/admin/AdminUsers';
-import AdminEmailReminders from '@/pages/admin/AdminEmailReminders';
-import AdminOperations from '@/pages/admin/AdminOperations';
-import AdminRestaurant from '@/pages/admin/AdminRestaurant';
-import AdminNotifications from '@/pages/admin/AdminNotifications';
-import ReservationPage from '@/pages/ReservationPage';
+import OrderPage from '@/pages/OrderPage';
+import OrderSuccess from '@/pages/OrderSuccess';
 
-// Staff pages
-import StaffKitchen from '@/pages/staff/StaffKitchen';
-import StaffDelivery from '@/pages/staff/StaffDelivery';
+// Lazy-loaded public pages
+const HomePage = lazy(() => import('@/pages/HomePage'));
+const LoginPage = lazy(() => import('@/pages/LoginPage'));
+const OrderPageLegacy = lazy(() => import('@/pages/Order'));
+const CustomerOrders = lazy(() => import('@/pages/CustomerOrders'));
+const OrderFunnelTest = lazy(() => import('@/pages/OrderFunnelTest'));
+const MainPageTest = lazy(() => import('@/pages/MainPageTest'));
+const ReservationPage = lazy(() => import('@/pages/ReservationPage'));
+
+// Lazy-loaded admin pages
+const AdminDashboard = lazy(() => import('@/pages/admin/AdminDashboard'));
+const AdminEvent = lazy(() => import('@/pages/admin/AdminEvent'));
+const AdminMenu = lazy(() => import('@/pages/admin/AdminMenu'));
+const AdminOrders = lazy(() => import('@/pages/admin/AdminOrders'));
+const AdminStats = lazy(() => import('@/pages/admin/AdminStats'));
+const AdminUsers = lazy(() => import('@/pages/admin/AdminUsers'));
+const AdminEmailReminders = lazy(() => import('@/pages/admin/AdminEmailReminders'));
+const AdminOperations = lazy(() => import('@/pages/admin/AdminOperations'));
+const AdminRestaurant = lazy(() => import('@/pages/admin/AdminRestaurant'));
+const AdminNotifications = lazy(() => import('@/pages/admin/AdminNotifications'));
+
+// Lazy-loaded staff pages
+const StaffKitchen = lazy(() => import('@/pages/staff/StaffKitchen'));
+const StaffDelivery = lazy(() => import('@/pages/staff/StaffDelivery'));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -43,6 +47,14 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+function LazyFallback() {
+  return (
+    <div className="min-h-screen bg-mf-blanc-casse flex items-center justify-center">
+      <div className="animate-pulse text-mf-rose font-display italic text-2xl">Maison Félicien</div>
+    </div>
+  );
+}
 
 export default function App() {
   if (supabaseMissing) {
@@ -69,54 +81,57 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <BrowserRouter>
-          <Routes>
-            {/* Public */}
-            <Route path="/" element={<MainPage />} />
-            <Route path="/main-old" element={<MainPageTest />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/order" element={<OrderPage />} />
-            <Route path="/order/success/:orderId" element={<OrderSuccess />} />
-            <Route path="/my-orders" element={<CustomerOrders />} />
-            <Route path="/home-old" element={<HomePage />} />
-            <Route path="/order-old" element={<OrderFunnelTest />} />
-            <Route path="/order-legacy" element={<OrderPageLegacy />} />
-            {/* Admin */}
-            <Route
-              path="/admin"
-              element={
-                <RoleGuard allowedRoles={['admin']}>
-                  <AdminLayout />
-                </RoleGuard>
-              }
-            >
-              <Route index element={<AdminDashboard />} />
-              <Route path="events" element={<AdminEvent />} />
-              <Route path="menu" element={<AdminMenu />} />
-              <Route path="orders" element={<AdminOrders />} />
-              <Route path="operations" element={<AdminOperations />} />
-              <Route path="stats" element={<AdminStats />} />
-              <Route path="reminders" element={<AdminEmailReminders />} />
-              <Route path="users" element={<AdminUsers />} />
-              <Route path="notifications" element={<AdminNotifications />} />
-              <Route path="restaurant" element={<AdminRestaurant />} />
-            </Route>
+          <Suspense fallback={<LazyFallback />}>
+            <Routes>
+              {/* Public — critical */}
+              <Route path="/" element={<MainPage />} />
+              <Route path="/order" element={<OrderPage />} />
+              <Route path="/order/success/:orderId" element={<OrderSuccess />} />
 
-            {/* public reservation funnel */}
-            <Route path="/reservation/:eventId" element={<ReservationPage />} />
+              {/* Public — lazy */}
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/my-orders" element={<CustomerOrders />} />
+              <Route path="/reservation/:eventId" element={<ReservationPage />} />
+              <Route path="/main-old" element={<MainPageTest />} />
+              <Route path="/home-old" element={<HomePage />} />
+              <Route path="/order-old" element={<OrderFunnelTest />} />
+              <Route path="/order-legacy" element={<OrderPageLegacy />} />
 
-            {/* Staff */}
-            <Route
-              path="/staff"
-              element={
-                <RoleGuard allowedRoles={['admin', 'staff']}>
-                  <StaffLayout />
-                </RoleGuard>
-              }
-            >
-              <Route path="kitchen" element={<StaffKitchen />} />
-              <Route path="delivery" element={<StaffDelivery />} />
-            </Route>
-          </Routes>
+              {/* Admin */}
+              <Route
+                path="/admin"
+                element={
+                  <RoleGuard allowedRoles={['admin']}>
+                    <AdminLayout />
+                  </RoleGuard>
+                }
+              >
+                <Route index element={<AdminDashboard />} />
+                <Route path="events" element={<AdminEvent />} />
+                <Route path="menu" element={<AdminMenu />} />
+                <Route path="orders" element={<AdminOrders />} />
+                <Route path="operations" element={<AdminOperations />} />
+                <Route path="stats" element={<AdminStats />} />
+                <Route path="reminders" element={<AdminEmailReminders />} />
+                <Route path="users" element={<AdminUsers />} />
+                <Route path="notifications" element={<AdminNotifications />} />
+                <Route path="restaurant" element={<AdminRestaurant />} />
+              </Route>
+
+              {/* Staff */}
+              <Route
+                path="/staff"
+                element={
+                  <RoleGuard allowedRoles={['admin', 'staff']}>
+                    <StaffLayout />
+                  </RoleGuard>
+                }
+              >
+                <Route path="kitchen" element={<StaffKitchen />} />
+                <Route path="delivery" element={<StaffDelivery />} />
+              </Route>
+            </Routes>
+          </Suspense>
         </BrowserRouter>
       </AuthProvider>
     </QueryClientProvider>
