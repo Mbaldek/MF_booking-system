@@ -323,7 +323,9 @@ function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
                 {['N° Commande', 'Client', 'Stand', 'Service', 'Articles', 'Total', 'Statut', 'Préparation'].map((h) => (
                   <th
                     key={h}
-                    className="font-body text-[9px] uppercase tracking-[0.1em] text-mf-muted font-normal text-left px-4 py-3"
+                    className={`font-body text-[9px] uppercase tracking-[0.1em] text-mf-muted font-normal text-left px-4 py-3${
+                      ['Stand', 'Service', 'Préparation'].includes(h) ? ' hidden md:table-cell' : ''
+                    }`}
                   >
                     {h}
                   </th>
@@ -369,7 +371,7 @@ function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
                     </td>
 
                     {/* Stand */}
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 hidden md:table-cell">
                       {order.stand ? (
                         <span className="inline-block font-body text-[12px] font-medium text-mf-vert-olive px-2.5 py-0.5 rounded-lg bg-mf-vert-olive/10">
                           {order.stand}
@@ -380,7 +382,7 @@ function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
                     </td>
 
                     {/* Service */}
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 hidden md:table-cell">
                       <div className="flex gap-1">
                         {hasMidday && (
                           <span className="font-body text-[11px] text-mf-vert-olive">☀ Midi</span>
@@ -414,7 +416,7 @@ function FinancialTab({ orders, orderLines, updateOrder, deleteOrder }) {
                     </td>
 
                     {/* Préparation */}
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 hidden md:table-cell">
                       <MfBadge variant={PREP_BADGE_VARIANT[prepStatus] || 'rose'}>
                         {PREP_LABELS[prepStatus] || prepStatus}
                       </MfBadge>

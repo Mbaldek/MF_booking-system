@@ -666,7 +666,7 @@ function ClientsTab({ orders, lines, feedback, isLoading, eventId }) {
   return (
     <div className="space-y-6">
       {/* Stat cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard icon={Users} label="Clients uniques" value={totalClients} variant="marron" />
         <StatCard
           icon={TrendingUp}

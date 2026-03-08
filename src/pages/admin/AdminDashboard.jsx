@@ -180,7 +180,7 @@ export default function AdminDashboard() {
       {/* ─── Main grid: Orders table + Right column ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
         {/* Recent orders */}
-        <MfCard className="p-0 overflow-hidden" data-tour="recent-orders">
+        <MfCard className="p-0 overflow-hidden overflow-x-auto" data-tour="recent-orders">
           <div className="flex items-center justify-between px-5 py-4 border-b border-mf-border">
             <h2 className="font-serif text-[20px] italic text-mf-rose">Dernières commandes</h2>
             <Link to="/admin/orders" className="font-body text-[10px] uppercase tracking-widest text-mf-rose hover:text-mf-vieux-rose transition-colors">
@@ -190,8 +190,8 @@ export default function AdminDashboard() {
 
           {/* Table header */}
           <div className="hidden sm:grid grid-cols-[90px_1fr_60px_70px_80px_80px] gap-2 px-5 py-2.5 border-b border-mf-border">
-            {['N°', 'Client', 'Stand', 'Articles', 'Total', 'Statut'].map((h) => (
-              <span key={h} className="font-body text-[9px] uppercase tracking-widest text-mf-muted">{h}</span>
+            {['N°', 'Client', 'Stand', 'Articles', 'Total', 'Statut'].map((h, i) => (
+              <span key={h} className={`font-body text-[9px] uppercase tracking-widest text-mf-muted${i === 2 || i === 3 ? ' hidden md:block' : ''}`}>{h}</span>
             ))}
           </div>
 
@@ -216,8 +216,8 @@ export default function AdminDashboard() {
                       {o.created_at && format(new Date(o.created_at), 'HH:mm', { locale: fr })}
                     </div>
                   </div>
-                  <span className="font-body text-[12px] text-mf-marron-glace">{o.stand || '—'}</span>
-                  <span className="font-body text-[12px] text-mf-marron-glace">{lineCountByOrder[o.id] || '—'}</span>
+                  <span className="font-body text-[12px] text-mf-marron-glace hidden md:block">{o.stand || '—'}</span>
+                  <span className="font-body text-[12px] text-mf-marron-glace hidden md:block">{lineCountByOrder[o.id] || '—'}</span>
                   <span className="font-serif text-[13px] italic text-mf-marron-glace">
                     {Number(o.total_amount || 0).toFixed(2)} €
                   </span>

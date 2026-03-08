@@ -329,7 +329,7 @@ export default function MainPage() {
             Comment ça marche
           </h2>
 
-          <div className="grid grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {[
               { num: '01', title: 'Choisissez', desc: 'Sélectionnez vos jours et composez votre menu' },
               { num: '02', title: 'Payez', desc: 'Réglez en ligne de façon sécurisée via Stripe' },
