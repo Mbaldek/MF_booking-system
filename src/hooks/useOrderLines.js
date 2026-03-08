@@ -22,6 +22,25 @@ export function useOrderLines(eventId) {
   });
 }
 
+export function useAllOrderLines() {
+  return useQuery({
+    queryKey: ['order_lines', 'all'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('order_lines')
+        .select(`
+          *,
+          meal_slot:meal_slots(id, slot_date, slot_type),
+          menu_item:menu_items(id, name, type, price, tags),
+          order:orders!inner(id, event_id, customer_first_name, customer_last_name, customer_email, customer_phone, stand, order_number, payment_status)
+        `);
+
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
 export function useOrderLinesByOrder(orderId) {
   return useQuery({
     queryKey: ['order_lines', 'order', orderId],

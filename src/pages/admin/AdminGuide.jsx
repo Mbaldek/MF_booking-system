@@ -23,8 +23,28 @@ const PROCESSES = [
       { action: 'Ajouter une image', detail: "Uploadez une photo du salon ou du lieu. Elle apparaîtra sur la landing page dans la carte événement." },
       { action: 'Configurer les créneaux', detail: 'Définissez la capacité max par créneau si besoin. Par défaut : illimité.', tip: "Midi et Soir sont créés automatiquement pour chaque jour de l'événement." },
       { action: 'Associer le menu', detail: "Ouvrez 'Configurer le menu' et cochez les plats disponibles pour cet événement parmi votre carte.", link: '/admin/menu', linkLabel: 'La Carte' },
+      { action: 'Configurer le menu par créneau', detail: "Utilisez le toggle 'Même menu pour tous les créneaux' pour appliquer la même sélection à tous les slots, ou passez en 'Menu différent par créneau' pour personnaliser chaque créneau individuellement.", tip: "Le mode 'Même menu' est activé par défaut — idéal si votre carte ne change pas entre midi et soir." },
+      { action: 'Activer les suppléments', detail: "Dans la section 'Suppléments à la carte', activez le toggle sur les articles disponibles en supplément hors formule. Renseignez le prix unitaire pour chaque supplément.", tip: "Si le prix unitaire est vide, le prix catalogue sera utilisé." },
       { action: "Activer l'événement", detail: "Cliquez 'Activer' — l'événement apparaît sur la landing page et les commandes sont ouvertes.", warn: 'Vérifiez le menu et les prix AVANT d\'activer. Les clients peuvent commander immédiatement.' },
       { action: 'Vérifier la landing', detail: "Ouvrez la page d'accueil et vérifiez que la carte événement s'affiche correctement avec les bonnes dates.", link: '/', linkLabel: 'Voir la landing' },
+    ],
+  },
+  {
+    id: 'supplements',
+    icon: '🧀',
+    title: 'Configurer les suppléments',
+    subtitle: 'Articles hors formule à la carte',
+    colorClass: 'text-mf-vert-olive',
+    borderClass: 'border-mf-vert-olive',
+    bgClass: 'bg-mf-vert-olive',
+    lightBg: 'bg-mf-vert-olive/5',
+    numBg: 'bg-mf-vert-olive/10',
+    numBgActive: 'bg-mf-vert-olive',
+    steps: [
+      { action: 'Ouvrir la section Suppléments', detail: "Allez dans Événements → cliquez 'Configurer le menu' sur un événement → scrollez jusqu'à la section 'Suppléments à la carte'.", link: '/admin/events', linkLabel: 'Événements' },
+      { action: 'Activer les articles en supplément', detail: "Cochez le toggle sur les articles que vous souhaitez rendre disponibles en supplément hors formule. Seuls les articles déjà dans le catalogue de l'événement apparaissent." },
+      { action: 'Renseigner le prix unitaire', detail: "Pour chaque supplément activé, renseignez le prix unitaire dans le champ dédié. Si le champ est vide, le prix catalogue sera utilisé.", tip: "Les suppléments s'ajoutent au prix de la formule. Le client voit le prix unitaire dans le funnel de commande." },
+      { action: 'Vérifier côté client', detail: "Le client verra une section 'Suppléments' dans le funnel de commande (étape 2 — Menus) avec les articles activés et leur prix unitaire. Il peut en commander plusieurs par créneau.", link: '/order', linkLabel: 'Voir le funnel' },
     ],
   },
   {
@@ -41,8 +61,9 @@ const PROCESSES = [
     steps: [
       { action: 'Nouvelle commande reçue', detail: "Un badge rouge apparaît sur 'Commandes' dans la sidebar. Le paiement est automatique via Stripe — la commande arrive déjà payée.", link: '/admin/orders', linkLabel: 'Commandes', tip: 'Vous et le client recevez un email de confirmation automatique.' },
       { action: 'Consulter le détail', detail: 'Cliquez sur une commande pour voir : client, stand, créneaux, menus choisis par convive, montant.' },
-      { action: 'Marquer comme test', detail: "Pour vos commandes de test, cliquez '🧪 Test' dans le détail. Les tests sont exclus des statistiques.", tip: "Utilisez le filtre 'Masquer les tests' pour nettoyer la vue." },
+      { action: 'Marquer comme test', detail: "Pour vos commandes de test, cliquez '🧪 Test' dans le détail. Les tests sont exclus des statistiques et du chiffre d'affaires.", tip: "Utilisez le filtre 'Masquer les tests' pour nettoyer la vue." },
       { action: 'Rembourser si nécessaire', detail: "Dans le détail de la commande, cliquez 'Rembourser'. Le remboursement Stripe est automatique et le client est notifié par email.", warn: 'Un remboursement est irréversible.' },
+      { action: 'Voir le détail', detail: "Le détail complet d'une commande est accessible depuis le Dashboard (clic sur une ligne) ET depuis la page Commandes (clic sur une ligne → modal).", tip: "Le Dashboard affiche un aperçu rapide, la page Commandes offre les actions complètes (remboursement, test, suppression)." },
     ],
   },
   {
@@ -60,7 +81,8 @@ const PROCESSES = [
       { action: "Ouvrir l'espace cuisine", detail: "Le staff cuisine accède à /staff/kitchen sur son téléphone. Les commandes payées apparaissent dans l'onglet 'Attente'.", link: '/staff/kitchen', linkLabel: 'Espace Cuisine', tip: 'La page se met à jour en temps réel — pas besoin de recharger.' },
       { action: 'Avancer les items', detail: "Pour chaque plat, appuyez sur ▶ pour le passer en 'En préparation' puis en 'Prêt'. Vous pouvez aussi utiliser le bouton 'Toute la commande' pour avancer tous les plats d'un coup." },
       { action: 'Vérifier les allergies', detail: "Un bandeau orange ⚠ s'affiche si des allergènes sont déclarés. Lisez-le AVANT de préparer.", warn: 'Ne jamais ignorer un bandeau allergie.' },
-      { action: 'Imprimer le ticket QR', detail: "Quand TOUS les plats d'un créneau sont 'Prêt', le bouton '🖨 Ticket' apparaît. Imprimez-le et collez-le sur le sac de livraison.", tip: 'Le ticket contient : stand, items, allergies, et le QR code pour la livraison.' },
+      { action: 'Gérer les suppléments', detail: "Les suppléments commandés sont affichés séparément des plats de la formule avec un badge 'SUPP.' orange. Avancez-les dans le pipeline comme les autres plats." },
+      { action: 'Imprimer le ticket QR', detail: "Quand TOUS les plats d'un créneau sont 'Prêt', le bouton '🖨 Ticket' apparaît. Imprimez-le et collez-le sur le sac de livraison.", tip: 'Le ticket contient : stand, items, allergies, suppléments et le QR code pour la livraison.' },
     ],
   },
   {
@@ -77,7 +99,7 @@ const PROCESSES = [
     steps: [
       { action: 'Prendre le sac', detail: 'Prenez le sac avec le ticket QR collé dessus. Vérifiez visuellement que le stand correspond.' },
       { action: 'Scanner le QR code', detail: "Avec l'appareil photo de votre téléphone, scannez le QR code sur le ticket. La page de livraison s'ouvre automatiquement.", tip: "Pas besoin d'être connecté — le QR contient le lien direct." },
-      { action: 'Vérifier la commande', detail: 'La page affiche le stand, le client, et tous les items. Vérifiez que tout correspond au contenu du sac.', warn: 'Si des items ne sont pas prêts, la confirmation est bloquée. Retournez en cuisine.' },
+      { action: 'Vérifier la commande', detail: 'La page affiche le stand, le client, et tous les items (y compris les suppléments). Vérifiez que tout correspond au contenu du sac.', warn: 'Si des items ne sont pas prêts, la confirmation est bloquée. Retournez en cuisine.', tip: 'Le ticket QR inclut les suppléments — vérifiez qu\'ils sont bien dans le sac.' },
       { action: 'Prendre la photo', detail: "La caméra s'ouvre automatiquement. Prenez une photo du sac posé au stand — c'est la preuve de livraison.", tip: "La photo est obligatoire et archivée. Elle est visible dans l'admin." },
       { action: 'Confirmer la livraison', detail: "Appuyez '✓ Confirmer'. Le statut passe à 'Livré', le client reçoit un email satisfaction, et le dashboard admin se met à jour instantanément." },
     ],
@@ -113,9 +135,11 @@ const PROCESSES = [
     numBgActive: 'bg-mf-marron-glace',
     steps: [
       { action: 'Consulter le tableau de bord', detail: 'Le Dashboard affiche en temps réel : CA, commandes payées, pipeline cuisine et revenus par jour (midi/soir).', link: '/admin', linkLabel: 'Dashboard' },
-      { action: 'Analyser par événement', detail: 'Dans Statistiques → vue générale. Filtrez par événement, créneau (midi/soir), et période. Voyez les plats les plus commandés et le CA par jour.', link: '/admin/stats', linkLabel: 'Statistiques' },
+      { action: 'Vue globale tous événements', detail: "Sélectionnez '📊 Tous les événements' en haut de la page Statistiques. Le CA, les commandes, le panier moyen et les clients sont agrégés sur l'ensemble de vos événements.", link: '/admin/stats', linkLabel: 'Statistiques', tip: 'Les clients sont dédupliqués par email à travers tous les événements.' },
+      { action: 'Analyser par événement', detail: 'Sélectionnez un événement spécifique. Filtrez par créneau (midi/soir) et période. Voyez les plats les plus commandés et le CA par jour.' },
       { action: 'Suivre vos clients', detail: "Onglet 'Clients'. Chaque client a un profil avec : nombre de commandes, CA total, événements, satisfaction et badge fidélité (Nouveau / Régulier / Fidèle).", tip: 'Cliquez sur un client pour voir sa timeline complète de commandes.' },
       { action: 'Lire les retours satisfaction', detail: 'Après chaque livraison, le client note de 😍 à 😞. Les notes et commentaires apparaissent dans les stats et dans le détail client.' },
+      { action: 'Comprendre les suppléments dans les stats', detail: "Les suppléments sont inclus dans le chiffre d'affaires total mais ne sont pas comptés dans le classement des plats les plus commandés (qui ne montre que les formules)." },
     ],
   },
   {

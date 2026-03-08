@@ -4,8 +4,8 @@ import { fr } from 'date-fns/locale';
 import { useQueryClient } from '@tanstack/react-query';
 import { BarChart3, TrendingUp, ShoppingBag, Users, UtensilsCrossed, Search, ChevronDown, ChevronUp } from 'lucide-react';
 import { useEvents, useActiveEvent } from '@/hooks/useEvents';
-import { useOrders } from '@/hooks/useOrders';
-import { useOrderLines } from '@/hooks/useOrderLines';
+import { useOrders, useAllOrders } from '@/hooks/useOrders';
+import { useOrderLines, useAllOrderLines } from '@/hooks/useOrderLines';
 import { supabase } from '@/api/supabase';
 import MfBadge from '@/components/ui/MfBadge';
 
@@ -116,7 +116,7 @@ export default function AdminStats() {
   const { data: allEvents = [] } = useEvents();
 
   const [activeTab, setActiveTab] = useState('overview');
-  const [selectedEventId, setSelectedEventId] = useState(null);
+  const [selectedEventId, setSelectedEventId] = useState('__all__');
   const [slotFilter, setSlotFilter] = useState('all');
   const [periodFilter, setPeriodFilter] = useState('all');
   const [realtimeOk, setRealtimeOk] = useState(false);
@@ -124,55 +124,62 @@ export default function AdminStats() {
   // Feedback state
   const [feedback, setFeedback] = useState([]);
 
-  // Set default event once loaded
-  useEffect(() => {
-    if (!selectedEventId && activeEvent?.id) setSelectedEventId(activeEvent.id);
-  }, [activeEvent, selectedEventId]);
+  const isAllEvents = selectedEventId === '__all__';
+  const eventId = isAllEvents ? null : selectedEventId;
 
-  const eventId = selectedEventId;
-  const { data: orders = [], isLoading: ordersLoading } = useOrders(eventId);
-  const { data: lines = [], isLoading: linesLoading } = useOrderLines(eventId);
+  // Fetch data — single event or all events
+  const { data: singleOrders = [], isLoading: singleOrdersLoading } = useOrders(eventId);
+  const { data: singleLines = [], isLoading: singleLinesLoading } = useOrderLines(eventId);
+  const { data: allOrdersData = [], isLoading: allOrdersLoading } = useAllOrders();
+  const { data: allLinesData = [], isLoading: allLinesLoading } = useAllOrderLines();
+
+  const orders = isAllEvents ? allOrdersData : singleOrders;
+  const lines = isAllEvents ? allLinesData : singleLines;
+  const ordersLoading = isAllEvents ? allOrdersLoading : singleOrdersLoading;
+  const linesLoading = isAllEvents ? allLinesLoading : singleLinesLoading;
 
   /* ── Load feedback ── */
   useEffect(() => {
-    if (!eventId) return;
+    if (!isAllEvents && !eventId) return;
     (async () => {
-      const { data } = await supabase
+      let query = supabase
         .from('order_feedback')
         .select('*, order:orders!inner(id, event_id, customer_first_name)')
-        .eq('order.event_id', eventId)
         .order('created_at', { ascending: false })
         .limit(20);
+      if (!isAllEvents) query = query.eq('order.event_id', eventId);
+      const { data } = await query;
       setFeedback(data ?? []);
     })();
-  }, [eventId]);
+  }, [eventId, isAllEvents]);
 
   /* ── Realtime ── */
   useEffect(() => {
-    if (!eventId) return;
+    if (!isAllEvents && !eventId) return;
     const channel = supabase
       .channel('admin-stats-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-        qc.invalidateQueries({ queryKey: ['orders', eventId] });
+        if (isAllEvents) qc.invalidateQueries({ queryKey: ['orders', 'all'] });
+        else qc.invalidateQueries({ queryKey: ['orders', eventId] });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'order_lines' }, () => {
-        qc.invalidateQueries({ queryKey: ['order_lines', eventId] });
+        if (isAllEvents) qc.invalidateQueries({ queryKey: ['order_lines', 'all'] });
+        else qc.invalidateQueries({ queryKey: ['order_lines', eventId] });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'order_feedback' }, () => {
-        // Re-fetch feedback
-        supabase
+        let query = supabase
           .from('order_feedback')
           .select('*, order:orders!inner(id, event_id, customer_first_name)')
-          .eq('order.event_id', eventId)
           .order('created_at', { ascending: false })
-          .limit(20)
-          .then(({ data }) => setFeedback(data ?? []));
+          .limit(20);
+        if (!isAllEvents) query = query.eq('order.event_id', eventId);
+        query.then(({ data }) => setFeedback(data ?? []));
       })
       .subscribe((status) => {
         setRealtimeOk(status === 'SUBSCRIBED');
       });
     return () => supabase.removeChannel(channel);
-  }, [eventId, qc]);
+  }, [eventId, isAllEvents, qc]);
 
   /* ── Filter helpers ── */
   const now = new Date();
@@ -247,10 +254,11 @@ export default function AdminStats() {
       const date = line.meal_slot?.slot_date;
       if (!date) continue;
       const slotType = line.meal_slot?.slot_type || 'midi';
-      if (!revenueByDate[date]) revenueByDate[date] = { total: 0, midi: 0, soir: 0 };
+      if (!revenueByDate[date]) revenueByDate[date] = { total: 0, midi: 0, soir: 0, events: new Set() };
       const amount = Number(line.unit_price || line.menu_item?.price || 0) * (line.quantity || 1);
       revenueByDate[date].total += amount;
       revenueByDate[date][slotType] += amount;
+      if (line.order?.event_id) revenueByDate[date].events.add(line.order.event_id);
     }
 
     return {
@@ -268,9 +276,9 @@ export default function AdminStats() {
   }, [feedback]);
 
   const isLoading = ordersLoading || linesLoading;
-  const selectedEvent = allEvents.find((e) => e.id === eventId);
+  const selectedEvent = isAllEvents ? null : allEvents.find((e) => e.id === eventId);
 
-  if (isLoading && !selectedEvent) {
+  if (isLoading && !selectedEvent && !isAllEvents) {
     return (
       <div className="flex items-center justify-center py-16">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-mf-rose" />
@@ -284,9 +292,9 @@ export default function AdminStats() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display italic text-2xl text-mf-rose">Statistiques</h1>
-          {selectedEvent && (
-            <p className="font-body text-sm text-mf-muted mt-1">{selectedEvent.name}</p>
-          )}
+          <p className="font-body text-sm text-mf-muted mt-1">
+            {isAllEvents ? 'Tous les événements' : selectedEvent?.name || ''}
+          </p>
         </div>
         {realtimeOk && (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-status-green/10 font-body text-xs text-status-green">
@@ -320,6 +328,7 @@ export default function AdminStats() {
           feedback={feedback}
           isLoading={isLoading}
           eventId={eventId}
+          isAllEvents={isAllEvents}
         />
       )}
 
@@ -328,10 +337,11 @@ export default function AdminStats() {
       <div className="sticky top-0 z-10 bg-mf-blanc-casse pb-3 -mt-2 pt-2 space-y-3">
         {/* Event selector */}
         <select
-          value={eventId || ''}
+          value={selectedEventId || ''}
           onChange={(e) => setSelectedEventId(e.target.value)}
           className="w-full sm:w-auto px-4 py-2 rounded-full border border-mf-border bg-white font-body text-sm text-mf-marron-glace focus:outline-none focus:border-mf-rose/40 cursor-pointer"
         >
+          <option value="__all__">📊 Tous les événements</option>
           {allEvents.map((ev) => (
             <option key={ev.id} value={ev.id}>
               {ev.name} {ev.is_active ? '●' : ''}
@@ -362,13 +372,13 @@ export default function AdminStats() {
         </div>
       )}
 
-      {!isLoading && !eventId && (
+      {!isLoading && !eventId && !isAllEvents && (
         <div className="text-center py-12">
           <p className="font-body text-mf-muted">Aucun événement sélectionné.</p>
         </div>
       )}
 
-      {!isLoading && eventId && (
+      {!isLoading && (eventId || isAllEvents) && (
         <>
           {/* ── Stat cards ── */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -458,6 +468,11 @@ export default function AdminStats() {
                         <tr key={date} className="border-b border-mf-border/50 last:border-0">
                           <td className="font-body text-sm text-mf-marron-glace py-2.5 capitalize">
                             {format(new Date(date + 'T00:00:00'), 'EEEE d MMM', { locale: fr })}
+                            {isAllEvents && rev.events?.size > 0 && (
+                              <div className="font-body text-[10px] text-mf-muted normal-case">
+                                {[...rev.events].map((eid) => allEvents.find((e) => e.id === eid)?.name).filter(Boolean).join(', ')}
+                              </div>
+                            )}
                           </td>
                           <td className="font-body text-sm text-mf-muted text-right py-2.5">
                             {rev.midi > 0 ? `${rev.midi.toFixed(2)} €` : '—'}
@@ -537,7 +552,7 @@ export default function AdminStats() {
    TAB 2 — Clients
    ═══════════════════════════════════════════════════ */
 
-function ClientsTab({ orders, lines, feedback, isLoading, eventId }) {
+function ClientsTab({ orders, lines, feedback, isLoading, eventId, isAllEvents }) {
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState('revenue');
   const [sortAsc, setSortAsc] = useState(false);
