@@ -1,7 +1,22 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
+const ALLOWED_ORIGINS = [
+  'https://reservation.maison-felicien.com',
+  'http://localhost:5173',
+  'http://localhost:4173',
+]
+
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get('origin') || ''
+  const allowOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  }
+}
+
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ALLOWED_ORIGINS[0],
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
@@ -23,11 +38,47 @@ async function supabaseQuery(path: string, method = 'GET', body?: unknown) {
 }
 
 serve(async (req) => {
+  const cors = getCorsHeaders(req)
+
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: cors })
   }
 
   try {
+    // --- Auth: verify caller is admin ---
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+    const token = authHeader.replace('Bearer ', '')
+
+    const userRes = await fetch(`${Deno.env.get('SUPABASE_URL')}/auth/v1/user`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'apikey': Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      },
+    })
+    if (!userRes.ok) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+    const user = await userRes.json()
+
+    const profiles = await supabaseQuery(`profiles?user_id=eq.${user.id}&select=role`)
+    const profile = Array.isArray(profiles) ? profiles[0] : null
+    if (!profile || profile.role !== 'admin') {
+      return new Response(
+        JSON.stringify({ error: 'Admin access required' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+    // --- End auth ---
+
     const stripeKey = Deno.env.get('STRIPE_SECRET_KEY')
     if (!stripeKey) throw new Error('STRIPE_SECRET_KEY not configured')
 
@@ -67,7 +118,7 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ success: true, refund_id: refund.id }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...cors, 'Content-Type': 'application/json' } }
     )
   } catch (err) {
     console.error('Refund error:', err.message)

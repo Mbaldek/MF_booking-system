@@ -45,18 +45,12 @@ export function useOrderLinesByOrder(orderId) {
   return useQuery({
     queryKey: ['order_lines', 'order', orderId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('order_lines')
-        .select(`
-          *,
-          meal_slot:meal_slots(id, slot_date, slot_type),
-          menu_item:menu_items(id, name, type, price)
-        `)
-        .eq('order_id', orderId)
-        .order('created_at', { ascending: true });
-
+      // Uses SECURITY DEFINER RPC — bypasses RLS safely via order UUID
+      const { data, error } = await supabase.rpc('get_order_lines_by_order', {
+        p_order_id: orderId,
+      });
       if (error) throw error;
-      return data;
+      return data || [];
     },
     enabled: !!orderId,
   });

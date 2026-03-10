@@ -7,6 +7,7 @@ import { useOrderById } from '@/hooks/useOrders';
 import { useOrderLinesByOrder } from '@/hooks/useOrderLines';
 import { supabase } from '@/api/supabase';
 import ClientHeader from '@/components/layout/ClientHeader';
+import PublicFooter from '@/components/layout/PublicFooter';
 
 const TYPE_LABELS = { entree: 'Entrée', plat: 'Plat', dessert: 'Dessert', boisson: 'Boisson' };
 const SLOT_LABELS = { midi: 'Midi', soir: 'Soir' };
@@ -389,6 +390,8 @@ export default function OrderSuccess() {
             <div>
               <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#8B3A43', margin: 0 }}>Maison Félicien</h1>
               <p style={{ fontSize: '12px', color: '#6b7280', margin: '4px 0 0' }}>Traiteur événementiel</p>
+              <p style={{ fontSize: '11px', color: '#9ca3af', margin: '4px 0 0' }}>101 rue de Sèvres, 75006 Paris</p>
+              <p style={{ fontSize: '11px', color: '#9ca3af', margin: '2px 0 0' }}>SIRET : 808 374 086</p>
             </div>
             <div style={{ textAlign: 'right' }}>
               <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#8B3A43', margin: 0 }}>FACTURE</h2>
@@ -478,10 +481,12 @@ export default function OrderSuccess() {
             <div style={{ textAlign: 'right' }}>
               <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>Merci pour votre commande !</p>
               <p style={{ fontSize: '11px', color: '#9ca3af', margin: '4px 0 0' }}>Maison Félicien — Traiteur événementiel</p>
+              <p style={{ fontSize: '10px', color: '#9ca3af', margin: '2px 0 0' }}>101 rue de Sèvres, 75006 Paris · SIRET 808 374 086</p>
             </div>
           </div>
         </div>
       </div>
+      <PublicFooter />
     </div>
   );
 }

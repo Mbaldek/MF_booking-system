@@ -27,6 +27,11 @@ const ReservationPage = lazy(() => import('@/pages/ReservationPage'));
 const FeedbackPage = lazy(() => import('@/pages/FeedbackPage'));
 const HeroVideoTest = lazy(() => import('@/pages/HeroVideoTest'));
 
+// Pages légales
+const MentionsLegales = lazy(() => import('@/pages/legal/MentionsLegales'));
+const Privacy = lazy(() => import('@/pages/legal/Privacy'));
+const CGV = lazy(() => import('@/pages/legal/CGV'));
+
 // Lazy-loaded admin pages
 const AdminDashboard = lazy(() => import('@/pages/admin/AdminDashboard'));
 const AdminEvent = lazy(() => import('@/pages/admin/AdminEvent'));
@@ -107,6 +112,11 @@ export default function App() {
                 <Route path="/order-old" element={<OrderFunnelTest />} />
                 <Route path="/order-legacy" element={<OrderPageLegacy />} />
                 <Route path="/hero-test" element={<HeroVideoTest />} />
+
+                {/* Pages légales */}
+                <Route path="/mentions-legales" element={<MentionsLegales />} />
+                <Route path="/privacy" element={<Privacy />} />
+                <Route path="/cgv" element={<CGV />} />
 
                 {/* Delivery QR scan — no auth required */}
                 <Route path="/staff/deliver/:orderId/:slotId" element={<DeliverPage />} />

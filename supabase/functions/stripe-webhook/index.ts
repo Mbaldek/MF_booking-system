@@ -82,6 +82,23 @@ serve(async (req) => {
 
     const event = await verifyStripeSignature(body, sig, webhookSecret)
 
+    // Idempotence: skip already-processed events
+    const eventId = event.id as string
+    if (eventId) {
+      const existing = await supabaseQuery(`webhook_events?stripe_event_id=eq.${eventId}`)
+      if (Array.isArray(existing) && existing.length > 0) {
+        console.log(`Webhook event ${eventId} already processed — skipping`)
+        return new Response(JSON.stringify({ received: true, duplicate: true }), {
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+      // Record this event before processing
+      await supabaseQuery('webhook_events', 'POST', {
+        stripe_event_id: eventId,
+        event_type: event.type as string,
+      })
+    }
+
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data as { object: Record<string, unknown> }

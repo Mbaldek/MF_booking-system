@@ -6,6 +6,7 @@ import { ShoppingBag, FileText, Search } from 'lucide-react';
 import { useMyOrders, useLookupOrders } from '@/hooks/useOrders';
 import { useAuth } from '@/lib/AuthContext';
 import ClientHeader from '@/components/layout/ClientHeader';
+import PublicFooter from '@/components/layout/PublicFooter';
 
 const statusLabels = {
   pending: 'En attente',
@@ -191,6 +192,7 @@ export default function CustomerOrders() {
           <GuestLookup />
         )}
       </main>
+      <PublicFooter />
     </div>
   );
 }

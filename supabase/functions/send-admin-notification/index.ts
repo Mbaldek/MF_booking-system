@@ -15,12 +15,52 @@ async function supabaseGet(path: string) {
   return res.json()
 }
 
+async function supabasePost(path: string, body: unknown) {
+  await fetch(`${Deno.env.get('SUPABASE_URL')}/rest/v1/${path}`, {
+    method: 'POST',
+    headers: {
+      'apikey': Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal',
+    },
+    body: JSON.stringify(body),
+  })
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
+    // --- Auth: accept service-role (webhook) or admin JWT ---
+    const authHeader = req.headers.get('Authorization')
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+
+    if (authHeader === `Bearer ${serviceKey}`) {
+      // Trusted internal call from webhook — OK
+    } else if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.replace('Bearer ', '')
+      const userRes = await fetch(`${Deno.env.get('SUPABASE_URL')}/auth/v1/user`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'apikey': serviceKey }
+      })
+      if (!userRes.ok) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      }
+      const user = await userRes.json()
+      const profileRes = await fetch(`${Deno.env.get('SUPABASE_URL')}/rest/v1/profiles?user_id=eq.${user.id}&select=role`, {
+        headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` }
+      })
+      const profiles = await profileRes.json()
+      if (!profiles?.[0] || profiles[0].role !== 'admin') {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      }
+    } else {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+    // --- End auth ---
+
     // Check notification_settings
     const settingRes = await fetch(
       `${Deno.env.get('SUPABASE_URL')}/rest/v1/notification_settings?key=eq.admin_notification&select=*`,
@@ -127,10 +167,30 @@ serve(async (req) => {
       }),
     })
 
+    const emailSubject = (setting.subject_template || 'Nouvelle commande {order_number}')
+      .replace('{order_number}', order.order_number)
+      .replace('{amount}', amount)
+
     if (!res.ok) {
       const errBody = await res.text()
+      await supabasePost('email_logs', {
+        notification_key: 'admin_notification',
+        recipient: emailAdmin,
+        subject: emailSubject,
+        status: 'error',
+        error_message: `Resend ${res.status}: ${errBody}`,
+        order_id: orderId,
+      }).catch(() => {})
       throw new Error(`Resend error: ${res.status} ${errBody}`)
     }
+
+    await supabasePost('email_logs', {
+      notification_key: 'admin_notification',
+      recipient: emailAdmin,
+      subject: emailSubject,
+      status: 'sent',
+      order_id: orderId,
+    }).catch(() => {})
 
     return new Response(
       JSON.stringify({ success: true }),

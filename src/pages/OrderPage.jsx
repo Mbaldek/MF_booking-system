@@ -15,6 +15,7 @@ import MfCard from '@/components/ui/MfCard';
 import MfStepIndicator from '@/components/ui/MfStepIndicator';
 import MfBlurModal from '@/components/ui/MfBlurModal';
 import ClientHeader from '@/components/layout/ClientHeader';
+import PublicFooter from '@/components/layout/PublicFooter';
 
 /* ─── CollapsibleCategory ─── */
 function CollapsibleCategory({ catKey, catLabel, catEmoji, items, selectedId, onSelect }) {
@@ -580,6 +581,11 @@ export default function OrderPage() {
         }
       });
     });
+
+    if (orderLines.length === 0) {
+      alert('Veuillez sélectionner au moins un créneau et un menu.');
+      return;
+    }
 
     if (totalAmount <= 0) {
       alert('Le montant total est à 0 € — vérifiez vos sélections.');
@@ -1367,6 +1373,11 @@ export default function OrderPage() {
                   et la communication liée à cet événement.
                   <span className="block text-[11px] mt-1 text-mf-muted">
                     Conformément au RGPD, vos données ne seront pas transmises à des tiers.
+                    Consultez notre{' '}
+                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline text-mf-vieux-rose hover:text-mf-rose">
+                      politique de confidentialité
+                    </a>{' '}
+                    pour en savoir plus sur le traitement de vos données et exercer vos droits.
                   </span>
                 </span>
               </label>
@@ -1393,6 +1404,7 @@ export default function OrderPage() {
           </div>
         )}
       </div>
+      <PublicFooter />
     </div>
   );
 }

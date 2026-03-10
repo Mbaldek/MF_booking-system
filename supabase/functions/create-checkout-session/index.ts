@@ -1,7 +1,23 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
+const ALLOWED_ORIGINS = [
+  'https://reservation.maison-felicien.com',
+  'http://localhost:5173',
+  'http://localhost:4173',
+]
+
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get('origin') || ''
+  const allowOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0]
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  }
+}
+
+// Fallback for non-request contexts
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ALLOWED_ORIGINS[0],
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
@@ -25,9 +41,10 @@ async function supabaseQuery(path: string, method = 'GET', body?: unknown) {
 
 serve(async (req) => {
   console.log('=== START create-checkout-session ===')
+  const cors = getCorsHeaders(req)
 
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: cors })
   }
 
   try {
@@ -64,9 +81,38 @@ serve(async (req) => {
     const menuCount = menuKeys.size
     console.log('Menu count:', menuCount, 'from', (lines || []).length, 'order lines')
 
+    // --- Server-side total recalculation (never trust client amount) ---
+    const allLines = await supabaseQuery(
+      `order_lines?order_id=eq.${orderId}&select=meal_slot_id,guest_name,menu_unit_price,is_supplement,unit_price,quantity`
+    )
+
+    let recalcTotal = 0
+    const seenMenuKeys = new Set<string>()
+    for (const line of allLines || []) {
+      if (line.is_supplement) {
+        recalcTotal += Number(line.unit_price || 0) * Number(line.quantity || 1)
+      } else {
+        const key = `${line.meal_slot_id}-${line.guest_name || ''}`
+        if (!seenMenuKeys.has(key)) {
+          seenMenuKeys.add(key)
+          recalcTotal += Number(line.menu_unit_price || 0)
+        }
+      }
+    }
+
+    const amount = Math.round(recalcTotal * 100)
+    if (amount <= 0) throw new Error('Montant calculé = 0€ — commande invalide')
+
+    // Correct order total if client sent wrong value
+    if (Math.abs(recalcTotal - Number(order.total_amount)) > 0.01) {
+      console.log(`Total mismatch: client=${order.total_amount} server=${recalcTotal} — correcting`)
+      await supabaseQuery(`orders?id=eq.${orderId}`, 'PATCH', { total_amount: recalcTotal })
+    }
+
+    console.log('Server-recalculated total:', recalcTotal, '→ Stripe amount (cents):', amount)
+
     // Build Stripe Checkout session via REST API
     const origin = req.headers.get('origin') || 'https://reservation.maison-felicien.com'
-    const amount = Math.round(Number(order.total_amount) * 100)
     const description = `${order.event?.name || 'Evenement'} — ${menuCount} menu${menuCount > 1 ? 's' : ''} — ${order.customer_first_name} ${order.customer_last_name}`
 
     console.log('Calling Stripe with amount:', amount, 'email:', order.customer_email, 'origin:', origin)
@@ -115,7 +161,7 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ url: session.url }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...cors, 'Content-Type': 'application/json' } }
     )
   } catch (err) {
     console.error('=== END create-checkout-session ERROR ===', err.message)

@@ -80,11 +80,10 @@ export function useOrderById(orderId) {
   return useQuery({
     queryKey: ['orders', 'detail', orderId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*, event:events(id, name, start_date, end_date, image_url)')
-        .eq('id', orderId)
-        .single();
+      // Uses SECURITY DEFINER RPC — bypasses RLS safely via UUID lookup
+      const { data, error } = await supabase.rpc('get_order_by_id', {
+        p_order_id: orderId,
+      });
       if (error) throw error;
       return data;
     },
@@ -188,13 +187,22 @@ export function useMarkOrdersSeen() {
 export function useLookupOrders() {
   return useMutation({
     mutationFn: async ({ email, orderNumber }) => {
-      let query = supabase.from('orders').select('*, event:events(id, name)');
-      if (email) query = query.eq('customer_email', email);
-      if (orderNumber) query = query.eq('order_number', orderNumber);
-      query = query.order('created_at', { ascending: false });
-      const { data, error } = await query;
-      if (error) throw error;
-      return data;
+      // Uses SECURITY DEFINER RPCs — bypasses RLS safely
+      if (orderNumber) {
+        const { data, error } = await supabase.rpc('lookup_orders_by_number', {
+          p_order_number: orderNumber,
+        });
+        if (error) throw error;
+        return data || [];
+      }
+      if (email) {
+        const { data, error } = await supabase.rpc('lookup_orders_by_email', {
+          p_email: email,
+        });
+        if (error) throw error;
+        return data || [];
+      }
+      return [];
     },
   });
 }

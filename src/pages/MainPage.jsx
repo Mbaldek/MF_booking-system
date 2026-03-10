@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { ExternalLink } from 'lucide-react';
+import PublicFooter from '@/components/layout/PublicFooter';
 import ClientHeader from '@/components/layout/ClientHeader';
 import MfButton from '@/components/ui/MfButton';
 import { useActiveEvents } from '@/hooks/useEvents';
@@ -626,6 +627,18 @@ export default function MainPage() {
           >
             Boutique <ExternalLink className="w-3 h-3" />
           </a>
+        </div>
+
+        <div className="flex justify-center gap-4 mb-5 flex-wrap">
+          <Link to="/mentions-legales" className="font-body text-[10px] text-mf-poudre/50 hover:text-mf-poudre transition-colors">
+            Mentions légales
+          </Link>
+          <Link to="/privacy" className="font-body text-[10px] text-mf-poudre/50 hover:text-mf-poudre transition-colors">
+            Confidentialité
+          </Link>
+          <Link to="/cgv" className="font-body text-[10px] text-mf-poudre/50 hover:text-mf-poudre transition-colors">
+            CGV
+          </Link>
         </div>
 
         <div className="w-10 h-px bg-mf-poudre/40 mx-auto mb-4" />
