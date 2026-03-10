@@ -17,15 +17,10 @@ import OrderPage from '@/pages/OrderPage';
 import OrderSuccess from '@/pages/OrderSuccess';
 
 // Lazy-loaded public pages
-const HomePage = lazy(() => import('@/pages/HomePage'));
 const LoginPage = lazy(() => import('@/pages/LoginPage'));
-const OrderPageLegacy = lazy(() => import('@/pages/Order'));
 const CustomerOrders = lazy(() => import('@/pages/CustomerOrders'));
-const OrderFunnelTest = lazy(() => import('@/pages/OrderFunnelTest'));
-const MainPageTest = lazy(() => import('@/pages/MainPageTest'));
 const ReservationPage = lazy(() => import('@/pages/ReservationPage'));
 const FeedbackPage = lazy(() => import('@/pages/FeedbackPage'));
-const HeroVideoTest = lazy(() => import('@/pages/HeroVideoTest'));
 
 // Pages légales
 const MentionsLegales = lazy(() => import('@/pages/legal/MentionsLegales'));
@@ -107,11 +102,6 @@ export default function App() {
                 <Route path="/my-orders" element={<CustomerOrders />} />
                 <Route path="/reservation/:eventId" element={<ReservationPage />} />
                 <Route path="/feedback" element={<FeedbackPage />} />
-                <Route path="/main-old" element={<MainPageTest />} />
-                <Route path="/home-old" element={<HomePage />} />
-                <Route path="/order-old" element={<OrderFunnelTest />} />
-                <Route path="/order-legacy" element={<OrderPageLegacy />} />
-                <Route path="/hero-test" element={<HeroVideoTest />} />
 
                 {/* Pages légales */}
                 <Route path="/mentions-legales" element={<MentionsLegales />} />

@@ -40,7 +40,6 @@ async function supabaseQuery(path: string, method = 'GET', body?: unknown) {
 }
 
 serve(async (req) => {
-  console.log('=== START create-checkout-session ===')
   const cors = getCorsHeaders(req)
 
   if (req.method === 'OPTIONS') {
@@ -49,12 +48,9 @@ serve(async (req) => {
 
   try {
     const stripeKey = Deno.env.get('STRIPE_SECRET_KEY')
-    console.log('STRIPE_SECRET_KEY exists:', !!stripeKey)
-    console.log('STRIPE_SECRET_KEY starts with:', stripeKey?.substring(0, 10))
     if (!stripeKey) throw new Error('STRIPE_SECRET_KEY not configured')
 
     const body = await req.json()
-    console.log('Body received:', JSON.stringify(body))
     const { orderId } = body
     if (!orderId) throw new Error('orderId is required')
 
@@ -62,11 +58,9 @@ serve(async (req) => {
     const orders = await supabaseQuery(
       `orders?id=eq.${orderId}&select=*,event:events(name)`
     )
-    console.log('Order fetch result:', Array.isArray(orders) ? orders.length : 'not-array')
 
     const order = Array.isArray(orders) ? orders[0] : null
     if (!order) throw new Error('Order not found')
-    console.log('Order found:', `#${order.order_number} status=${order.payment_status} amount=${order.total_amount}`)
 
     if (order.payment_status === 'paid') throw new Error('Order already paid')
 
@@ -79,7 +73,6 @@ serve(async (req) => {
       menuKeys.add(`${line.meal_slot_id}-${line.guest_name || ''}`)
     }
     const menuCount = menuKeys.size
-    console.log('Menu count:', menuCount, 'from', (lines || []).length, 'order lines')
 
     // --- Server-side total recalculation (never trust client amount) ---
     const allLines = await supabaseQuery(
@@ -105,17 +98,12 @@ serve(async (req) => {
 
     // Correct order total if client sent wrong value
     if (Math.abs(recalcTotal - Number(order.total_amount)) > 0.01) {
-      console.log(`Total mismatch: client=${order.total_amount} server=${recalcTotal} — correcting`)
       await supabaseQuery(`orders?id=eq.${orderId}`, 'PATCH', { total_amount: recalcTotal })
     }
-
-    console.log('Server-recalculated total:', recalcTotal, '→ Stripe amount (cents):', amount)
 
     // Build Stripe Checkout session via REST API
     const origin = req.headers.get('origin') || 'https://reservation.maison-felicien.com'
     const description = `${order.event?.name || 'Evenement'} — ${menuCount} menu${menuCount > 1 ? 's' : ''} — ${order.customer_first_name} ${order.customer_last_name}`
-
-    console.log('Calling Stripe with amount:', amount, 'email:', order.customer_email, 'origin:', origin)
 
     const params = new URLSearchParams()
     params.append('mode', 'payment')
@@ -141,14 +129,11 @@ serve(async (req) => {
     })
 
     const session = await stripeRes.json()
-    console.log('Stripe response status:', stripeRes.status)
 
     if (!stripeRes.ok) {
-      console.log('Stripe error:', JSON.stringify(session.error))
+      console.error('Stripe error:', session.error?.message || stripeRes.status)
       throw new Error(session.error?.message || `Stripe error ${stripeRes.status}`)
     }
-
-    console.log('Stripe session created:', session.id, 'url:', session.url?.substring(0, 60))
 
     // Save Stripe session ID on order
     await supabaseQuery(
@@ -157,14 +142,12 @@ serve(async (req) => {
       { stripe_checkout_session_id: session.id }
     )
 
-    console.log('=== END create-checkout-session SUCCESS ===')
-
     return new Response(
       JSON.stringify({ url: session.url }),
       { headers: { ...cors, 'Content-Type': 'application/json' } }
     )
   } catch (err) {
-    console.error('=== END create-checkout-session ERROR ===', err.message)
+    console.error('create-checkout-session error:', err.message)
     return new Response(
       JSON.stringify({ error: err.message }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
