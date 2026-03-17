@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { X } from 'lucide-react';
@@ -264,11 +264,16 @@ export default function OrderPage() {
     return () => window.removeEventListener('popstate', handler);
   }, []);
 
+  // Scroll to top on mount
+  useEffect(() => { window.scrollTo(0, 0); }, []);
+
   // Data hooks
   const { data: activeEvents = [], isLoading: eventsLoading } = useActiveEvents();
   const createOrder = useCreateOrder();
+  const [searchParams] = useSearchParams();
 
-  const ev = activeEvents.length > 0 ? activeEvents[0] : null;
+  const requestedEventId = searchParams.get('event');
+  const ev = activeEvents.find((e) => e.id === requestedEventId) || activeEvents[0] || null;
   const eventId = ev?.id;
   const { data: allMealSlots = [] } = useMealSlots(eventId);
   const { data: menuItems = [] } = useEventMenuItems(eventId);

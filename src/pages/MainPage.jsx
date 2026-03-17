@@ -267,7 +267,7 @@ function EventCard({ ev, isActive, cardWidth }) {
         </p>
 
         {isActive && ev.is_active && (
-          <Link to="/order" onClick={(e) => e.stopPropagation()}>
+          <Link to={`/order?event=${ev.id}`} onClick={(e) => e.stopPropagation()}>
             <MfButton fullWidth size="sm">
               Réserver mes repas →
             </MfButton>
