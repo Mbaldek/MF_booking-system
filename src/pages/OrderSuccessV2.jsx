@@ -1,0 +1,492 @@
+import { useRef, useState, useEffect } from 'react';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
+import { Download, ArrowLeft, Home, CheckCircle2, AlertCircle, XCircle, CreditCard, User, MapPin, Mail, Phone, CalendarDays, UtensilsCrossed } from 'lucide-react';
+import { useOrderById } from '@/hooks/useOrders';
+import { useOrderLinesByOrder } from '@/hooks/useOrderLines';
+import { supabase } from '@/api/supabase';
+import ClientHeader from '@/components/layout/ClientHeader';
+import PublicFooter from '@/components/layout/PublicFooter';
+
+const TYPE_LABELS = { entree: 'Entrée', plat: 'Plat', dessert: 'Dessert', boisson: 'Boisson' };
+const SLOT_LABELS = { midi: 'Midi', soir: 'Soir' };
+
+function groupLinesBySlotAndGuest(lines) {
+  const groups = {};
+  for (const line of lines) {
+    const slot = line.meal_slot;
+    if (!slot) continue;
+    const guestName = line.guest_name || '_default';
+    const key = `${slot.slot_date}_${slot.slot_type}_${guestName}`;
+    if (!groups[key]) {
+      groups[key] = {
+        date: slot.slot_date,
+        type: slot.slot_type,
+        guest_name: line.guest_name,
+        menu_unit_price: line.menu_unit_price != null ? Number(line.menu_unit_price) : null,
+        items: [],
+      };
+    }
+    groups[key].items.push({
+      name: line.menu_item?.name || 'Article inconnu',
+      type: line.menu_item?.type || '',
+    });
+  }
+  return Object.values(groups).sort((a, b) => {
+    if (a.date !== b.date) return a.date.localeCompare(b.date);
+    if (a.type !== b.type) return a.type === 'midi' ? -1 : 1;
+    return (a.guest_name || '').localeCompare(b.guest_name || '');
+  });
+}
+
+export default function OrderSuccessV2() {
+  const { orderId } = useParams();
+  const [searchParams] = useSearchParams();
+  const paymentParam = searchParams.get('payment');
+  const { data: order, isLoading: orderLoading, refetch: refetchOrder } = useOrderById(orderId);
+  const { data: lines = [], isLoading: linesLoading } = useOrderLinesByOrder(orderId);
+  const invoiceRef = useRef(null);
+  const [downloading, setDownloading] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+
+  const [timedOut, setTimedOut] = useState(false);
+
+  const isLoading = orderLoading || linesLoading;
+  const isCancelled = paymentParam === 'cancelled';
+  const isPending = order?.payment_status === 'pending';
+  const isPaid = order?.payment_status === 'paid';
+
+  // Poll for payment confirmation, timeout after 30s
+  useEffect(() => {
+    if (!orderId || isPaid || isCancelled || !isPending) return;
+    const start = Date.now();
+    const interval = setInterval(async () => {
+      if (Date.now() - start > 30000) {
+        clearInterval(interval);
+        setTimedOut(true);
+        return;
+      }
+      refetchOrder();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [orderId, isPaid, isCancelled, isPending, refetchOrder]);
+
+  const handleRetryPayment = async () => {
+    setRetrying(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-checkout-session', {
+        body: { orderId },
+      });
+      if (error) throw error;
+      if (data?.url) { window.location.href = data.url; return; }
+      alert('Impossible de relancer le paiement.');
+    } catch (err) {
+      console.error('Retry payment error:', err);
+      alert('Erreur lors de la relance du paiement.');
+    } finally {
+      setRetrying(false);
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!invoiceRef.current) return;
+    setDownloading(true);
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const { jsPDF } = await import('jspdf');
+
+      const canvas = await html2canvas(invoiceRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        onclone: (clonedDoc) => {
+          // Remove Tailwind stylesheets to avoid oklch() parsing errors
+          clonedDoc.querySelectorAll('style, link[rel="stylesheet"]').forEach(el => el.remove());
+        },
+      });
+
+      const imgWidth = 210; // A4 width in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const pdf = new jsPDF('p', 'mm', 'a4');
+
+      // Handle multi-page if content is taller than A4
+      const pageHeight = 297;
+      let position = 0;
+      let remaining = imgHeight;
+
+      while (remaining > 0) {
+        if (position > 0) pdf.addPage();
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, -position, imgWidth, imgHeight);
+        remaining -= pageHeight;
+        position += pageHeight;
+      }
+
+      pdf.save(`facture-${order.order_number}.pdf`);
+    } catch (err) {
+      console.error('Erreur génération PDF:', err);
+      alert('Erreur lors de la génération du PDF.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-mf-blanc-casse flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#8B3A43]" />
+      </div>
+    );
+  }
+
+  if (!order) {
+    return (
+      <div className="min-h-screen bg-mf-blanc-casse flex items-center justify-center p-4">
+        <div className="bg-mf-white rounded-card border border-mf-border p-8 max-w-md text-center space-y-3">
+          <p className="text-mf-muted">Commande introuvable.</p>
+          <Link to="/order" className="text-sm text-mf-rose hover:underline">Retour aux commandes</Link>
+        </div>
+      </div>
+    );
+  }
+
+  const grouped = groupLinesBySlotAndGuest(lines);
+  const eventName = order.event?.name || '';
+  const eventDates = order.event
+    ? `${format(new Date(order.event.start_date), 'd MMM', { locale: fr })} — ${format(new Date(order.event.end_date), 'd MMM yyyy', { locale: fr })}`
+    : '';
+
+  return (
+    <div className="min-h-screen bg-mf-blanc-casse">
+      <ClientHeader />
+      <div className="max-w-2xl mx-auto space-y-6 py-8 px-4">
+
+        {/* Header — adapts to payment state */}
+        {timedOut && isPending ? (
+          <div className="bg-mf-white rounded-card border border-mf-border p-8 text-center space-y-4">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto">
+              <XCircle className="w-10 h-10 text-red-500" />
+            </div>
+            <h1 className="text-2xl font-bold text-mf-rose" className="font-display">
+              Le paiement n'a pas abouti
+            </h1>
+            <p className="text-mf-muted">
+              Votre commande a été annulée automatiquement.
+            </p>
+            <Link
+              to="/order"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-mf-rose text-mf-blanc-casse font-medium rounded-[6px] hover:opacity-90 transition-all uppercase tracking-[0.22em] text-[13px]"
+            >
+              Nouvelle commande →
+            </Link>
+          </div>
+        ) : (isCancelled || isPending) && !isPaid ? (
+          <div className="bg-mf-white rounded-card border border-mf-border p-8 text-center space-y-4">
+            <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto">
+              <AlertCircle className="w-10 h-10 text-amber-600" />
+            </div>
+            <h1 className="text-2xl font-bold text-mf-rose" className="font-display">
+              {isCancelled ? 'Paiement annulé' : 'En attente de paiement'}
+            </h1>
+            <p className="text-mf-muted">
+              Votre commande <span className="font-mono font-semibold text-mf-marron-glace">{order.order_number}</span> a été enregistrée
+              {isCancelled ? ' mais le paiement a été annulé.' : ' et est en attente de paiement.'}
+            </p>
+            {eventName && (
+              <p className="text-sm text-mf-muted">{eventName} — {eventDates}</p>
+            )}
+            <div className="flex flex-col gap-3 pt-2">
+              <button
+                onClick={handleRetryPayment}
+                disabled={retrying}
+                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-mf-rose text-mf-blanc-casse font-medium rounded-full hover:opacity-90 transition-all disabled:opacity-50 uppercase tracking-[0.12em] text-[13px]"
+              >
+                <CreditCard className="w-4 h-4" />
+                {retrying ? 'Redirection...' : 'Réessayer le paiement'}
+              </button>
+              <Link
+                to="/order"
+                className="inline-flex items-center justify-center gap-2 px-4 py-3 text-sm text-mf-rose hover:underline"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Retour à la commande
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-mf-white rounded-card border border-mf-border p-8 text-center space-y-4">
+            <div className="w-16 h-16 bg-mf-poudre/30 rounded-full flex items-center justify-center mx-auto">
+              <CheckCircle2 className="w-10 h-10 text-mf-rose" />
+            </div>
+            <h1 className="text-2xl font-bold text-mf-rose" className="font-display">Commande confirmée !</h1>
+            <p className="text-mf-muted">
+              Votre commande <span className="font-mono font-semibold text-mf-marron-glace">{order.order_number}</span> a bien été enregistrée.
+            </p>
+            {eventName && (
+              <p className="text-sm text-mf-muted">{eventName} — {eventDates}</p>
+            )}
+          </div>
+        )}
+
+        {/* Delivery method communication */}
+        <div className="bg-mf-white rounded-card border border-mf-border p-6 space-y-3">
+          <h2 className="text-lg text-mf-rose" className="font-display">
+            {order.delivery_method === 'retrait' ? 'Retrait de votre commande' : 'Livraison de votre commande'}
+          </h2>
+          <div className="bg-mf-rose/5 border border-mf-rose/20 rounded-card p-4">
+            {order.delivery_method === 'retrait' ? (
+              <p className="text-sm text-mf-marron-glace">
+                Vous avez choisi le <strong>retrait sur place</strong>. Vous recevrez un email
+                lorsque votre commande sera prête à être retirée.
+              </p>
+            ) : (
+              <p className="text-sm text-mf-marron-glace">
+                Votre commande sera <strong>livrée à votre stand</strong>. Vous recevrez un email
+                pour vous informer de l'avancement de la préparation et de la livraison.
+              </p>
+            )}
+          </div>
+          <p className="text-xs text-mf-muted-light">
+            Notifications envoyées à : {order.customer_email}
+            {order.customer_phone && ` / ${order.customer_phone}`}
+          </p>
+        </div>
+
+        {/* Order summary (visible on screen) */}
+        <div className="bg-mf-white rounded-card border border-mf-border p-6 space-y-5">
+          <h2 className="text-lg text-mf-rose" className="font-display">Récapitulatif</h2>
+
+          {/* Customer info */}
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="flex items-center gap-2 text-mf-muted">
+              <User className="w-4 h-4 text-mf-muted-light" />
+              {order.customer_first_name} {order.customer_last_name}
+            </div>
+            <div className="flex items-center gap-2 text-mf-muted">
+              <MapPin className="w-4 h-4 text-mf-muted-light" />
+              Stand {order.stand}
+            </div>
+            <div className="flex items-center gap-2 text-mf-muted">
+              <Mail className="w-4 h-4 text-mf-muted-light" />
+              {order.customer_email}
+            </div>
+            <div className="flex items-center gap-2 text-mf-muted">
+              <Phone className="w-4 h-4 text-mf-muted-light" />
+              {order.customer_phone}
+            </div>
+            <div className="col-span-2 flex items-center gap-2">
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                order.delivery_method === 'retrait'
+                  ? 'bg-mf-vert-olive/10 text-mf-vert-olive'
+                  : 'bg-mf-rose/10 text-mf-rose'
+              }`}>
+                {order.delivery_method === 'retrait' ? 'Retrait sur place' : 'Livraison au stand'}
+              </span>
+            </div>
+            {(order.billing_address || order.company_name) && (
+              <div className="col-span-2 text-xs text-mf-muted pt-1 border-t border-mf-border">
+                {order.company_name && <p className="font-medium">{order.company_name}</p>}
+                {order.billing_address && (
+                  <p>{order.billing_address}, {order.billing_postal_code} {order.billing_city}</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Lines grouped by slot + guest */}
+          <div className="space-y-4">
+            {grouped.map((group, gi) => (
+              <div key={gi} className="border border-mf-border rounded-card overflow-hidden">
+                <div className="bg-mf-blanc-casse px-4 py-2 flex items-center gap-2">
+                  <CalendarDays className="w-4 h-4 text-mf-muted-light" />
+                  <span className="text-sm font-medium text-mf-marron-glace">
+                    {format(new Date(group.date), 'EEEE d MMMM', { locale: fr })}
+                  </span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-mf-rose/10 text-mf-rose font-medium">
+                    {SLOT_LABELS[group.type] || group.type}
+                  </span>
+                  {group.guest_name && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-mf-vert-olive/10 text-mf-vert-olive font-medium">
+                      {group.guest_name}
+                    </span>
+                  )}
+                  {group.menu_unit_price != null && (
+                    <span className="ml-auto text-xs font-medium text-mf-muted">
+                      {group.menu_unit_price.toFixed(2)}€
+                    </span>
+                  )}
+                </div>
+                <div className="divide-y divide-[#E5D9D0]/50 bg-mf-white">
+                  {group.items.map((item, i) => (
+                    <div key={i} className="px-4 py-2.5 flex items-center gap-2">
+                      <UtensilsCrossed className="w-3.5 h-3.5 text-[#E5D9D0]" />
+                      <span className="text-sm text-mf-marron-glace">{item.name}</span>
+                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-mf-blanc-casse text-mf-muted">
+                        {TYPE_LABELS[item.type] || item.type}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Total */}
+          <div className="flex items-center justify-between pt-4 border-t border-mf-border">
+            <span className="text-base font-semibold text-mf-marron-glace">Total</span>
+            <span className="text-xl text-mf-rose" className="font-display">{Number(order.total_amount).toFixed(2)}€</span>
+          </div>
+
+          {/* Payment status */}
+          <div className="flex items-center gap-2">
+            <span className={`inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full ${
+              order.payment_status === 'paid'
+                ? 'bg-mf-poudre/30 text-mf-rose'
+                : order.payment_status === 'pending'
+                  ? 'bg-mf-vert-olive/15 text-mf-vert-olive'
+                  : 'bg-status-red/15 text-status-red'
+            }`}>
+              {order.payment_status === 'paid' ? 'Payé' :
+               order.payment_status === 'pending' ? 'En attente de paiement' :
+               order.payment_status}
+            </span>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-col gap-3">
+          <Link
+            to="/"
+            className="inline-flex items-center justify-center gap-2 px-4 py-3.5 bg-mf-rose text-mf-blanc-casse font-medium rounded-[6px] hover:opacity-90 transition-all uppercase tracking-[0.22em] text-[13px]"
+          >
+            <Home className="w-4 h-4" />
+            Retour à l'accueil
+          </Link>
+          <div className="flex gap-3">
+            <button
+              onClick={handleDownloadPDF}
+              disabled={downloading}
+              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3.5 bg-mf-white text-mf-marron-glace font-medium rounded-[6px] border border-mf-border hover:border-mf-rose transition-all disabled:opacity-50 uppercase tracking-[0.12em] text-[13px]"
+            >
+              <Download className="w-4 h-4" />
+              {downloading ? 'Génération...' : 'Facture PDF'}
+            </button>
+            <Link
+              to="/order"
+              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3.5 bg-mf-white text-mf-marron-glace font-medium rounded-[6px] border border-mf-border hover:border-mf-rose transition-all uppercase tracking-[0.12em] text-[13px]"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Nouvelle commande
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Hidden invoice template for PDF generation — uses inline styles for html2canvas compatibility */}
+      <div className="fixed left-[-9999px] top-0">
+        <div ref={invoiceRef} style={{ width: '794px', padding: '40px', backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }}>
+          {/* PDF Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px', borderBottom: '2px solid #8B3A43', paddingBottom: '20px' }}>
+            <div>
+              <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#8B3A43', margin: 0 }}>Maison Félicien</h1>
+              <p style={{ fontSize: '12px', color: '#6b7280', margin: '4px 0 0' }}>Traiteur événementiel</p>
+              <p style={{ fontSize: '11px', color: '#9ca3af', margin: '4px 0 0' }}>101 rue de Sèvres, 75006 Paris</p>
+              <p style={{ fontSize: '11px', color: '#9ca3af', margin: '2px 0 0' }}>SIRET : 808 374 086</p>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#8B3A43', margin: 0 }}>FACTURE</h2>
+              <p style={{ fontSize: '12px', color: '#6b7280', margin: '4px 0 0' }}>{order.order_number}</p>
+              <p style={{ fontSize: '12px', color: '#6b7280', margin: '2px 0 0' }}>
+                {format(new Date(order.created_at), 'd MMMM yyyy', { locale: fr })}
+              </p>
+            </div>
+          </div>
+
+          {/* Event + Customer */}
+          <div style={{ display: 'flex', gap: '40px', marginBottom: '28px' }}>
+            <div style={{ flex: 1 }}>
+              <h3 style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 8px' }}>Événement</h3>
+              <p style={{ fontSize: '14px', fontWeight: '600', color: '#111827', margin: 0 }}>{eventName}</p>
+              {eventDates && <p style={{ fontSize: '12px', color: '#6b7280', margin: '2px 0 0' }}>{eventDates}</p>}
+            </div>
+            <div style={{ flex: 1 }}>
+              <h3 style={{ fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 8px' }}>Client</h3>
+              <p style={{ fontSize: '14px', fontWeight: '600', color: '#111827', margin: 0 }}>
+                {order.customer_first_name} {order.customer_last_name}
+              </p>
+              <p style={{ fontSize: '12px', color: '#6b7280', margin: '2px 0 0' }}>Stand {order.stand}</p>
+              <p style={{ fontSize: '12px', color: '#6b7280', margin: '2px 0 0' }}>{order.customer_email}</p>
+              <p style={{ fontSize: '12px', color: '#6b7280', margin: '2px 0 0' }}>{order.customer_phone}</p>
+              {order.company_name && (
+                <p style={{ fontSize: '12px', color: '#6b7280', margin: '6px 0 0', fontWeight: '500' }}>{order.company_name}</p>
+              )}
+              {order.billing_address && (
+                <p style={{ fontSize: '12px', color: '#6b7280', margin: '2px 0 0' }}>
+                  {order.billing_address}, {order.billing_postal_code} {order.billing_city}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Menus table */}
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '24px' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#f8fafc' }}>
+                <th style={{ textAlign: 'left', padding: '10px 12px', fontSize: '11px', fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb' }}>Date</th>
+                <th style={{ textAlign: 'left', padding: '10px 12px', fontSize: '11px', fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb' }}>Créneau</th>
+                <th style={{ textAlign: 'left', padding: '10px 12px', fontSize: '11px', fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb' }}>Convive</th>
+                <th style={{ textAlign: 'left', padding: '10px 12px', fontSize: '11px', fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb' }}>Menu</th>
+                <th style={{ textAlign: 'right', padding: '10px 12px', fontSize: '11px', fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase', borderBottom: '1px solid #e5e7eb' }}>Prix</th>
+              </tr>
+            </thead>
+            <tbody>
+              {grouped.map((group, gi) => (
+                <tr key={gi}>
+                  <td style={{ padding: '8px 12px', fontSize: '13px', color: '#374151', borderBottom: '1px solid #f3f4f6', verticalAlign: 'top' }}>
+                    {format(new Date(group.date), 'd MMM yyyy', { locale: fr })}
+                  </td>
+                  <td style={{ padding: '8px 12px', fontSize: '13px', color: '#374151', borderBottom: '1px solid #f3f4f6', verticalAlign: 'top' }}>
+                    {SLOT_LABELS[group.type] || group.type}
+                  </td>
+                  <td style={{ padding: '8px 12px', fontSize: '13px', color: '#968A42', fontWeight: '500', borderBottom: '1px solid #f3f4f6', verticalAlign: 'top' }}>
+                    {group.guest_name || '—'}
+                  </td>
+                  <td style={{ padding: '8px 12px', fontSize: '12px', color: '#111827', borderBottom: '1px solid #f3f4f6', verticalAlign: 'top' }}>
+                    {group.items.map((item) => item.name).join(', ')}
+                  </td>
+                  <td style={{ padding: '8px 12px', fontSize: '13px', color: '#111827', fontWeight: '500', textAlign: 'right', borderBottom: '1px solid #f3f4f6', verticalAlign: 'top' }}>
+                    {group.menu_unit_price != null ? `${group.menu_unit_price.toFixed(2)}€` : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={4} style={{ padding: '12px', fontSize: '14px', fontWeight: 'bold', color: '#111827', textAlign: 'right', borderTop: '2px solid #e5e7eb' }}>Total</td>
+                <td style={{ padding: '12px', fontSize: '16px', fontWeight: 'bold', color: '#111827', textAlign: 'right', borderTop: '2px solid #e5e7eb' }}>{Number(order.total_amount).toFixed(2)}€</td>
+              </tr>
+            </tfoot>
+          </table>
+
+          {/* Footer */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '32px', paddingTop: '20px', borderTop: '1px solid #e5e7eb' }}>
+            <div>
+              <p style={{ fontSize: '13px', fontWeight: '600', color: '#111827', margin: 0 }}>
+                {order.delivery_method === 'retrait' ? 'Retrait sur place' : 'Livraison au stand'}
+              </p>
+              <p style={{ fontSize: '11px', color: '#6b7280', margin: '4px 0 0' }}>
+                Commande n°{order.order_number}
+              </p>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>Merci pour votre commande !</p>
+              <p style={{ fontSize: '11px', color: '#9ca3af', margin: '4px 0 0' }}>Maison Félicien — Traiteur événementiel</p>
+              <p style={{ fontSize: '10px', color: '#9ca3af', margin: '2px 0 0' }}>101 rue de Sèvres, 75006 Paris · SIRET 808 374 086</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <PublicFooter />
+    </div>
+  );
+}

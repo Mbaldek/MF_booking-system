@@ -1,0 +1,1541 @@
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
+import { X } from 'lucide-react';
+import { useActiveEvents } from '@/hooks/useEvents';
+import { useMealSlots } from '@/hooks/useMealSlots';
+import { useEventMenuItems } from '@/hooks/useMenuItems';
+import { useSlotMenuItems } from '@/hooks/useSlotMenuItems';
+import { useCreateOrder } from '@/hooks/useOrders';
+import { supabase } from '@/api/supabase';
+import MfButton from '@/components/ui/MfButton';
+import MfInput from '@/components/ui/MfInput';
+import MfCard from '@/components/ui/MfCard';
+import MfStepIndicator from '@/components/ui/MfStepIndicator';
+import MfBlurModal from '@/components/ui/MfBlurModal';
+import ClientHeader from '@/components/layout/ClientHeader';
+import PublicFooter from '@/components/layout/PublicFooter';
+
+/* ─── CollapsibleCategory ─── */
+function CollapsibleCategory({ catKey, catLabel, catEmoji, items, selectedId, onSelect }) {
+  const selectedItem = selectedId ? items.find((i) => i.id === selectedId) : null;
+  const [open, setOpen] = useState(!selectedItem);
+  const isOpen = !selectedItem || open;
+
+  if (items.length === 0) return null;
+
+  return (
+    <div className={`mb-2 rounded-[14px] overflow-hidden border transition-colors ${
+      selectedItem && !isOpen ? 'border-status-green/20' : 'border-mf-border'
+    }`}>
+      {/* Header */}
+      <button
+        type="button"
+        onClick={() => selectedItem && setOpen(!open)}
+        className={`w-full flex items-center justify-between px-3.5 py-2.5 bg-transparent border-none text-left ${
+          selectedItem ? 'cursor-pointer' : 'cursor-default'
+        }`}
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-[15px]">{catEmoji}</span>
+          <span className="font-body text-[11px] uppercase tracking-[0.18em] font-medium text-mf-rose">{catLabel}</span>
+          {!selectedItem && <span className="font-body text-[9px] text-mf-muted">obligatoire</span>}
+        </div>
+        {selectedItem && !isOpen && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-status-green text-[11px]">✓</span>
+            <span className="font-body text-[12px] text-mf-marron-glace">{selectedItem.name}</span>
+            <span className="font-body text-[10px] text-mf-vieux-rose">modifier</span>
+          </div>
+        )}
+      </button>
+
+      {/* Items list */}
+      <div
+        className="overflow-hidden transition-all duration-300"
+        style={{ maxHeight: isOpen ? items.length * 80 + 20 : 0 }}
+      >
+        <div className="px-3.5 pb-2.5 space-y-1.5">
+          {items.map((item) => {
+            const isSelected = selectedId === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  onSelect(item.id);
+                  setTimeout(() => setOpen(false), 280);
+                }}
+                className={`w-full text-left p-3 rounded-[12px] border-[1.5px] flex items-center gap-2.5 cursor-pointer ${
+                  isSelected
+                    ? 'border-mf-rose bg-mf-poudre/15'
+                    : 'border-mf-border bg-white'
+                }`}
+                style={{ transition: 'all 0.3s cubic-bezier(0.22, 1, 0.36, 1)' }}
+                onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.transform = 'translateX(3px)'; e.currentTarget.style.borderColor = '#BF646D'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateX(0)'; e.currentTarget.style.borderColor = isSelected ? '#8B3A43' : '#E5D9D0'; }}
+              >
+                {/* Radio circle */}
+                <div className={`w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center transition-all ${
+                  isSelected ? 'border-mf-rose bg-mf-rose' : 'border-mf-border bg-white'
+                }`}>
+                  {isSelected && <span className="text-white text-[10px]">✓</span>}
+                </div>
+                <div>
+                  <div className={`font-body text-[13px] ${isSelected ? 'text-mf-rose font-medium' : 'text-mf-marron-glace'}`}>
+                    {item.name}
+                  </div>
+                  {item.description && (
+                    <div className="font-body text-[11px] text-mf-muted">{item.description}</div>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── SlotFormuleContent: loads per-slot items with fallback ─── */
+function SlotFormuleContent({ slotId, fallbackItems, categories, curSel, onSelect, slotKey }) {
+  const { data: slotLinks = [] } = useSlotMenuItems(slotId);
+
+  // Flatten slot_menu_items → menu_items, fallback to event items
+  const items = useMemo(() => {
+    if (slotLinks.length > 0) {
+      return slotLinks
+        .filter((sl) => sl.menu_items)
+        .map((sl) => sl.menu_items);
+    }
+    return fallbackItems;
+  }, [slotLinks, fallbackItems]);
+
+  const CAT_CONFIG = [
+    { key: 'entree', label: 'Entrée', emoji: '' },
+    { key: 'plat', label: 'Plat', emoji: '' },
+    { key: 'dessert', label: 'Dessert', emoji: '' },
+    { key: 'boisson', label: 'Boisson', emoji: '' },
+  ];
+
+  return (
+    <>
+      {CAT_CONFIG.filter((c) => categories.includes(c.key)).map((cat) => {
+        const catItems = items.filter((i) => i.type === cat.key);
+        return (
+          <CollapsibleCategory
+            key={cat.key + slotId + slotKey}
+            catKey={cat.key}
+            catLabel={cat.label}
+            catEmoji={cat.emoji}
+            items={catItems}
+            selectedId={curSel[cat.key]}
+            onSelect={(id) => onSelect(cat.key, id)}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+/* ─── SupplementPicker: quantity selector for supplements ─── */
+function SupplementPicker({ items, slotId, getQty, setQty }) {
+  const TYPE_LABELS = { entree: 'Entrées', plat: 'Plats', dessert: 'Desserts', boisson: 'Boissons' };
+  const TYPE_EMOJIS = { entree: '', plat: '', dessert: '', boisson: '' };
+  const TYPE_ORDER = ['entree', 'plat', 'dessert', 'boisson'];
+
+  if (items.length === 0) {
+    return (
+      <div className="text-center py-6">
+        <p className="font-body text-[13px] text-mf-muted">Aucun supplément disponible pour cet événement.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {TYPE_ORDER.map((type) => {
+        const typeItems = items.filter((i) => i.type === type);
+        if (typeItems.length === 0) return null;
+        return (
+          <div key={type}>
+            <div className="font-body text-[10px] uppercase tracking-[0.1em] font-medium text-mf-vert-olive mb-1.5">
+              {TYPE_EMOJIS[type]} {TYPE_LABELS[type]}
+            </div>
+            <div className="space-y-1.5">
+              {typeItems.map((item) => {
+                const qty = getQty(slotId, item.id);
+                const unitPrice = Number(item.unit_price ?? item.price);
+                return (
+                  <div
+                    key={item.id}
+                    className={`flex items-center gap-2.5 p-2.5 rounded-[12px] border-[1.5px] transition-colors ${
+                      qty > 0
+                        ? 'border-mf-vert-olive/30 bg-mf-poudre/12'
+                        : 'border-mf-border bg-white'
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="font-body text-[13px] text-mf-marron-glace">{item.name}</div>
+                      {item.description && (
+                        <div className="font-body text-[11px] text-mf-muted">{item.description}</div>
+                      )}
+                    </div>
+                    <span className="font-body text-[13px] font-semibold text-mf-rose shrink-0">
+                      {unitPrice.toFixed(2)}€
+                    </span>
+                    <div className="flex items-center gap-0 rounded-full border border-mf-border overflow-hidden shrink-0">
+                      <button
+                        type="button"
+                        disabled={qty === 0}
+                        onClick={() => setQty(slotId, item.id, qty - 1)}
+                        className="w-[30px] h-[30px] flex items-center justify-center font-body text-[15px] text-mf-muted bg-white hover:bg-mf-blanc-casse disabled:opacity-30 transition-colors border-none cursor-pointer"
+                      >
+                        −
+                      </button>
+                      <span className={`w-[28px] text-center font-body text-[13px] font-medium ${qty > 0 ? 'text-mf-rose' : 'text-mf-muted'}`}>
+                        {qty}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setQty(slotId, item.id, qty + 1)}
+                        className={`w-[30px] h-[30px] flex items-center justify-center font-body text-[15px] border-none cursor-pointer transition-colors ${
+                          qty > 0
+                            ? 'bg-mf-rose text-white hover:opacity-90'
+                            : 'bg-white text-mf-muted hover:bg-mf-blanc-casse'
+                        }`}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
+   OrderPageV2 — Tunnel de commande 5 étapes (Step 0 = Event)
+   ═══════════════════════════════════════════════════════ */
+
+export default function OrderPageV2() {
+  const navigate = useNavigate();
+  const [step, setStep] = useState(0);
+  const [selectedEventId, setSelectedEventId] = useState(null);
+
+  // Form state
+  const [formData, setFormData] = useState({
+    last_name: '', stand: '', phone: '', email: '',
+    company_name: '', billing_address: '', billing_postal_code: '', billing_city: '',
+  });
+  const [rgpdConsent, setRgpdConsent] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
+
+  // V4 states — matrix + menu funnel
+  const [convives, setConvives] = useState([]);
+  const [matrix, setMatrix] = useState({});
+  const [newConviveName, setNewConviveName] = useState('');
+  const [menuSelections, setMenuSelections] = useState({});
+  const [sameForAll, setSameForAll] = useState(true);
+  const [menuSlotIdx, setMenuSlotIdx] = useState(0);
+  const [activeConvive, setActiveConvive] = useState(0);
+  const [autoFillDone, setAutoFillDone] = useState(false);
+  const [showAutoFill, setShowAutoFill] = useState(false);
+  const [menuSection, setMenuSection] = useState('formule'); // 'formule' | 'supplements'
+  const [supplementQty, setSupplementQty] = useState({}); // { [slotId]: { [itemId]: qty } }
+
+  // ─── Browser history for steps (fix back button) ───
+  const goToStep = useCallback((n) => {
+    setStep(n);
+    window.history.pushState({ step: n }, '', '/order');
+  }, []);
+
+  useEffect(() => {
+    window.history.replaceState({ step: 0 }, '', '/order');
+    const handler = (e) => {
+      if (e.state?.step !== undefined) {
+        setStep(e.state.step);
+      }
+    };
+    window.addEventListener('popstate', handler);
+    return () => window.removeEventListener('popstate', handler);
+  }, []);
+
+  // Scroll to top on mount
+  useEffect(() => { window.scrollTo(0, 0); }, []);
+
+  // Data hooks
+  const { data: activeEvents = [], isLoading: eventsLoading } = useActiveEvents();
+  const createOrder = useCreateOrder();
+  const [searchParams] = useSearchParams();
+  const requestedEventId = searchParams.get('event');
+
+  // Auto-skip step 0 if event is in URL or only 1 event
+  useEffect(() => {
+    if (selectedEventId || activeEvents.length === 0) return;
+    if (requestedEventId && activeEvents.find((e) => e.id === requestedEventId)) {
+      setSelectedEventId(requestedEventId);
+      setStep(1);
+    } else if (activeEvents.length === 1) {
+      setSelectedEventId(activeEvents[0].id);
+      setStep(1);
+    }
+  }, [activeEvents, requestedEventId, selectedEventId]);
+
+  const ev = activeEvents.find((e) => e.id === selectedEventId) || null;
+  const eventId = ev?.id;
+  const { data: allMealSlots = [] } = useMealSlots(eventId);
+  const { data: menuItems = [] } = useEventMenuItems(eventId);
+
+  // Supplement items from event catalog
+  const supplementItems = useMemo(
+    () => menuItems.filter((i) => i.is_supplement),
+    [menuItems]
+  );
+
+  const mealSlots = useMemo(() => {
+    if (!ev?.meal_service || ev.meal_service === 'both') return allMealSlots;
+    return allMealSlots.filter((s) => s.slot_type === ev.meal_service);
+  }, [allMealSlots, ev?.meal_service]);
+
+  const categories = ev?.menu_categories || ['entree', 'plat', 'dessert', 'boisson'];
+  const entrees = categories.includes('entree') ? menuItems.filter((i) => i.type === 'entree') : [];
+  const plats = categories.includes('plat') ? menuItems.filter((i) => i.type === 'plat') : [];
+  const desserts = categories.includes('dessert') ? menuItems.filter((i) => i.type === 'dessert') : [];
+  const boissons = categories.includes('boisson') ? menuItems.filter((i) => i.type === 'boisson') : [];
+
+  // Group slots by date
+  const slotsByDate = useMemo(() => {
+    const groups = {};
+    mealSlots.forEach((slot) => {
+      if (!groups[slot.slot_date]) groups[slot.slot_date] = [];
+      groups[slot.slot_date].push(slot);
+    });
+    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
+  }, [mealSlots]);
+
+  // ─── V4 Matrix helpers ───
+  const addConvive = useCallback((name) => {
+    const n = name.trim();
+    if (n && !convives.includes(n) && convives.length < 6) {
+      setConvives((prev) => [...prev, n]);
+      setNewConviveName('');
+    }
+  }, [convives]);
+
+  const removeConvive = useCallback((name) => {
+    setConvives((prev) => prev.filter((c) => c !== name));
+    setMatrix((prev) => { const m = { ...prev }; delete m[name]; return m; });
+  }, []);
+
+  const isMatrixChecked = useCallback((conv, slotId) => !!(matrix[conv]?.[slotId]), [matrix]);
+
+  const toggleMatrix = useCallback((conv, slotId) => {
+    setMatrix((prev) => ({
+      ...prev,
+      [conv]: { ...(prev[conv] || {}), [slotId]: !prev[conv]?.[slotId] },
+    }));
+  }, []);
+
+  const toggleRowAll = useCallback((conv) => {
+    const allChecked = mealSlots.every((s) => isMatrixChecked(conv, s.id));
+    setMatrix((prev) => ({
+      ...prev,
+      [conv]: Object.fromEntries(mealSlots.map((s) => [s.id, !allChecked])),
+    }));
+  }, [mealSlots, isMatrixChecked]);
+
+  const selectAllMatrix = useCallback(() => {
+    const m = {};
+    convives.forEach((c) => {
+      m[c] = {};
+      mealSlots.forEach((s) => { m[c][s.id] = true; });
+    });
+    setMatrix(m);
+  }, [convives, mealSlots]);
+
+  const clearAllMatrix = useCallback(() => setMatrix({}), []);
+
+  const isAllMatrixSelected = useMemo(
+    () => convives.length > 0 && mealSlots.length > 0 && convives.every((c) => mealSlots.every((s) => matrix[c]?.[s.id])),
+    [convives, mealSlots, matrix]
+  );
+
+  const isRowAll = useCallback(
+    (conv) => mealSlots.length > 0 && mealSlots.every((s) => matrix[conv]?.[s.id]),
+    [mealSlots, matrix]
+  );
+
+  const v4TotalMeals = useMemo(
+    () => convives.reduce((sum, c) => sum + mealSlots.filter((s) => matrix[c]?.[s.id]).length, 0),
+    [convives, mealSlots, matrix]
+  );
+
+  const v4TotalPrice = useMemo(
+    () => convives.reduce((sum, c) => sum + mealSlots
+      .filter((s) => matrix[c]?.[s.id])
+      .reduce((ss, s) => ss + Number(s.slot_type === 'soir' ? ev?.menu_price_soir : ev?.menu_price_midi) || 0, 0), 0),
+    [convives, mealSlots, matrix, ev]
+  );
+
+  const formatSlotPill = useCallback((slot) => {
+    const icon = slot.slot_type === 'soir' ? '☽' : '☀';
+    const day = format(new Date(slot.slot_date + 'T00:00:00'), 'EEE d', { locale: fr });
+    const label = slot.slot_type === 'midi' ? 'Midi' : 'Soir';
+    return `${icon} ${day} ${label}`;
+  }, []);
+
+  // ─── V4 Menu helpers ───
+  const catConfig = useMemo(() => {
+    const cats = [];
+    if (categories.includes('entree') && entrees.length > 0) cats.push({ key: 'entree', label: 'Entrée', emoji: '', items: entrees });
+    if (categories.includes('plat') && plats.length > 0) cats.push({ key: 'plat', label: 'Plat', emoji: '', items: plats });
+    if (categories.includes('dessert') && desserts.length > 0) cats.push({ key: 'dessert', label: 'Dessert', emoji: '', items: desserts });
+    if (categories.includes('boisson') && boissons.length > 0) cats.push({ key: 'boisson', label: 'Boisson', emoji: '', items: boissons });
+    return cats;
+  }, [categories, entrees, plats, desserts, boissons]);
+
+  const activeSlots = useMemo(
+    () => mealSlots.filter((s) => convives.some((c) => matrix[c]?.[s.id])),
+    [mealSlots, convives, matrix]
+  );
+
+  const slotConvives = useMemo(() => {
+    const sc = {};
+    activeSlots.forEach((s) => { sc[s.id] = convives.filter((c) => matrix[c]?.[s.id]); });
+    return sc;
+  }, [activeSlots, convives, matrix]);
+
+  const currentSlot = activeSlots[menuSlotIdx];
+  const currentConv = currentSlot ? (slotConvives[currentSlot.id] || []) : [];
+
+  const getSelKey = useCallback(() => sameForAll ? '__all__' : currentConv[activeConvive], [sameForAll, currentConv, activeConvive]);
+  const getSel = useCallback((slotId, k) => (menuSelections[slotId] || {})[k] || {}, [menuSelections]);
+
+  const curSel = currentSlot ? getSel(currentSlot.id, getSelKey()) : {};
+  const isMenuComplete = catConfig.every((c) => curSel[c.key]);
+  const isConvDone = useCallback((slotId, name) => catConfig.every((c) => getSel(slotId, name)[c.key]), [catConfig, getSel]);
+  const isSlotDone = useCallback((slotId) => {
+    const cv = slotConvives[slotId] || [];
+    return sameForAll
+      ? catConfig.every((c) => getSel(slotId, '__all__')[c.key])
+      : cv.every((n) => isConvDone(slotId, n));
+  }, [slotConvives, sameForAll, catConfig, getSel, isConvDone]);
+
+  const doneSlots = activeSlots.filter((s) => isSlotDone(s.id)).length;
+  const allSlotsDone = doneSlots === activeSlots.length && activeSlots.length > 0;
+  const isLastSlot = menuSlotIdx === activeSlots.length - 1;
+  const allConvThisSlot = sameForAll ? isMenuComplete : currentConv.every((n) => isConvDone(currentSlot?.id, n));
+
+  const formuleTotal = useMemo(
+    () => activeSlots.reduce((sum, s) => {
+      const price = Number(s.slot_type === 'soir' ? ev?.menu_price_soir : ev?.menu_price_midi) || 0;
+      return sum + (isSlotDone(s.id) ? price * (slotConvives[s.id]?.length || 0) : 0);
+    }, 0),
+    [activeSlots, ev, isSlotDone, slotConvives]
+  );
+
+  const setMenuChoice = useCallback((catKey, itemId) => {
+    if (!currentSlot) return;
+    const slotId = currentSlot.id;
+    const k = sameForAll ? '__all__' : currentConv[activeConvive];
+    setMenuSelections((prev) => ({
+      ...prev,
+      [slotId]: {
+        ...(prev[slotId] || {}),
+        [k]: {
+          ...((prev[slotId] || {})[k] || {}),
+          [catKey]: ((prev[slotId] || {})[k] || {})[catKey] === itemId ? null : itemId,
+          _pf: false,
+        },
+      },
+    }));
+  }, [currentSlot, sameForAll, currentConv, activeConvive]);
+
+  const getSupQty = useCallback((slotId, itemId) => supplementQty[slotId]?.[itemId] || 0, [supplementQty]);
+
+  const setSupQty = useCallback((slotId, itemId, qty) => {
+    setSupplementQty((prev) => ({
+      ...prev,
+      [slotId]: {
+        ...(prev[slotId] || {}),
+        [itemId]: Math.max(0, qty),
+      },
+    }));
+  }, []);
+
+  const supplementTotal = useMemo(() => {
+    let total = 0;
+    Object.entries(supplementQty).forEach(([, items]) => {
+      Object.entries(items).forEach(([itemId, qty]) => {
+        if (qty > 0) {
+          const item = supplementItems.find((i) => i.id === itemId);
+          if (item) total += qty * Number(item.unit_price ?? item.price);
+        }
+      });
+    });
+    return total;
+  }, [supplementQty, supplementItems]);
+
+  const menuTotal = formuleTotal + supplementTotal;
+
+  const handleMenuToggle = useCallback((val) => {
+    if (!val && sameForAll && currentSlot) {
+      const shared = getSel(currentSlot.id, '__all__');
+      const ns = { ...(menuSelections[currentSlot.id] || {}) };
+      currentConv.forEach((n) => {
+        if (!ns[n] || !catConfig.some((c) => ns[n][c.key])) {
+          ns[n] = { ...shared, _pf: true };
+        }
+      });
+      setMenuSelections((prev) => ({ ...prev, [currentSlot.id]: ns }));
+    }
+    setSameForAll(val);
+    setActiveConvive(0);
+  }, [sameForAll, currentSlot, currentConv, catConfig, menuSelections, getSel]);
+
+  const handleValidateSlot = useCallback(() => {
+    if (menuSlotIdx === 0 && !autoFillDone && activeSlots.length > 1) {
+      setShowAutoFill(true);
+      return;
+    }
+    if (!isLastSlot) {
+      setMenuSlotIdx((i) => i + 1);
+      setSameForAll(true);
+      setActiveConvive(0);
+      setMenuSection('formule');
+    }
+  }, [menuSlotIdx, autoFillDone, activeSlots.length, isLastSlot]);
+
+  const handleAutoFill = useCallback(() => {
+    const firstSlotSel = menuSelections[activeSlots[0]?.id];
+    const ns = { ...menuSelections };
+    activeSlots.slice(1).forEach((s) => {
+      ns[s.id] = {};
+      if (firstSlotSel) {
+        Object.entries(firstSlotSel).forEach(([k, v]) => {
+          ns[s.id][k] = { ...v, _pf: true };
+        });
+      }
+    });
+    setMenuSelections(ns);
+    setAutoFillDone(true);
+    setShowAutoFill(false);
+    setMenuSlotIdx(1);
+  }, [menuSelections, activeSlots]);
+
+  // Validation
+  const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const isStep1Valid = formData.last_name && formData.stand && formData.phone && isValidEmail(formData.email);
+  const isStep4Valid = formData.billing_address && formData.billing_postal_code && formData.billing_city && rgpdConsent;
+
+  // V4 total (all slots, not just "done" ones — for the recap/payment)
+  const v4FinalTotal = useMemo(
+    () => activeSlots.reduce((sum, s) => {
+      const price = Number(s.slot_type === 'soir' ? ev?.menu_price_soir : ev?.menu_price_midi) || 0;
+      return sum + price * (slotConvives[s.id]?.length || 0);
+    }, 0) + supplementTotal,
+    [activeSlots, ev, slotConvives, supplementTotal]
+  );
+
+  // Submit — builds order + order_lines from V4 matrix + menuSelections
+  const handleSubmit = async () => {
+    if (!isValidEmail(formData.email)) {
+      alert('Veuillez entrer une adresse email valide');
+      return;
+    }
+    let totalAmount = 0;
+    const orderLines = [];
+
+    activeSlots.forEach((slot) => {
+      const menuPrice = Number(slot.slot_type === 'soir' ? ev.menu_price_soir : ev.menu_price_midi) || 0;
+      const cv = slotConvives[slot.id] || [];
+      totalAmount += cv.length * menuPrice;
+
+      cv.forEach((conviveName) => {
+        // Resolve selections: use per-convive if it exists, else __all__
+        const sel = getSel(slot.id, conviveName);
+        const allSel = getSel(slot.id, '__all__');
+        const finalSel = catConfig.some((c) => sel[c.key]) ? sel : allSel;
+
+        catConfig.forEach((cat) => {
+          const itemId = finalSel[cat.key];
+          if (itemId) {
+            orderLines.push({
+              meal_slot_id: slot.id,
+              menu_item_id: itemId,
+              quantity: 1,
+              unit_price: menuPrice,
+              guest_name: conviveName,
+              menu_unit_price: menuPrice,
+              is_supplement: false,
+            });
+          }
+        });
+      });
+
+      // Supplement lines for this slot
+      const slotSups = supplementQty[slot.id] || {};
+      Object.entries(slotSups).forEach(([itemId, qty]) => {
+        if (qty > 0) {
+          const item = supplementItems.find((i) => i.id === itemId);
+          if (item) {
+            const supPrice = Number(item.unit_price ?? item.price);
+            totalAmount += qty * supPrice;
+            orderLines.push({
+              meal_slot_id: slot.id,
+              menu_item_id: itemId,
+              quantity: qty,
+              unit_price: supPrice,
+              guest_name: cv[0] || convives[0] || '',
+              menu_unit_price: supPrice,
+              is_supplement: true,
+            });
+          }
+        }
+      });
+    });
+
+    if (orderLines.length === 0) {
+      alert('Veuillez sélectionner au moins un créneau et un menu.');
+      return;
+    }
+
+    if (totalAmount <= 0) {
+      alert('Le montant total est à 0 € — vérifiez vos sélections.');
+      return;
+    }
+
+    try {
+      const result = await createOrder.mutateAsync({
+        orderData: {
+          event_id: ev.id,
+          customer_first_name: convives[0] || '',
+          customer_last_name: formData.last_name,
+          customer_email: formData.email,
+          customer_phone: formData.phone,
+          stand: formData.stand,
+          total_amount: totalAmount,
+          payment_status: 'pending',
+          delivery_method: 'livraison',
+          company_name: formData.company_name || null,
+          billing_address: formData.billing_address,
+          billing_postal_code: formData.billing_postal_code,
+          billing_city: formData.billing_city,
+        },
+        orderLines,
+      });
+
+      try {
+        const { data: stripeData, error: stripeError } = await supabase.functions.invoke(
+          'create-checkout-session',
+          { body: { orderId: result.order.id } }
+        );
+        if (stripeError) throw stripeError;
+        if (stripeData?.url) { window.location.href = stripeData.url; return; }
+      } catch (stripeErr) {
+        console.warn('Stripe checkout unavailable:', stripeErr);
+      }
+      // Fallback: go to success page only if Stripe redirect didn't happen
+      navigate(`/order/success/${result.order.id}`, { replace: true });
+    } catch (error) {
+      console.error('Erreur:', error);
+      alert('Erreur lors de la commande. Veuillez réessayer.');
+    }
+  };
+
+
+  /* ─── Loading ─── */
+  if (eventsLoading) {
+    return (
+      <div className="min-h-screen bg-mf-blanc-casse flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-mf-rose" />
+      </div>
+    );
+  }
+
+  const eventDates = ev ? `${format(new Date(ev.start_date + 'T00:00:00'), 'd', { locale: fr })} – ${format(new Date(ev.end_date + 'T00:00:00'), 'd MMM yyyy', { locale: fr })}` : '';
+
+  return (
+    <div className={`min-h-screen bg-mf-blanc-casse ${step === 3 ? 'pb-[120px]' : 'pb-10'}`}>
+
+      <ClientHeader />
+
+      {/* ─── Event banner (hidden on step 0) ─── */}
+      {ev && step > 0 && (
+        <div className="text-center py-3.5 px-6" style={{ background: '#1a1416', borderBottom: '1px solid rgba(240,240,230,0.06)' }}>
+          <p className="font-body text-[11px] tracking-[0.12em] uppercase" style={{ color: 'rgba(240,240,230,0.5)' }}>{ev.name} · {eventDates}</p>
+        </div>
+      )}
+
+      {/* ─── STEP INDICATOR ─── */}
+      <div className="max-w-[560px] mx-auto px-5 pt-6 pb-4">
+        <MfStepIndicator steps={['Événement', 'Infos', 'Créneaux', 'Menus', 'Récap']} current={step} />
+      </div>
+
+      <div className="max-w-[560px] mx-auto px-5">
+
+        {/* ═══ STEP 0: EVENT SELECTION — mf-pro style ═══ */}
+        {step === 0 && (
+          <div>
+            <div className="text-center mb-8">
+              <span className="font-body text-[9.5px] tracking-[0.36em] uppercase block mb-3" style={{ color: '#968A42' }}>
+                Votre événement
+              </span>
+              <h2 className="font-display font-light text-[28px] text-mf-rose">
+                Choisissez votre événement
+              </h2>
+              <p className="font-body text-[13px] text-mf-muted mt-2 max-w-[380px] mx-auto leading-relaxed">
+                Sélectionnez l'événement pour lequel vous souhaitez commander vos repas.
+              </p>
+            </div>
+
+            {activeEvents.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="font-display text-[20px] text-mf-rose mb-3">Aucun événement en cours.</p>
+                <p className="font-body text-[13px] text-mf-muted mb-6">Revenez bientôt pour découvrir nos prochains événements.</p>
+                <Link to="/"><MfButton variant="outline" size="sm">Retour à l'accueil</MfButton></Link>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {activeEvents.map((event) => {
+                  const dates = `${format(new Date(event.start_date + 'T00:00:00'), 'd', { locale: fr })} — ${format(new Date(event.end_date + 'T00:00:00'), 'd MMM yyyy', { locale: fr })}`;
+                  return (
+                    <button
+                      key={event.id}
+                      type="button"
+                      onClick={() => { setSelectedEventId(event.id); goToStep(1); }}
+                      className="w-full text-left cursor-pointer bg-transparent border-none p-0 group"
+                    >
+                      <div
+                        className="relative overflow-hidden"
+                        style={{
+                          borderRadius: 14,
+                          minHeight: 160,
+                          background: '#1a1416',
+                          border: '1px solid rgba(240,240,230,0.06)',
+                          transition: 'border-color 0.4s cubic-bezier(0.22, 1, 0.36, 1)',
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(139,58,67,0.4)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(240,240,230,0.06)'; }}
+                      >
+                        {/* Background image or gradient */}
+                        <div className="absolute inset-[-6%]" style={{ transition: 'transform 0.9s cubic-bezier(0.22, 1, 0.36, 1)' }}
+                          ref={(el) => {
+                            if (!el) return;
+                            const parent = el.parentElement;
+                            parent.addEventListener('mouseenter', () => { el.style.transform = 'scale(1.05)'; });
+                            parent.addEventListener('mouseleave', () => { el.style.transform = 'scale(1)'; });
+                          }}
+                        >
+                          {event.image_url ? (
+                            <img src={event.image_url} alt="" className="w-full h-full object-cover" style={{ filter: 'saturate(0.7)', transition: 'filter 0.9s' }} />
+                          ) : (
+                            <div className="w-full h-full" style={{ background: 'linear-gradient(135deg, #392D31 0%, #1a1416 50%, #0e0b0c 100%)' }} />
+                          )}
+                        </div>
+                        {/* Overlay */}
+                        <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, rgba(14,11,12,0.85) 0%, rgba(14,11,12,0.5) 100%)' }} />
+                        {/* Content */}
+                        <div className="relative z-[1] p-6 md:p-8 flex items-center justify-between gap-4" style={{ minHeight: 160 }}>
+                          <div>
+                            {event.is_active && (
+                              <div className="flex items-center gap-1.5 mb-2">
+                                <div className="w-1.5 h-1.5 rounded-full" style={{ background: '#968A42' }} />
+                                <span className="font-body text-[8.5px] tracking-[0.24em] uppercase" style={{ color: '#968A42' }}>Commandes ouvertes</span>
+                              </div>
+                            )}
+                            <h3 className="font-display text-[22px] leading-[1.2] mb-1" style={{ color: '#F0F0E6' }}>{event.name}</h3>
+                            <p className="font-body text-[11px]" style={{ color: 'rgba(240,240,230,0.45)' }}>{dates}</p>
+                          </div>
+                          <div className="shrink-0 w-10 h-10 rounded-full flex items-center justify-center" style={{ border: '1px solid rgba(240,240,230,0.15)', transition: 'all 0.3s cubic-bezier(0.22, 1, 0.36, 1)' }}
+                            ref={(el) => {
+                              if (!el) return;
+                              const card = el.closest('[style]');
+                              if (!card) return;
+                              card.addEventListener('mouseenter', () => { el.style.background = '#8B3A43'; el.style.borderColor = '#8B3A43'; });
+                              card.addEventListener('mouseleave', () => { el.style.background = 'transparent'; el.style.borderColor = 'rgba(240,240,230,0.15)'; });
+                            }}
+                          >
+                            <span className="font-body text-[14px]" style={{ color: '#F0F0E6' }}>→</span>
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ═══ STEP 1: CLIENT INFO ═══ */}
+        {step === 1 && (
+          <MfCard>
+            <span className="font-body text-[9.5px] tracking-[0.36em] uppercase block mb-3" style={{ color: '#968A42' }}>Informations</span>
+            <h2 className="font-display font-light text-mf-rose mb-2" style={{ fontSize: 'clamp(24px, 3vw, 32px)' }}>
+              Vos coordonnées
+            </h2>
+            <p className="font-body text-[13px] mb-8" style={{ color: 'rgba(57,45,49,0.45)' }}>
+              Ces informations nous permettent de traiter et livrer votre commande.
+            </p>
+
+            {/* 2-col grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+              <MfInput label="Nom" value={formData.last_name} onChange={(e) => setFormData({ ...formData, last_name: e.target.value })} placeholder="Dupont" />
+              <MfInput label="Stand" value={formData.stand} onChange={(e) => setFormData({ ...formData, stand: e.target.value })} placeholder="A-42" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <MfInput label="Téléphone" type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="06 12 34 56 78" />
+              <MfInput label="Email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} onBlur={() => setEmailTouched(true)} placeholder="contact@entreprise.com" error={emailTouched && formData.email && !isValidEmail(formData.email) ? 'Adresse email invalide' : undefined} />
+            </div>
+
+            {/* Separator */}
+            <div className="my-8" style={{ height: 1, background: 'rgba(57,45,49,0.08)' }} />
+
+            <MfButton fullWidth disabled={!isStep1Valid} onClick={() => goToStep(2)}>
+              Continuer →
+            </MfButton>
+          </MfCard>
+        )}
+
+        {/* ═══ STEP 2: CONVIVES + MATRIX ═══ */}
+        {step === 2 && (
+          <div className="space-y-4">
+
+            {/* ─── Section A: Votre équipe ─── */}
+            <MfCard>
+              <span className="font-body text-[9.5px] tracking-[0.36em] uppercase block mb-3" style={{ color: '#968A42' }}>Votre équipe</span>
+              <h2 className="font-display font-light text-mf-rose mb-1" style={{ fontSize: 'clamp(22px, 3vw, 28px)' }}>
+                Qui participe ?
+              </h2>
+              <p className="font-body text-[12px] text-mf-muted leading-normal mb-4">
+                Ajoutez les prénoms de chaque personne, une seule fois.
+              </p>
+
+              {/* Convive chips */}
+              {convives.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {convives.map((name) => (
+                    <div key={name} className="flex items-center gap-1.5 py-1.5 pl-2.5 pr-2 rounded-pill bg-mf-poudre/15 border border-mf-poudre"
+                      style={{ transition: 'all 0.3s cubic-bezier(0.22, 1, 0.36, 1)' }}
+                      onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.03)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+                    >
+                      <div className="w-[26px] h-[26px] rounded-full bg-mf-rose flex items-center justify-center font-body text-[12px] font-medium text-mf-blanc-casse">
+                        {name[0].toUpperCase()}
+                      </div>
+                      <span className="font-body text-[14px] text-mf-marron-glace">{name}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeConvive(name)}
+                        className="w-[22px] h-[22px] rounded-full bg-mf-rose/8 flex items-center justify-center cursor-pointer border-none transition-colors hover:bg-mf-rose/20"
+                      >
+                        <X className="w-3 h-3 text-mf-rose" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add convive input */}
+              {convives.length < 6 ? (
+                <div className="flex gap-1.5">
+                  <input
+                    type="text"
+                    value={newConviveName}
+                    onChange={(e) => setNewConviveName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addConvive(newConviveName)}
+                    placeholder="Prénom du convive"
+                    className="flex-1 px-4 py-2.5 border-[1.5px] border-mf-border rounded-pill text-[14px] font-body bg-white text-mf-marron-glace outline-none focus:border-mf-rose transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => addConvive(newConviveName)}
+                    disabled={!newConviveName.trim()}
+                    className={`w-[44px] h-[44px] rounded-full border-none flex items-center justify-center text-[20px] cursor-pointer hover:scale-[1.1] active:scale-[0.9] ${
+                      newConviveName.trim()
+                        ? 'bg-mf-rose text-mf-blanc-casse'
+                        : 'bg-mf-border text-mf-muted cursor-default'
+                    }`}
+                  >
+                    +
+                  </button>
+                </div>
+              ) : (
+                <p className="font-body text-[11px] text-mf-muted">Maximum 6 convives atteint</p>
+              )}
+            </MfCard>
+
+            {/* ─── Section B: Qui mange quand ? (Matrix) ─── */}
+            {convives.length > 0 && (
+              <MfCard>
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <span className="font-body text-[9.5px] tracking-[0.36em] uppercase block mb-3" style={{ color: '#968A42' }}>Planning</span>
+                    <h2 className="font-display font-light text-mf-rose mb-0.5" style={{ fontSize: 'clamp(22px, 3vw, 28px)' }}>
+                      Qui mange quand ?
+                    </h2>
+                    <p className="font-body text-[12px] text-mf-muted">
+                      Cochez les créneaux pour chaque convive.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={isAllMatrixSelected ? clearAllMatrix : selectAllMatrix}
+                    className={`shrink-0 font-body text-[10px] uppercase tracking-[0.06em] font-medium px-3.5 py-1.5 rounded-[6px] border-none cursor-pointer transition-colors ${
+                      isAllMatrixSelected
+                        ? 'bg-mf-vieux-rose/10 text-mf-vieux-rose'
+                        : 'bg-mf-vert-olive/10 text-mf-vert-olive'
+                    }`}
+                  >
+                    {isAllMatrixSelected ? '✕ Tout décocher' : 'Tout cocher'}
+                  </button>
+                </div>
+
+                {/* One card per convive */}
+                <div className="space-y-2">
+                  {convives.map((name) => {
+                    const rowAll = isRowAll(name);
+                    const convSlotCount = mealSlots.filter((s) => matrix[name]?.[s.id]).length;
+                    const convPrice = mealSlots
+                      .filter((s) => matrix[name]?.[s.id])
+                      .reduce((sum, s) => sum + (Number(s.slot_type === 'soir' ? ev.menu_price_soir : ev.menu_price_midi) || 0), 0);
+
+                    return (
+                      <div
+                        key={name}
+                        className={`p-3 rounded-card border transition-colors ${
+                          rowAll
+                            ? 'border-status-green/25 bg-status-green/[0.03]'
+                            : 'border-mf-border bg-white'
+                        }`}
+                      >
+                        {/* Convive header */}
+                        <div className="flex justify-between items-center mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-[32px] h-[32px] rounded-full flex items-center justify-center font-body text-[13px] font-medium transition-all ${
+                              rowAll
+                                ? 'bg-mf-rose text-mf-blanc-casse'
+                                : 'bg-mf-poudre/40 text-mf-marron-glace'
+                            }`}>
+                              {name[0].toUpperCase()}
+                            </div>
+                            <span className="font-body text-[15px] font-medium text-mf-marron-glace">{name}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => toggleRowAll(name)}
+                            className={`font-body text-[10px] uppercase tracking-[0.06em] px-2.5 py-1 rounded-[6px] border-none cursor-pointer transition-colors ${
+                              rowAll
+                                ? 'bg-mf-vieux-rose/10 text-mf-vieux-rose'
+                                : 'bg-mf-vert-olive/10 text-mf-vert-olive'
+                            }`}
+                          >
+                            {rowAll ? 'Décocher tout' : 'Tous les créneaux'}
+                          </button>
+                        </div>
+
+                        {/* Slot pills */}
+                        <div className="flex flex-wrap gap-1.5">
+                          {mealSlots.map((slot) => {
+                            const checked = !!matrix[name]?.[slot.id];
+                            return (
+                              <button
+                                key={slot.id}
+                                type="button"
+                                onClick={() => toggleMatrix(name, slot.id)}
+                                className={`py-1.5 px-3 rounded-pill border-[1.5px] cursor-pointer font-body text-[11px] flex items-center gap-1.5 ${
+                                  checked
+                                    ? 'border-mf-rose bg-mf-poudre/15 text-mf-rose'
+                                    : 'border-mf-border bg-white text-mf-muted'
+                                }`}
+                                style={{ transition: 'all 0.3s cubic-bezier(0.22, 1, 0.36, 1)' }}
+                                onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.04)'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+                                onMouseDown={(e) => { e.currentTarget.style.transform = 'scale(0.96)'; }}
+                                onMouseUp={(e) => { e.currentTarget.style.transform = 'scale(1.04)'; }}
+                              >
+                                {checked && <span className="text-[10px]">✓</span>}
+                                {formatSlotPill(slot)}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Convive stats */}
+                        {convSlotCount > 0 && (
+                          <p className="font-body text-[11px] text-mf-muted mt-1.5">
+                            {convSlotCount} créneau{convSlotCount > 1 ? 'x' : ''}
+                            <span className="text-mf-vert-olive"> · {convPrice}€</span>
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* ─── Sub-total ─── */}
+                {v4TotalMeals > 0 && (
+                  <div className="mt-5 p-5 bg-mf-blanc-casse border border-mf-border">
+                    <div className="flex justify-between mb-1.5">
+                      <span className="font-body text-[12px] text-mf-muted">Total repas</span>
+                      <span className="font-body text-[12px] font-medium text-mf-marron-glace">{v4TotalMeals}</span>
+                    </div>
+
+                    {/* Per-slot breakdown */}
+                    <div className="pt-2 mt-1.5 space-y-0.5 border-t border-mf-border">
+                      {mealSlots.filter((s) => convives.some((c) => matrix[c]?.[s.id])).map((slot) => {
+                        const count = convives.filter((c) => matrix[c]?.[slot.id]).length;
+                        const price = Number(slot.slot_type === 'soir' ? ev.menu_price_soir : ev.menu_price_midi) || 0;
+                        return (
+                          <div key={slot.id} className="flex justify-between">
+                            <span className="font-body text-[11px] text-mf-muted">
+                              {formatSlotPill(slot)} · {count} conv.
+                            </span>
+                            <span className="font-body text-[11px] text-mf-marron-glace">{count * price}€</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="pt-3 mt-3 flex justify-between items-center border-t-2 border-mf-rose">
+                      <span className="font-body text-[13px] font-medium text-mf-rose">Estimation</span>
+                      <span className="font-display text-[22px] text-mf-rose">{v4TotalPrice} €</span>
+                    </div>
+                  </div>
+                )}
+              </MfCard>
+            )}
+
+            {/* ─── Navigation ─── */}
+            <div className="flex gap-3 mb-10">
+              <MfButton variant="outline" onClick={() => goToStep(1)} className="flex-1">
+                ← Infos
+              </MfButton>
+              <MfButton
+                disabled={v4TotalMeals === 0}
+                onClick={() => { goToStep(3); setMenuSlotIdx(0); }}
+                className="flex-[2]"
+              >
+                {v4TotalMeals > 0
+                  ? `Choisir les menus (${v4TotalMeals} repas) →`
+                  : 'Sélectionnez au moins 1 créneau'}
+              </MfButton>
+            </div>
+          </div>
+        )}
+
+        {/* ═══ STEP 3: MENU SELECTION (V4 funnel) ═══ */}
+        {step === 3 && currentSlot && (
+          <div>
+            {/* ─── A) Slot tabs ─── */}
+            <div className="flex gap-1.5 overflow-x-auto pb-1.5 mb-2.5">
+              {activeSlots.map((s, i) => {
+                const isActive = i === menuSlotIdx;
+                const done = isSlotDone(s.id);
+                const cv = slotConvives[s.id] || [];
+                const isPf = done && getSel(s.id, '__all__')._pf;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => { setMenuSlotIdx(i); setSameForAll(true); setActiveConvive(0); setMenuSection('formule'); }}
+                    className={`whitespace-nowrap font-body text-[11px] px-3 py-1.5 rounded-pill flex items-center gap-1 border-[1.5px] cursor-pointer transition-all ${
+                      isActive
+                        ? 'bg-mf-rose border-mf-rose text-mf-blanc-casse'
+                        : done
+                          ? 'bg-mf-poudre/40 border-mf-poudre text-mf-marron-glace'
+                          : 'bg-white border-mf-border text-mf-marron-glace'
+                    }`}
+                  >
+                    {done && !isActive && (
+                      <span className={`text-[9px] ${isPf ? 'text-mf-vert-olive' : 'text-status-green'}`}>
+                        {isPf ? 'A' : '✓'}
+                      </span>
+                    )}
+                    {formatSlotPill(s)}
+                    <span className={`text-[9px] ${isActive ? 'text-mf-poudre' : 'text-mf-muted'}`}>{cv.length}p</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* ─── B) Progress bar ─── */}
+            <div className="p-2.5 px-3.5 rounded-[10px] bg-white border border-mf-border mb-2.5">
+              <div className="flex justify-between mb-1">
+                <span className="font-body text-[11px] text-mf-marron-glace">
+                  Créneau <strong>{menuSlotIdx + 1}</strong>/{activeSlots.length}
+                </span>
+                <span className={`font-body text-[11px] font-medium ${allSlotsDone ? 'text-status-green' : 'text-mf-rose'}`}>
+                  {doneSlots}/{activeSlots.length}
+                </span>
+              </div>
+              <div className="h-1 rounded-sm bg-mf-blanc-casse">
+                <div
+                  className={`h-full rounded-sm transition-all duration-400 ${allSlotsDone ? 'bg-status-green' : 'bg-mf-rose'}`}
+                  style={{ width: `${(doneSlots / activeSlots.length) * 100}%` }}
+                />
+              </div>
+            </div>
+
+            {/* ─── C) Slot card ─── */}
+            <MfCard>
+              <span className="font-body text-[9.5px] tracking-[0.3em] uppercase text-mf-vert-olive block mb-2">Menu du créneau</span>
+              {/* C1. Header */}
+              <div className="flex justify-between items-center mb-1">
+                <h2 className="font-display font-light text-[18px] text-mf-rose">
+                  {format(new Date(currentSlot.slot_date + 'T00:00:00'), 'EEEE d MMMM', { locale: fr })} — {currentSlot.slot_type === 'midi' ? 'Midi' : 'Soir'}
+                </h2>
+                <span className="font-body text-[11px] font-medium text-mf-vert-olive px-2.5 py-0.5 rounded-pill bg-mf-vert-olive/10">
+                  {(Number(currentSlot.slot_type === 'soir' ? ev.menu_price_soir : ev.menu_price_midi) || 0) * currentConv.length}€
+                </span>
+              </div>
+
+              {/* C2. Convive avatars */}
+              <div className="flex gap-1.5 my-2 pb-2 border-b border-mf-blanc-casse">
+                {currentConv.map((n, i) => {
+                  const done = sameForAll ? isMenuComplete : isConvDone(currentSlot.id, n);
+                  const ac = !sameForAll && i === activeConvive;
+                  return (
+                    <div
+                      key={n}
+                      onClick={() => !sameForAll && setActiveConvive(i)}
+                      className={`flex flex-col items-center gap-0.5 transition-opacity ${
+                        sameForAll ? 'opacity-45' : 'cursor-pointer opacity-100'
+                      }`}
+                    >
+                      <div className={`w-[34px] h-[34px] rounded-full flex items-center justify-center font-body text-[13px] font-medium border-2 transition-all ${
+                        ac
+                          ? 'bg-mf-rose border-mf-rose text-mf-blanc-casse'
+                          : done
+                            ? 'bg-status-green/15 border-status-green/35 text-status-green'
+                            : 'bg-mf-poudre/30 border-transparent text-mf-marron-glace'
+                      }`}>
+                        {done && !ac ? <span className="text-[12px]">✓</span> : n[0].toUpperCase()}
+                      </div>
+                      <span className={`font-body text-[8px] ${ac ? 'text-mf-rose' : 'text-mf-muted'}`}>{n}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* C3. Same-for-all toggle */}
+              {currentConv.length > 1 && (
+                <label
+                  className={`w-full flex items-center gap-2.5 p-2.5 px-3 rounded-[14px] border-[1.5px] cursor-pointer text-left mb-2.5 transition-colors select-none ${
+                    sameForAll
+                      ? 'bg-mf-vert-olive/8 border-mf-vert-olive'
+                      : 'bg-white border-mf-border'
+                  }`}
+                  style={{ WebkitTapHighlightColor: 'transparent' }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={sameForAll}
+                    onChange={(e) => handleMenuToggle(e.target.checked)}
+                    className="sr-only"
+                  />
+                  {/* Toggle switch */}
+                  <div className={`w-[38px] h-5 rounded-[10px] p-0.5 shrink-0 flex items-center transition-colors ${
+                    sameForAll ? 'bg-mf-vert-olive' : 'bg-mf-border'
+                  }`}>
+                    <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${
+                      sameForAll ? 'translate-x-[18px]' : 'translate-x-0'
+                    }`} />
+                  </div>
+                  <div>
+                    <div className="font-body text-[12px] font-medium text-mf-marron-glace">Même menu pour tous</div>
+                    {sameForAll && (
+                      <div className="font-body text-[10px] text-mf-vert-olive">
+                        Un choix pour {currentConv.join(' & ')}
+                      </div>
+                    )}
+                  </div>
+                </label>
+              )}
+
+              {/* C4. Convive tabs (when sameForAll=false) */}
+              {!sameForAll && (
+                <div className="flex gap-1 mb-2 overflow-x-auto">
+                  {currentConv.map((n, i) => {
+                    const done = isConvDone(currentSlot.id, n);
+                    const ac = i === activeConvive;
+                    return (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setActiveConvive(i)}
+                        className={`whitespace-nowrap font-body text-[11px] py-1.5 px-3 rounded-pill border-[1.5px] cursor-pointer flex items-center gap-1 transition-all ${
+                          ac
+                            ? 'bg-mf-rose border-mf-rose text-mf-blanc-casse'
+                            : done
+                              ? 'bg-status-green/10 border-status-green/30 text-mf-marron-glace'
+                              : 'bg-white border-mf-border text-mf-marron-glace'
+                        }`}
+                      >
+                        {done && !ac && <span className="text-[9px] text-status-green">✓</span>}
+                        {n}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* C5. Pre-filled banner */}
+              {curSel._pf && menuSection === 'formule' && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-[10px] mb-2 bg-mf-vert-olive/8 border border-mf-vert-olive/18 font-body text-[11px] text-mf-vert-olive">
+                  Pré-rempli automatiquement. Modifiez si besoin.
+                </div>
+              )}
+
+              {/* C5b. Section toggle: Formule / Suppléments */}
+              {supplementItems.length > 0 && (
+                <div className="flex gap-2 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => setMenuSection('formule')}
+                    className={`flex-1 py-2 px-3 rounded-[6px] font-body text-[12px] font-medium border-[1.5px] transition-all ${
+                      menuSection === 'formule'
+                        ? 'bg-mf-rose border-mf-rose text-white'
+                        : 'bg-white border-mf-border text-mf-muted hover:border-mf-rose/30'
+                    }`}
+                  >
+                    Formule {(Number(currentSlot.slot_type === 'soir' ? ev.menu_price_soir : ev.menu_price_midi) || 0)}€
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMenuSection('supplements')}
+                    className={`flex-1 py-2 px-3 rounded-[6px] font-body text-[12px] font-medium border-[1.5px] transition-all ${
+                      menuSection === 'supplements'
+                        ? 'bg-mf-vert-olive border-mf-vert-olive text-white'
+                        : 'bg-white border-mf-border text-mf-muted hover:border-mf-vert-olive/30'
+                    }`}
+                  >
+                    ＋ Suppléments
+                    {(() => {
+                      const slotSupTotal = Object.entries(supplementQty[currentSlot.id] || {})
+                        .reduce((s, [iid, q]) => {
+                          const it = supplementItems.find((i) => i.id === iid);
+                          return s + (it ? q * Number(it.unit_price ?? it.price) : 0);
+                        }, 0);
+                      return slotSupTotal > 0 ? ` (${slotSupTotal.toFixed(2)}€)` : '';
+                    })()}
+                  </button>
+                </div>
+              )}
+
+              {/* C6. Formule: Collapsible categories (per-slot items) */}
+              {menuSection === 'formule' && (
+                <>
+                  <SlotFormuleContent
+                    slotId={currentSlot.id}
+                    fallbackItems={menuItems}
+                    categories={categories}
+                    curSel={curSel}
+                    onSelect={(catKey, id) => setMenuChoice(catKey, id)}
+                    slotKey={sameForAll ? '__all__' : currentConv[activeConvive]}
+                  />
+
+                  {/* Formule complete — suggest supplements */}
+                  {isMenuComplete && supplementItems.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setMenuSection('supplements')}
+                      className="w-full mt-2 py-2.5 px-4 rounded-full border-[1.5px] border-mf-vert-olive/40 bg-mf-vert-olive/5 font-body text-[12px] font-medium text-mf-vert-olive hover:bg-mf-vert-olive/10 transition-colors text-center"
+                    >
+                      ＋ Ajouter des suppléments
+                      <span className="block font-normal text-[10px] text-mf-muted mt-0.5">Optionnel — passez directement au créneau suivant</span>
+                    </button>
+                  )}
+                </>
+              )}
+
+              {/* C6b. Supplements: quantity picker */}
+              {menuSection === 'supplements' && (
+                <SupplementPicker
+                  items={supplementItems}
+                  slotId={currentSlot.id}
+                  getQty={getSupQty}
+                  setQty={setSupQty}
+                />
+              )}
+
+              {/* C7. Validate CTA */}
+              {isLastSlot ? (
+                <MfButton
+                  fullWidth
+                  variant={allSlotsDone ? 'green' : 'primary'}
+                  disabled={!allConvThisSlot}
+                  onClick={() => allSlotsDone && goToStep(4)}
+                  className="mt-1.5"
+                >
+                  {allSlotsDone
+                    ? 'Voir le récapitulatif →'
+                    : allConvThisSlot
+                      ? `${doneSlots}/${activeSlots.length} créneaux`
+                      : 'Complétez les menus'}
+                </MfButton>
+              ) : (
+                <MfButton
+                  fullWidth
+                  disabled={!allConvThisSlot}
+                  onClick={handleValidateSlot}
+                  className="mt-1.5"
+                >
+                  {allConvThisSlot ? 'Valider ma sélection →' : 'Complétez les menus'}
+                </MfButton>
+              )}
+            </MfCard>
+
+            {/* ─── E) Back navigation ─── */}
+            <MfButton
+              variant="outline"
+              fullWidth
+              onClick={() => menuSlotIdx > 0 ? setMenuSlotIdx((i) => i - 1) : goToStep(2)}
+              className="mt-2.5 mb-10"
+            >
+              {menuSlotIdx > 0 ? '← Créneau précédent' : '‹ Créneaux & convives'}
+            </MfButton>
+          </div>
+        )}
+
+        {/* ─── Auto-fill modal ─── */}
+        <MfBlurModal open={showAutoFill} onClose={() => { setAutoFillDone(true); setShowAutoFill(false); setMenuSlotIdx(1); }}>
+          <div className="w-[50px] h-[50px] rounded-full mx-auto mb-3 flex items-center justify-center font-body text-[14px] uppercase tracking-[0.1em] text-mf-vert-olive"
+            style={{ background: 'linear-gradient(135deg, rgba(150,138,66,0.12), rgba(229,183,179,0.25))' }}>
+            Auto
+          </div>
+          <h3 className="font-display font-light text-[22px] text-mf-rose mb-2">Même menu partout ?</h3>
+          <p className="font-body text-[13px] text-mf-muted leading-relaxed mb-1.5">Votre sélection du</p>
+          {activeSlots[0] && (
+            <div className="inline-block px-3.5 py-2 rounded-[12px] bg-mf-blanc-casse font-body text-[14px] font-medium text-mf-marron-glace mb-2">
+              {formatSlotPill(activeSlots[0])}
+            </div>
+          )}
+          <p className="font-body text-[13px] text-mf-muted mb-5">
+            sera appliquée aux <strong className="text-mf-marron-glace">{activeSlots.length - 1} autres créneaux</strong>.
+          </p>
+          <div className="flex flex-col gap-2">
+            <MfButton fullWidth onClick={handleAutoFill}>Appliquer à tous →</MfButton>
+            <MfButton variant="outline" fullWidth onClick={() => { setAutoFillDone(true); setShowAutoFill(false); setMenuSlotIdx(1); }}>
+              Non, je choisis pour chaque
+            </MfButton>
+          </div>
+        </MfBlurModal>
+
+        {/* ─── Sticky footer (step 3) ─── */}
+        {step === 3 && (
+          <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-between items-center px-5 py-3"
+            style={{ background: 'rgba(14,11,12,0.92)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderTop: '1px solid rgba(240,240,230,0.06)' }}
+          >
+            <div>
+              <div className="font-body text-[10px] uppercase tracking-[0.1em]" style={{ color: 'rgba(240,240,230,0.45)' }}>
+                {doneSlots}/{activeSlots.length} créneaux
+                {supplementTotal > 0 && <span style={{ color: '#968A42' }}> + suppl.</span>}
+              </div>
+              <div className="font-display text-[20px]" style={{ color: '#F0F0E6' }}>
+                {menuTotal.toFixed(2)} €
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <MfButton
+                variant="outline"
+                size="sm"
+                onClick={() => menuSlotIdx > 0 ? setMenuSlotIdx((i) => i - 1) : goToStep(2)}
+              >
+                ←
+              </MfButton>
+              {allSlotsDone && (
+                <MfButton onClick={() => goToStep(4)}>
+                  Récapitulatif →
+                </MfButton>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ═══ STEP 4: RECAP + BILLING ═══ */}
+        {step === 4 && (
+          <div className="space-y-4">
+
+            {/* 1. Récap */}
+            <MfCard>
+              <span className="font-body text-[9.5px] tracking-[0.36em] uppercase block mb-3" style={{ color: '#968A42' }}>Votre commande</span>
+              <h2 className="font-display font-light text-mf-rose mb-4" style={{ fontSize: 'clamp(24px, 3vw, 32px)' }}>
+                Récapitulatif
+              </h2>
+
+              {/* 2. Client block */}
+              <div className="p-4 mb-4 bg-mf-blanc-casse border border-mf-border">
+                <div className="font-body text-[9.5px] uppercase tracking-[0.2em] text-mf-vieux-rose mb-1">Client</div>
+                <div className="font-body text-[14px] font-medium text-mf-marron-glace">
+                  Famille {formData.last_name}
+                </div>
+                <div className="font-body text-[12px] text-mf-muted">
+                  Stand {formData.stand} · {formData.email} · {formData.phone}
+                </div>
+              </div>
+
+              {/* 3. Slots recap */}
+              <div className="space-y-3">
+                {activeSlots.map((slot) => {
+                  const cv = slotConvives[slot.id] || [];
+                  const price = Number(slot.slot_type === 'soir' ? ev.menu_price_soir : ev.menu_price_midi) || 0;
+                  const allItems = [...entrees, ...plats, ...desserts, ...boissons];
+
+                  return (
+                    <div key={slot.id}>
+                      {/* Slot header */}
+                      <div className="flex justify-between items-center mb-1.5">
+                        <span className="font-body text-[11px] uppercase tracking-[0.08em] font-medium text-mf-rose">
+                          {formatSlotPill(slot)}
+                        </span>
+                        <span className="font-body text-[12px] font-medium text-mf-vert-olive">
+                          {cv.length * price}€
+                        </span>
+                      </div>
+
+                      {/* Convive rows */}
+                      {cv.map((name) => {
+                        const sel = getSel(slot.id, name);
+                        const allSel = getSel(slot.id, '__all__');
+                        const finalSel = catConfig.some((c) => sel[c.key]) ? sel : allSel;
+
+                        return (
+                          <div key={name} className="p-2 px-2.5 rounded-[10px] bg-mf-blanc-casse/80 mb-1">
+                            <div className="font-body text-[12px] font-medium text-mf-marron-glace mb-1">
+                              {name}
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {catConfig.map((cat) => {
+                                const item = allItems.find((i) => i.id === finalSel[cat.key]);
+                                return item ? (
+                                  <span key={cat.key} className="font-body text-[10px] px-2 py-0.5 rounded-pill bg-white border border-mf-border text-mf-marron-glace">
+                                    {cat.emoji} {item.name}
+                                  </span>
+                                ) : null;
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                      {/* Slot supplements */}
+                      {(() => {
+                        const slotSups = supplementQty[slot.id] || {};
+                        const supEntries = Object.entries(slotSups).filter(([, q]) => q > 0);
+                        if (supEntries.length === 0) return null;
+                        return (
+                          <div className="p-2 px-2.5 rounded-[10px] bg-mf-vert-olive/5 mb-1">
+                            <div className="font-body text-[10px] uppercase tracking-[0.08em] text-mf-vert-olive mb-1">Suppléments</div>
+                            <div className="flex flex-wrap gap-1">
+                              {supEntries.map(([itemId, qty]) => {
+                                const item = supplementItems.find((i) => i.id === itemId);
+                                if (!item) return null;
+                                const supPrice = Number(item.unit_price ?? item.price);
+                                return (
+                                  <span key={itemId} className="font-body text-[10px] px-2 py-0.5 rounded-pill bg-white border border-mf-vert-olive/20 text-mf-marron-glace">
+                                    {item.name} ×{qty} ({(qty * supPrice).toFixed(2)}€)
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Separator */}
+                      <div className="h-px bg-mf-border mt-2" />
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* 5. Total */}
+              <div className="flex items-baseline justify-between pt-4 mt-4 border-t-2 border-mf-rose">
+                <div>
+                  <span className="font-body text-[12px] uppercase tracking-[0.18em] font-medium text-mf-rose">Total</span>
+                  <div className="font-body text-[11px] text-mf-muted">
+                    {v4TotalMeals} repas
+                    {supplementTotal > 0 && <span className="text-mf-vert-olive"> + {supplementTotal.toFixed(2)}€ suppl.</span>}
+                  </div>
+                </div>
+                <span className="font-display text-[32px] text-mf-rose">
+                  {v4FinalTotal.toFixed(2)} €
+                </span>
+              </div>
+            </MfCard>
+
+            {/* 4. Billing */}
+            <MfCard>
+              <span className="font-body text-[9.5px] tracking-[0.36em] uppercase block mb-3" style={{ color: '#968A42' }}>Paiement</span>
+              <h2 className="font-display font-light text-mf-rose mb-5" style={{ fontSize: 'clamp(24px, 3vw, 32px)' }}>
+                Facturation
+              </h2>
+              <div className="flex flex-col gap-4">
+                <MfInput label="Entreprise (optionnel)" value={formData.company_name} onChange={(e) => setFormData({ ...formData, company_name: e.target.value })} placeholder="Ma Société SAS" />
+                <MfInput label="Adresse *" value={formData.billing_address} onChange={(e) => setFormData({ ...formData, billing_address: e.target.value })} placeholder="12 rue de la Paix" />
+                <div className="grid grid-cols-2 gap-3">
+                  <MfInput label="Code postal *" value={formData.billing_postal_code} onChange={(e) => setFormData({ ...formData, billing_postal_code: e.target.value })} placeholder="75001" />
+                  <MfInput label="Ville *" value={formData.billing_city} onChange={(e) => setFormData({ ...formData, billing_city: e.target.value })} placeholder="Paris" />
+                </div>
+              </div>
+            </MfCard>
+
+            {/* 6. RGPD */}
+            <MfCard className="p-6">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={rgpdConsent}
+                  onChange={(e) => setRgpdConsent(e.target.checked)}
+                  className="mt-1 w-4 h-4 accent-mf-rose shrink-0"
+                />
+                <span className="font-body text-[13px] leading-relaxed text-mf-marron-glace">
+                  J'accepte que mes données soient utilisées pour le traitement de ma commande
+                  et la communication liée à cet événement.
+                  <span className="block text-[11px] mt-1 text-mf-muted">
+                    Conformément au RGPD, vos données ne seront pas transmises à des tiers.
+                    Consultez notre{' '}
+                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className="underline text-mf-vieux-rose hover:text-mf-rose">
+                      politique de confidentialité
+                    </a>{' '}
+                    pour en savoir plus sur le traitement de vos données et exercer vos droits.
+                  </span>
+                </span>
+              </label>
+            </MfCard>
+
+            {/* 7. Action buttons */}
+            <div className="flex gap-3 mb-10">
+              <MfButton variant="outline" onClick={() => goToStep(3)} className="flex-1">
+                ← Menus
+              </MfButton>
+              <MfButton
+                variant="green"
+                disabled={!isStep4Valid || createOrder.isPending}
+                onClick={handleSubmit}
+                className={`flex-[2] ${createOrder.isPending ? 'opacity-70' : ''}`}
+              >
+                {createOrder.isPending ? (
+                  <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" /> En cours...</>
+                ) : (
+                  'Valider et payer →'
+                )}
+              </MfButton>
+            </div>
+          </div>
+        )}
+      </div>
+      <PublicFooter />
+    </div>
+  );
+}

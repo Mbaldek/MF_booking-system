@@ -11,10 +11,10 @@ import { supabaseMissing } from '@/api/supabase';
 import AdminLayout from '@/components/layout/AdminLayout';
 import StaffLayout from '@/components/layout/StaffLayout';
 
-// Critical public pages — loaded immediately
-import MainPage from '@/pages/MainPage';
-import OrderPage from '@/pages/OrderPage';
-import OrderSuccess from '@/pages/OrderSuccess';
+// Critical public pages — loaded immediately (V2 = redesigned brand)
+import MainPage from '@/pages/MainPageV2';
+import OrderPage from '@/pages/OrderPageV2';
+import OrderSuccess from '@/pages/OrderSuccessV2';
 
 // Lazy-loaded public pages
 const LoginPage = lazy(() => import('@/pages/LoginPage'));
@@ -92,7 +92,7 @@ export default function App() {
           <BrowserRouter>
             <Suspense fallback={<LazyFallback />}>
               <Routes>
-                {/* Public — critical */}
+                {/* Public — critical (V2 brand redesign) */}
                 <Route path="/" element={<MainPage />} />
                 <Route path="/order" element={<OrderPage />} />
                 <Route path="/order/success/:orderId" element={<OrderSuccess />} />
