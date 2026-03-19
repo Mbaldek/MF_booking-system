@@ -239,9 +239,7 @@ export default function MainPageV2() {
       </section>
 
       {/* ═══ SPLIT B2C / B2B — grid 2 colonnes, photos + Ken Burns ═══ */}
-      <section className="mf-reveal relative">
-        {/* Divider line */}
-        <div className="hidden md:block absolute left-1/2 top-0 bottom-0 z-10 pointer-events-none" style={{ width: 1, background: 'rgba(240,240,230,0.12)' }} />
+      <section className="mf-reveal relative" style={{ background: '#392D31' }}>
         {/* Center "ou" label */}
         <div className="hidden md:flex absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 pointer-events-none">
           <div
@@ -259,7 +257,7 @@ export default function MainPageV2() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2" style={{ minHeight: '85vh' }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-0" style={{ minHeight: '85vh' }}>
           {/* ─── Panel B2C ─── */}
           <div
             className="relative overflow-hidden cursor-pointer flex flex-col justify-end"
